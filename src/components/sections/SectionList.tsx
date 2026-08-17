@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Emblem } from "@/components/public/Emblem";
 import { SiteImage } from "@/components/public/SiteImage";
 import { Specks } from "@/components/public/Specks";
@@ -35,6 +35,11 @@ function SectionShell({
     <ScreenSection
       section={section}
       className={disabled ? "vr-section--disabled" : undefined}
+      data-vr-animation={section.style?.animation?.preset && section.style.animation.preset !== "none" ? section.style.animation.preset : undefined}
+      style={{
+        "--vr-anim-duration": `${section.style?.animation?.duration ?? 1}s`,
+        "--vr-anim-delay": `${section.style?.animation?.delay ?? 0}s`,
+      } as CSSProperties}
       data-vr-edit-id={editor && !editor.state.preview ? `section.${section.id}` : undefined}
       data-vr-editable={editor && !editor.state.preview ? "" : undefined}
       data-vr-selected={selected ? "" : undefined}

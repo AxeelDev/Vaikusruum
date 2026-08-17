@@ -49,9 +49,12 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
 
   useEffect(() => {
     canvasRef.current?.scrollTo({ top: 0 });
-    setAddOpen(false);
-    setPagesOpen(false);
-    setCtx(null);
+    const timer = window.setTimeout(() => {
+      setAddOpen(false);
+      setPagesOpen(false);
+      setCtx(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [state.pageId]);
 
   useEffect(() => {

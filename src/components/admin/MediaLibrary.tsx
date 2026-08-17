@@ -8,11 +8,16 @@ import { mediaPublicUrl } from "@/lib/utils/urls";
 import type { MediaRow } from "@/types/content";
 
 export function MediaLibrary({ items }: { items: MediaRow[] }) {
+  const [mediaItems, setMediaItems] = useState(items);
   const [message, setMessage] = useState("");
 
   async function onUpload(fileList: FileList | null) {
     const file = fileList?.[0];
     if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setMessage("Kasuta JPEG, PNG või WebP pilti.");
+      return;
+    }
     setMessage("Laen üles…");
     const blob = await compressImage(file);
     const ext = blob.type === "image/webp" ? "webp" : file.name.split(".").pop() || "jpg";
@@ -25,11 +30,16 @@ export function MediaLibrary({ items }: { items: MediaRow[] }) {
       setMessage("Üleslaadimine ebaõnnestus.");
       return;
     }
-    const { error } = await supabase.from("media").insert({
+    const { data, error } = await supabase.from("media").insert({
       storage_path: path,
       alt_text: file.name.replace(/\.[^.]+$/, ""),
-    });
-    setMessage(error ? "Salvestamine ebaõnnestus." : "Pilt on lisatud. Värskenda lehte.");
+    }).select("*").single();
+    if (error || !data) {
+      setMessage("Salvestamine ebaõnnestus.");
+      return;
+    }
+    setMediaItems((current) => [data as MediaRow, ...current]);
+    setMessage("Pilt on lisatud.");
   }
 
   return (
@@ -37,19 +47,19 @@ export function MediaLibrary({ items }: { items: MediaRow[] }) {
       <h1 className="vr-admin-title">Pildid</h1>
       <label className="vr-field">
         Vali uus pilt
-        <input type="file" accept="image/*" onChange={(e) => onUpload(e.target.files)} />
+        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => onUpload(e.target.files)} />
       </label>
       {message ? <p>{message}</p> : null}
       <div className="vr-media-grid">
-        {items.map((item) => (
-          <MediaCard key={item.id} item={item} />
+        {mediaItems.map((item) => (
+          <MediaCard key={item.id} item={item} onDeleted={() => setMediaItems((current) => current.filter((row) => row.id !== item.id))} />
         ))}
       </div>
     </div>
   );
 }
 
-function MediaCard({ item }: { item: MediaRow }) {
+function MediaCard({ item, onDeleted }: { item: MediaRow; onDeleted: () => void }) {
   const src = mediaPublicUrl(item.storage_path);
   return (
     <article className="vr-media-card">
@@ -64,7 +74,13 @@ function MediaCard({ item }: { item: MediaRow }) {
       </label>
       <p className="vr-muted">Fookus</p>
       <FocalControl item={item} src={src} />
-      <button type="button" onClick={() => deleteMediaAction(item.id, item.storage_path)}>
+      <button
+        type="button"
+        onClick={async () => {
+          await deleteMediaAction(item.id, item.storage_path);
+          onDeleted();
+        }}
+      >
         Eemalda
       </button>
     </article>

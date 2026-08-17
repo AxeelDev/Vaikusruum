@@ -68,6 +68,14 @@ export type ImageAppearance = {
   align?: "left" | "right" | "center";
 };
 
+export type AnimationAppearance = {
+  preset?: "none" | "fade-in" | "fade-up" | "fade-down" | "fade-left" | "fade-right" | "scale-in";
+  duration?: number;
+  delay?: number;
+  threshold?: number;
+  replayable?: boolean;
+};
+
 export type SectionStyle = {
   background?: "main" | "warm" | "soft";
   layout?: "image-left" | "image-right" | "text-only" | "image-only" | "centered";
@@ -85,6 +93,7 @@ export type SectionStyle = {
   columnBalance?: ColumnBalance;
   fieldStyles?: Record<string, TextAppearance>;
   image?: ImageAppearance;
+  animation?: AnimationAppearance;
 };
 
 export type OfferingRow = {

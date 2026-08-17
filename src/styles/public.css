@@ -1,5 +1,6 @@
 .vr-site {
-  min-height: 100vh;
+  --vr-site-viewport-height: 100svh;
+  min-height: var(--vr-site-viewport-height);
   background: var(--vr-bg-main);
   color: var(--vr-text);
   position: relative;
@@ -69,8 +70,39 @@
   padding-block: var(--vr-space-6);
 }
 
+.vr-section[data-vr-animation] {
+  animation-duration: var(--vr-anim-duration, 1s);
+  animation-delay: var(--vr-anim-delay, 0s);
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.vr-section[data-vr-animation="fade-in"] {
+  animation-name: vr-fade-in;
+}
+
+.vr-section[data-vr-animation="fade-up"] {
+  animation-name: vr-fade-up;
+}
+
+.vr-section[data-vr-animation="fade-down"] {
+  animation-name: vr-fade-down;
+}
+
+.vr-section[data-vr-animation="fade-left"] {
+  animation-name: vr-fade-left;
+}
+
+.vr-section[data-vr-animation="fade-right"] {
+  animation-name: vr-fade-right;
+}
+
+.vr-section[data-vr-animation="scale-in"] {
+  animation-name: vr-scale-in;
+}
+
 .vr-screen-section {
-  min-height: calc(100svh - var(--vr-header-height));
+  min-height: calc(var(--vr-site-viewport-height) - var(--vr-header-height));
 }
 
 .vr-screen-section--large {
@@ -97,7 +129,7 @@
 
 .vr-section--hero,
 .vr-section--viewport {
-  min-height: calc(100svh - var(--vr-header-height));
+  min-height: calc(var(--vr-site-viewport-height) - var(--vr-header-height));
 }
 
 .vr-section--warm,
@@ -363,6 +395,10 @@
   margin-top: var(--vr-space-4);
 }
 
+.vr-contact-email {
+  margin: var(--vr-space-3) 0 0;
+}
+
 .vr-social a {
   width: 42px;
   height: 42px;
@@ -455,6 +491,53 @@
     border: 0;
     cursor: pointer;
     letter-spacing: 0.08em;
+  }
+}
+
+@keyframes vr-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes vr-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+@keyframes vr-fade-down {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+}
+
+@keyframes vr-fade-left {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+@keyframes vr-fade-right {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+}
+
+@keyframes vr-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vr-section[data-vr-animation] {
+    animation: none;
   }
 }
 

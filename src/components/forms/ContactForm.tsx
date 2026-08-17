@@ -105,7 +105,7 @@ export function ContactForm({
         </button>
       </form>
       {email ? (
-        <p className="vr-muted" style={{ marginTop: "1.2rem" }}>
+        <p className="vr-muted vr-contact-email">
           Või kirjuta: <a href={`mailto:${email}`}>{email}</a>
         </p>
       ) : null}

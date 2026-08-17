@@ -1,18 +1,26 @@
 :root {
-  --editor-sidebar-width: 300px;
-  --editor-toolbar-height: 48px;
-  --editor-bg: #f7f4e9;
-  --editor-panel: #fbf9ef;
-  --editor-panel-hover: #f1eee3;
-  --editor-border: #d9d4c5;
-  --editor-border-strong: #c7c1b1;
-  --editor-text: #393732;
-  --editor-muted: #7a766d;
-  --editor-accent: #8fa7b0;
-  --editor-accent-strong: #738f99;
-  --editor-selection: #78a9b4;
-  --editor-danger: #a8574e;
-  --editor-track: #dadde0;
+  --editor-sidebar-width: 264px;
+  --editor-toolbar-height: 38px;
+  --editor-toolbar-safe: 58px;
+  --editor-bg: #373a44;
+  --editor-shell: #373a44;
+  --editor-panel: #3d404a;
+  --editor-panel-raised: #41444e;
+  --editor-panel-hover: #4b4e59;
+  --editor-control: #454852;
+  --editor-control-hover: #4b4e59;
+  --editor-border: #525560;
+  --editor-border-soft: #484b55;
+  --editor-border-strong: #626671;
+  --editor-text: #f2f2f0;
+  --editor-muted: #91949c;
+  --editor-text-secondary: #c6c7ca;
+  --editor-accent: #35b7b8;
+  --editor-accent-strong: #40c3c4;
+  --editor-accent-soft: rgba(53, 183, 184, 0.11);
+  --editor-selection: #35b7b8;
+  --editor-danger: #bd6467;
+  --editor-track: #5a5d67;
   --z-site: 1;
   --z-selection: 20;
   --z-editor-toolbar: 50;
@@ -29,17 +37,18 @@ html.vr-editor-lock body {
 .vr-editor-app {
   height: 100svh;
   overflow: hidden;
-  background: var(--editor-bg);
+  background: var(--editor-shell);
   color: var(--editor-text);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 .vr-editor-root {
-  --editor-sidebar-width: 300px;
+  --editor-sidebar-width: 264px;
   width: 100%;
   height: 100svh;
   display: grid;
   grid-template-columns: var(--editor-sidebar-width) minmax(0, 1fr);
-  background: var(--editor-bg);
+  background: var(--editor-shell);
   color: var(--editor-text);
 }
 
@@ -60,14 +69,11 @@ html.vr-editor-lock body {
 .vr-inspector {
   min-width: 0;
   width: 100%;
-  max-width: 340px;
   height: 100svh;
-  position: sticky;
-  top: 0;
   z-index: var(--z-inspector);
   background: var(--editor-panel);
-  border-right: 1px solid var(--editor-border);
-  overflow-y: auto;
+  border-right: 1px solid var(--editor-border-soft);
+  overflow: hidden;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
@@ -80,58 +86,69 @@ html.vr-editor-lock body {
 }
 
 .vr-inspector-top {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-start;
   min-height: 52px;
-  padding: 8px 12px;
-  background: var(--editor-panel);
-  border-bottom: 1px solid var(--editor-border);
+  background: var(--editor-shell);
+  border-bottom: 1px solid var(--editor-border-soft);
 }
 
 .vr-inspector-tabs {
-  display: flex;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  width: 100%;
 }
 
 .vr-inspector-tabs .vr-ed-iconbtn {
-  width: 36px;
-  height: 36px;
+  width: 100%;
+  height: 52px;
+  border-radius: 0;
+  color: var(--editor-text-secondary);
+}
+
+.vr-inspector-contextbar {
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  border-bottom: 1px solid var(--editor-border-soft);
+  background: var(--editor-panel);
+  color: var(--editor-muted);
+  font-size: 11px;
+}
+
+.vr-inspector-contextbar > span {
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-inspector-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .vr-inspector-body,
 .vr-inspector-empty {
-  padding: 16px 16px 28px;
+  padding: 16px 16px 22px;
   display: grid;
-  gap: 22px;
+  gap: 18px;
 }
 
-.vr-inspector-admin {
-  margin-top: auto;
-  padding: 12px 16px 18px;
-  border-top: 1px solid var(--editor-border);
-  display: flex;
-  gap: 14px;
-  font-size: 13px;
+.vr-inspector-footer {
+  flex: 0 0 78px;
+  padding: 18px 16px;
+  border-top: 1px solid var(--editor-border-soft);
+  background: var(--editor-panel);
 }
 
-.vr-inspector-admin a,
-.vr-inspector-admin button {
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  color: var(--editor-muted);
-  text-decoration: none;
-}
-
-.vr-inspector-admin a:hover,
-.vr-inspector-admin button:hover {
-  color: var(--editor-text);
+.vr-inspector-footer .vr-ed-btn {
+  width: 100%;
+  height: 42px;
 }
 
 .vr-editor-workspace {
@@ -140,21 +157,26 @@ html.vr-editor-lock body {
   display: flex;
   flex-direction: column;
   position: relative;
-  background: var(--editor-bg);
+  background: var(--editor-shell);
 }
 
 .vr-editor-toolbar {
   height: var(--editor-toolbar-height);
-  flex: 0 0 var(--editor-toolbar-height);
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: auto;
+  min-width: 0;
   z-index: var(--z-editor-toolbar);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px;
+  gap: 2px;
+  padding: 0 4px;
   background: var(--editor-panel);
-  border-bottom: 1px solid var(--editor-border);
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 3px;
   color: var(--editor-text);
+  box-shadow: none;
 }
 
 .vr-editor-tools-left,
@@ -171,8 +193,8 @@ html.vr-editor-lock body {
 }
 
 .vr-editor-tools-mid {
-  justify-self: center;
   min-width: 0;
+  order: 3;
 }
 
 .vr-editor-add {
@@ -256,7 +278,8 @@ html.vr-editor-lock body {
   position: relative;
   z-index: var(--z-site);
   width: 100%;
-  background: var(--editor-bg);
+  background: var(--editor-shell);
+  padding-top: var(--editor-toolbar-safe);
 }
 
 .vr-editor-frame {
@@ -264,6 +287,7 @@ html.vr-editor-lock body {
   min-width: 0;
   margin: 0;
   background: var(--vr-bg-main);
+  --vr-site-viewport-height: calc(100svh - var(--editor-toolbar-safe));
 }
 
 .vr-editor-canvas--tablet,
@@ -275,9 +299,9 @@ html.vr-editor-lock body {
 
 .vr-editor-canvas--tablet .vr-editor-frame,
 .vr-editor-canvas--mobile .vr-editor-frame {
-  margin: 1.25rem auto;
-  min-height: calc(100% - 2.5rem);
-  box-shadow: 0 0 0 1px var(--editor-border);
+  margin: 0 auto 1.25rem;
+  min-height: calc(100% - 1.25rem);
+  box-shadow: 0 0 0 1px var(--editor-border-soft);
 }
 
 .vr-editor-canvas--tablet .vr-nav,
@@ -345,13 +369,13 @@ html.vr-editor-lock body {
 }
 
 [data-vr-edit-mode="true"] [data-vr-editable]:hover {
-  outline: 1px solid rgba(112, 165, 177, 0.35);
-  outline-offset: 2px;
+  outline: 1px solid rgba(53, 183, 184, 0.35);
+  outline-offset: 1px;
 }
 
 [data-vr-edit-mode="true"] [data-vr-selected] {
-  outline: 1px solid rgba(112, 165, 177, 0.75);
-  outline-offset: 2px;
+  outline: 1px solid rgba(53, 183, 184, 0.9);
+  outline-offset: 1px;
   z-index: var(--z-selection);
 }
 
@@ -436,9 +460,9 @@ html.vr-editor-lock body {
   justify-content: center;
   gap: 6px;
   height: 36px;
-  padding: 0 14px;
-  border-radius: 4px;
-  font-size: 13px;
+  padding: 0 13px;
+  border-radius: 3px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
   cursor: pointer;
@@ -455,7 +479,7 @@ html.vr-editor-lock body {
 
 .vr-ed-btn--primary {
   background: var(--editor-accent);
-  color: var(--editor-text);
+  color: #f4ffff;
 }
 
 .vr-ed-btn--primary:hover:not(:disabled) {
@@ -463,12 +487,12 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-btn--secondary {
-  border-color: var(--editor-border-strong);
-  background: transparent;
+  border-color: var(--editor-border);
+  background: var(--editor-control);
 }
 
 .vr-ed-btn--secondary:hover:not(:disabled) {
-  background: var(--editor-panel-hover);
+  background: var(--editor-control-hover);
 }
 
 .vr-ed-btn--ghost {
@@ -491,8 +515,8 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-iconbtn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -514,8 +538,8 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-iconbtn.is-active {
-  background: color-mix(in srgb, var(--editor-accent) 22%, var(--editor-panel));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--editor-accent) 70%, var(--editor-border));
+  background: var(--editor-panel-raised);
+  box-shadow: none;
   color: var(--editor-text);
 }
 
@@ -533,8 +557,8 @@ html.vr-editor-lock body {
   z-index: var(--z-modal);
   padding: 4px 8px;
   border-radius: 3px;
-  background: var(--editor-text);
-  color: var(--editor-panel);
+  background: #252832;
+  color: var(--editor-text);
   font-size: 11px;
   white-space: nowrap;
   pointer-events: none;
@@ -550,8 +574,8 @@ html.vr-editor-lock body {
 
 .vr-ed-context-title {
   margin: 2px 0 0;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .vr-ed-group {
@@ -567,8 +591,9 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-label {
-  font-size: 12px;
-  color: var(--editor-muted);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--editor-text-secondary);
 }
 
 .vr-ed-value {
@@ -587,27 +612,30 @@ html.vr-editor-lock body {
 .vr-ed-textarea,
 .vr-ed-select {
   width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--editor-border);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--editor-panel) 70%, transparent);
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 3px;
+  background: var(--editor-control);
   color: var(--editor-text);
-  font-size: 13px;
+  font-size: 12px;
   appearance: none;
   -webkit-appearance: none;
 }
 
 .vr-ed-textarea {
   height: auto;
-  padding: 8px 10px;
+  min-height: 92px;
+  max-height: 260px;
+  padding: 10px 12px;
   resize: vertical;
-  line-height: 1.45;
+  line-height: 1.55;
 }
 
 .vr-ed-input:hover,
 .vr-ed-textarea:hover,
 .vr-ed-select:hover {
+  background: var(--editor-control-hover);
   border-color: var(--editor-border-strong);
 }
 
@@ -678,16 +706,16 @@ html.vr-editor-lock body {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 14px;
+  height: 24px;
   background: linear-gradient(
     to right,
-    var(--editor-accent) 0%,
-    var(--editor-accent) var(--vr-ed-fill, 0%),
+    #d6d7d9 0%,
+    #d6d7d9 var(--vr-ed-fill, 0%),
     var(--editor-track) var(--vr-ed-fill, 0%),
     var(--editor-track) 100%
   );
   background-repeat: no-repeat;
-  background-size: 100% 3px;
+  background-size: 100% 4px;
   background-position: center;
   border: 0;
   border-radius: 99px;
@@ -695,7 +723,7 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-slider::-webkit-slider-runnable-track {
-  height: 3px;
+  height: 4px;
   background: transparent;
   border: 0;
 }
@@ -703,35 +731,35 @@ html.vr-editor-lock body {
 .vr-ed-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5.5px;
-  border-radius: 50%;
-  background: #fbf9ef;
-  border: 1px solid var(--editor-border-strong);
-  box-shadow: 0 1px 2px rgba(57, 55, 50, 0.12);
+  width: 8px;
+  height: 22px;
+  margin-top: -9px;
+  border-radius: 3px;
+  background: #d6d7d9;
+  border: 0;
+  box-shadow: none;
 }
 
 .vr-ed-slider::-moz-range-track {
-  height: 3px;
+  height: 4px;
   background: transparent;
   border: 0;
 }
 
 .vr-ed-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fbf9ef;
-  border: 1px solid var(--editor-border-strong);
-  box-shadow: 0 1px 2px rgba(57, 55, 50, 0.12);
+  width: 8px;
+  height: 22px;
+  border-radius: 3px;
+  background: #d6d7d9;
+  border: 0;
+  box-shadow: none;
 }
 
 .vr-ed-segment {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  height: 34px;
+  height: 36px;
   border: 1px solid var(--editor-border);
   border-radius: 4px;
   overflow: hidden;
@@ -752,7 +780,7 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-segment button.is-active {
-  background: color-mix(in srgb, var(--editor-accent) 22%, var(--editor-panel));
+  background: var(--editor-panel-hover);
   color: var(--editor-text);
 }
 
@@ -809,11 +837,11 @@ html.vr-editor-lock body {
 .vr-ed-check input {
   appearance: none;
   -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
   border: 1px solid var(--editor-border-strong);
   border-radius: 3px;
-  background: var(--editor-panel);
+  background: var(--editor-control);
   margin: 0;
 }
 
@@ -826,16 +854,16 @@ html.vr-editor-lock body {
 .vr-ed-color {
   position: relative;
   display: grid;
-  grid-template-columns: 36px 1fr;
+  grid-template-columns: 42px 1fr;
   gap: 0;
   border: 1px solid var(--editor-border);
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: visible;
 }
 
 .vr-ed-swatch {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   border: 0;
   border-right: 1px solid var(--editor-border);
   padding: 0;
@@ -846,7 +874,7 @@ html.vr-editor-lock body {
 .vr-ed-color-hex {
   border: 0;
   border-radius: 0 4px 4px 0;
-  height: 36px;
+  height: 42px;
 }
 
 .vr-ed-color-hex:focus {
@@ -907,6 +935,113 @@ html.vr-editor-lock body {
   height: 18px;
   border: 1px solid var(--editor-border);
   border-radius: 3px;
+}
+
+.vr-ed-help {
+  margin: 0;
+  color: var(--editor-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.vr-ed-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.vr-ed-tabs-line {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid var(--editor-border-soft);
+}
+
+.vr-ed-tabs-line span {
+  padding: 0 0 10px;
+  color: var(--editor-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vr-ed-tabs-line .is-active {
+  color: var(--editor-text);
+  border-bottom: 1px solid var(--editor-accent);
+}
+
+.vr-element-tree {
+  display: grid;
+  gap: 8px;
+}
+
+.vr-element-group {
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.vr-element-group summary,
+.vr-element-children button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 10px 10px;
+  background: transparent;
+  border: 0;
+  color: var(--editor-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  list-style: none;
+}
+
+.vr-element-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.vr-element-group summary:hover,
+.vr-element-children button:hover {
+  background: var(--editor-panel-hover);
+}
+
+.vr-element-group summary[data-selected="true"],
+.vr-element-children button[data-selected="true"] {
+  border: 1px solid var(--editor-accent);
+  background: var(--editor-accent-soft);
+}
+
+.vr-element-group strong,
+.vr-element-children strong {
+  display: block;
+  color: var(--editor-text);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-element-group small,
+.vr-element-children small {
+  display: block;
+  margin-top: 3px;
+  color: var(--editor-muted);
+  font-size: 10px;
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-element-children {
+  display: grid;
+  padding: 0 0 6px 16px;
+}
+
+.vr-element-icon {
+  color: var(--editor-muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .vr-ed-collapse {
@@ -1051,9 +1186,11 @@ html.vr-editor-lock body {
   display: block;
   width: 100%;
   border: 1px solid var(--editor-border);
+  border-radius: 3px;
   padding: 0;
   cursor: crosshair;
-  background: none;
+  background: var(--editor-control);
+  overflow: hidden;
 }
 
 .vr-focal img {
@@ -1071,6 +1208,47 @@ html.vr-editor-lock body {
   box-shadow: 0 0 0 1px rgba(57, 55, 50, 0.3);
 }
 
+.vr-image-preview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--editor-control);
+  display: grid;
+  place-items: center;
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.vr-image-preview img,
+.vr-media-picker-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vr-media-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.vr-media-picker-grid button {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 3px;
+  background: var(--editor-control);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.vr-media-picker-grid button:hover,
+.vr-media-picker-grid button[data-selected="true"] {
+  border-color: var(--editor-accent);
+}
+
 @keyframes vr-ed-spin {
   to {
     transform: rotate(360deg);
@@ -1078,19 +1256,14 @@ html.vr-editor-lock body {
 }
 
 @media (min-width: 1100px) {
-  .vr-editor-root,
   .vr-editor-root {
-    --editor-sidebar-width: 300px;
+    --editor-sidebar-width: 264px;
   }
 }
 
 @media (min-width: 760px) and (max-width: 1099px) {
   .vr-editor-root {
-    --editor-sidebar-width: 270px;
-  }
-
-  .vr-inspector {
-    max-width: 280px;
+    --editor-sidebar-width: 248px;
   }
 }
 
@@ -1128,7 +1301,7 @@ html.vr-editor-lock body {
     max-height: 62svh;
     border-right: 0;
     border-top: 1px solid var(--editor-border);
-    border-radius: 12px 12px 0 0;
+    border-radius: 0;
     z-index: 80;
   }
 
@@ -1138,11 +1311,13 @@ html.vr-editor-lock body {
   }
 
   .vr-editor-toolbar {
-    grid-template-columns: 1fr;
+    left: 8px;
+    right: 8px;
+    top: 8px;
     height: auto;
-    flex-basis: auto;
     min-height: var(--editor-toolbar-height);
-    padding: 6px 8px;
+    padding: 4px;
+    flex-wrap: wrap;
   }
 
   .vr-editor-tools-mid,

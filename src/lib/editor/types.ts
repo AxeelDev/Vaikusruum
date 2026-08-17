@@ -10,7 +10,7 @@ import type {
 import type { ThemeTokens } from "@/lib/theme/theme";
 
 export type EditorBreakpoint = "desktop" | "tablet" | "mobile";
-export type InspectorTab = "content" | "appearance" | "layout";
+export type InspectorTab = "content" | "appearance" | "animation" | "settings";
 export type SelectedType =
   | "page"
   | "section"

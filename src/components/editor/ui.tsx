@@ -416,6 +416,7 @@ export function EditorColor({
   const inherited = !parseColorToHex(value);
   return (
     <EditorColorInner
+      key={resolved}
       label={label}
       resolved={resolved}
       inherited={inherited}

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEditor } from "@/components/editor/EditorProvider";
 import {
   EditorButton,
@@ -19,14 +18,13 @@ import {
   EditorTextarea,
   EditorTooltip,
 } from "@/components/editor/ui";
-import { logoutAction } from "@/lib/actions/admin";
-import { findSection } from "@/lib/editor/draft";
+import { findSection, pageSections } from "@/lib/editor/draft";
 import { fieldStyle } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
 import { pageLabel } from "@/lib/editor/pages";
 import { ALL_FONTS, BODY_FONTS, DISPLAY_FONTS } from "@/lib/theme/theme";
 import { mediaPublicUrl } from "@/lib/utils/urls";
-import type { HeightPreset, OfferingRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
+import type { AnimationAppearance, HeightPreset, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
 
 const FONT_OPTIONS = ALL_FONTS.map((font) => ({
   value: font.id,
@@ -37,12 +35,13 @@ const FONT_OPTIONS = ALL_FONTS.map((font) => ({
 export function Inspector() {
   const editor = useEditor();
   const { state } = editor;
+  const hasContext = Boolean(state.selected || state.themePanel);
 
   return (
     <aside className="vr-inspector" aria-label="Redaktor">
       <div className="vr-inspector-top">
         <div className="vr-inspector-tabs">
-          <EditorTooltip label="Sisu">
+          <EditorTooltip label="Sisu / elemendid">
             <EditorIconButton
               ariaLabel="Sisu"
               active={state.inspectorTab === "content" && !state.themePanel}
@@ -66,29 +65,66 @@ export function Inspector() {
               <BrushIcon />
             </EditorIconButton>
           </EditorTooltip>
-          <EditorTooltip label="Paigutus">
+          <EditorTooltip label="Animatsioon">
             <EditorIconButton
-              ariaLabel="Paigutus"
-              active={state.inspectorTab === "layout" && !state.themePanel}
+              ariaLabel="Animatsioon"
+              active={state.inspectorTab === "animation" && !state.themePanel}
               onClick={() => {
                 editor.setThemePanel(false);
-                editor.setTab("layout");
+                editor.setTab("animation");
               }}
             >
-              <LayoutIcon />
+              <PlayIcon />
+            </EditorIconButton>
+          </EditorTooltip>
+          <EditorTooltip label="Seaded">
+            <EditorIconButton
+              ariaLabel="Seaded"
+              active={state.inspectorTab === "settings" && !state.themePanel}
+              onClick={() => {
+                editor.setThemePanel(false);
+                editor.setTab("settings");
+              }}
+            >
+              <GearIcon />
             </EditorIconButton>
           </EditorTooltip>
         </div>
-        <EditorIconButton className="vr-inspector-close" ariaLabel="Sulge" onClick={() => editor.closeInspector()}>
+      </div>
+      <div className="vr-inspector-contextbar">
+        <EditorIconButton
+          ariaLabel="Tagasi"
+          disabled={!hasContext}
+          onClick={() => {
+            editor.deselect();
+            editor.setThemePanel(false);
+            editor.setTab("content");
+          }}
+        >
+          ‹
+        </EditorIconButton>
+        <span>{state.selected ? selectedKindLabel(state.selected.type) : state.themePanel ? "Üldine välimus" : "Leht"}</span>
+        <EditorIconButton
+          ariaLabel="Sulge"
+          onClick={() => {
+            if (hasContext) {
+              editor.deselect();
+              editor.setThemePanel(false);
+            } else {
+              editor.closeInspector();
+            }
+          }}
+        >
           ×
         </EditorIconButton>
       </div>
-      {state.themePanel ? <ThemePanel /> : <SelectionPanels />}
-      <div className="vr-inspector-admin">
-        <Link href="/admin/sisu">Haldus</Link>
-        <form action={logoutAction}>
-          <button type="submit">Välju</button>
-        </form>
+      <div className="vr-inspector-scroll">
+        {state.themePanel ? <ThemePanel /> : <SelectionPanels />}
+      </div>
+      <div className="vr-inspector-footer">
+        <EditorButton variant="primary" onClick={() => editor.deselect()} disabled={!state.selected && !state.themePanel}>
+          Valmis
+        </EditorButton>
       </div>
     </aside>
   );
@@ -100,10 +136,13 @@ function SelectionPanels() {
   const selected = editor.state.selected;
   if (!selected) {
     if (tab === "appearance") return <ThemePanel />;
+    if (tab === "animation") return <PageAnimationPlaceholder />;
+    if (tab === "settings") return <PageOverview mode="settings" />;
     return <PageOverview />;
   }
   if (tab === "appearance") return <AppearancePanel />;
-  if (tab === "layout") return selected.type === "image" ? <ImagePanel /> : <SectionPanel />;
+  if (tab === "animation") return <AnimationPanel />;
+  if (tab === "settings") return <SettingsPanel />;
   if (selected.type === "image") return <ImagePanel />;
   if (selected.type === "section") return <SectionPanel />;
   if (selected.type === "header") return <HeaderPanel />;
@@ -111,7 +150,7 @@ function SelectionPanels() {
   return <ContentPanel />;
 }
 
-function PageOverview() {
+function PageOverview({ mode = "content" }: { mode?: "content" | "settings" }) {
   const editor = useEditor();
   const page = editor.state.draft.pages.find((item) => item.id === editor.state.pageId);
   const visible = editor.state.draft.pages.filter((item) => item.show_in_nav && item.is_published);
@@ -120,6 +159,13 @@ function PageOverview() {
 
   return (
     <div className="vr-inspector-empty">
+      {mode === "content" ? (
+        <>
+          <EditorContext kicker="Elemendid" title={`${pageLabel(page)} (${pageSections(editor.state.draft, page.id).length})`} />
+          <EditorElementTree />
+          <EditorDivider />
+        </>
+      ) : null}
       <EditorContext kicker="Lehed" title={pageLabel(page)} />
       <div className="vr-ed-pages">
         {visible.map((item) => (
@@ -187,6 +233,153 @@ function PageOverview() {
         />
       </EditorGroup>
       <p className="vr-ed-label">Klõpsa lehel mõnel elemendil, et selle sisu või välimust muuta.</p>
+    </div>
+  );
+}
+
+function EditorElementTree() {
+  const editor = useEditor();
+  const page = editor.state.draft.pages.find((item) => item.id === editor.state.pageId);
+  if (!page) return null;
+  const sections = pageSections(editor.state.draft, page.id);
+  return (
+    <div className="vr-element-tree">
+      {sections.map((section) => (
+        <details key={section.id} className="vr-element-group" open>
+          <summary
+            data-selected={editor.state.selected?.id === `section.${section.id}` ? "true" : undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              editor.select({ id: `section.${section.id}`, type: "section", sectionId: section.id });
+            }}
+          >
+            <span className="vr-element-icon">▣</span>
+            <span>
+              <strong>{humanSectionName(section)}</strong>
+              <small>{sectionChildRows(section, editor.state.draft, page.slug).length} elementi</small>
+            </span>
+          </summary>
+          <div className="vr-element-children">
+            {sectionChildRows(section, editor.state.draft, page.slug).map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                data-selected={editor.state.selected?.id === row.id ? "true" : undefined}
+                onClick={() => editor.select(row.selection)}
+              >
+                <span className="vr-element-icon">{row.icon}</span>
+                <span>
+                  <strong>{row.label}</strong>
+                  {row.preview ? <small>{row.preview}</small> : null}
+                </span>
+              </button>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function sectionChildRows(section: SectionRow, draft: ReturnType<typeof useEditor>["state"]["draft"], slug: string) {
+  const rows: Array<{
+    id: string;
+    icon: string;
+    label: string;
+    preview?: string;
+    selection: Parameters<ReturnType<typeof useEditor>["select"]>[0];
+  }> = [];
+  const prefix = `${slug}.${section.section_key}`;
+  function text(field: string, label: string) {
+    const value = section.content[field];
+    if (typeof value !== "string" || !value.trim()) return;
+    rows.push({
+      id: `${prefix}.${field}`,
+      icon: "A",
+      label,
+      preview: `“${value.trim().slice(0, 42)}${value.trim().length > 42 ? "…" : ""}”`,
+      selection: { id: `${prefix}.${field}`, type: "text", sectionId: section.id, field },
+    });
+  }
+  text("title", "Pealkiri");
+  text("heading", "Pealkiri");
+  text("intro", "Sissejuhatus");
+  text("plain", "Tekst");
+  text("label", "Tekst");
+  text("actionLabel", "Nupp");
+  text("moreInfoLabel", "Rohkem infot");
+  const mediaId = (section.style?.mediaId || section.content.mediaId) as string | undefined;
+  if (mediaId) {
+    const media = draft.media[mediaId];
+    rows.push({
+      id: `${section.id}.image`,
+      icon: "◫",
+      label: imageLabel(section),
+      preview: media?.storage_path?.split("/").pop() ?? "Pilt",
+      selection: { id: `${section.id}.image`, type: "image", sectionId: section.id, mediaId, field: "image" },
+    });
+  }
+  if (section.section_type === "hero" && section.content.showEmblem !== false && !mediaId) {
+    rows.push({
+      id: `${section.id}.emblem`,
+      icon: "◫",
+      label: "Vaikusruum märk",
+      preview: "emblem-source.svg",
+      selection: { id: `section.${section.id}`, type: "section", sectionId: section.id },
+    });
+  }
+  if (Array.isArray(section.content.items)) {
+    section.content.items.slice(0, 8).forEach((item, index) => {
+      const question = typeof item === "object" && item ? String((item as Record<string, unknown>).question ?? "") : "";
+      if (question) {
+        rows.push({
+          id: `${section.id}.q.${index}`,
+          icon: "A",
+          label: question.slice(0, 32),
+          preview: "KKK küsimus",
+          selection: { id: `faq.${section.id}.q.${index}`, type: "text", sectionId: section.id, field: `q.${index}` },
+        });
+      }
+    });
+  }
+  return rows;
+}
+
+function humanSectionName(section: SectionRow) {
+  const heading = section.content.heading || section.content.title || section.content.label;
+  if (typeof heading === "string" && heading.trim()) return heading.trim().slice(0, 34);
+  switch (section.section_type) {
+    case "hero":
+      return "Hero";
+    case "split_media_text":
+      return section.section_key.includes("miina") ? "Miina tutvustus" : "Pilt ja tekst";
+    case "offering_overview":
+      return "Tunnid";
+    case "private_lessons":
+      return "Eratunnid";
+    case "faq":
+      return "Küsimused ja vastused";
+    case "important_info":
+      return "Head teada";
+    case "contact":
+      return "Kontakt";
+    default:
+      return sectionTitle(section.section_type);
+  }
+}
+
+function imageLabel(section: SectionRow) {
+  if (section.section_key.includes("miina")) return "Miina foto";
+  if (section.section_type === "hero") return "Hero pilt";
+  if (section.section_type === "contact") return "Kontakt pilt";
+  return "Pilt";
+}
+
+function PageAnimationPlaceholder() {
+  return (
+    <div className="vr-inspector-empty">
+      <EditorContext kicker="Animatsioon" title="Vali element" />
+      <p className="vr-ed-help">Animatsiooni muutmiseks vali lehelt sektsioon, tekst või pilt.</p>
     </div>
   );
 }
@@ -315,33 +508,26 @@ function SectionPanel() {
   if (!section) return <HeaderPanel />;
 
   const style = section.style ?? {};
-  const tab = editor.state.inspectorTab;
   function patchStyle(next: Partial<SectionStyle>, record = true) {
     editor.patchSection(section!.id, (row) => ({ ...row, style: { ...row.style, ...next } }), record);
   }
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Sektsioon" title={sectionTitle(section.section_type)} />
-      {tab === "content" && section.section_type === "faq" ? <FaqSectionContent sectionId={section.id} /> : null}
-      {tab !== "layout" ? (
-        <>
-          <EditorGroup label="Taust">
-            <EditorSelect
-              value={style.background ?? "main"}
-              options={[
-                { value: "main", label: "Põhitaust" },
-                { value: "warm", label: "Soe" },
-                { value: "soft", label: "Pehme" },
-              ]}
-              onChange={(background) => patchStyle({ background: background as SectionStyle["background"] })}
-            />
-          </EditorGroup>
-          <EditorSwitch checked={style.specks !== false} onChange={(specks) => patchStyle({ specks })} label="Taustatäpid" />
-        </>
-      ) : null}
-      {tab === "layout" || tab === "content" ? (
-        <>
+      <EditorContext kicker="Container" title={sectionTitle(section.section_type)} />
+      {section.section_type === "faq" ? <FaqSectionContent sectionId={section.id} /> : null}
+      <EditorGroup label="Taust">
+        <EditorSelect
+          value={style.background ?? "main"}
+          options={[
+            { value: "main", label: "Põhitaust" },
+            { value: "warm", label: "Soe" },
+            { value: "soft", label: "Pehme" },
+          ]}
+          onChange={(background) => patchStyle({ background: background as SectionStyle["background"] })}
+        />
+      </EditorGroup>
+      <EditorSwitch checked={style.specks !== false} onChange={(specks) => patchStyle({ specks })} label="Taustatäpid" />
           <EditorGroup label="Kõrgus">
             <EditorSelect
               value={style.height ?? "screen"}
@@ -430,8 +616,6 @@ function SectionPanel() {
               onChange={(mobileOrder) => patchStyle({ mobileOrder: mobileOrder as SectionStyle["mobileOrder"] })}
             />
           </EditorGroup>
-        </>
-      ) : null}
       <EditorCheck checked={section.enabled} onChange={(enabled) => editor.patchSection(section.id, (row) => ({ ...row, enabled }))}>
         Nähtav
       </EditorCheck>
@@ -515,25 +699,35 @@ function ImagePanel() {
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Pilt" title={media?.alt_text || "Pilt"} />
-      <EditorGroup label="Pilt">
-        <EditorSelect
-          value={mediaId}
-          options={[
-            { value: "", label: "Ilma pildita" },
-            ...Object.values(editor.state.draft.media).map((item) => ({
-              value: item.id,
-              label: item.alt_text || item.storage_path,
-            })),
-          ]}
-          onChange={(next) => {
-            if (!section) return;
-            editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: next || null } }));
-          }}
-        />
-      </EditorGroup>
+      <EditorContext kicker="Image" title={media?.alt_text || "Pilt"} />
       {media ? (
         <>
+          <div className="vr-image-preview">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={mediaPublicUrl(media.storage_path)} alt="" />
+          </div>
+          <p className="vr-ed-help">{media.storage_path.split("/").pop()}</p>
+          <EditorGroup label="Alt Text">
+            <EditorTextInput value={media.alt_text ?? ""} onChange={(alt_text) => editor.patchMedia(media.id, { alt_text }, false)} />
+          </EditorGroup>
+          <EditorDivider />
+          <EditorContext kicker="Images" title="Replace" />
+          <div className="vr-media-picker-grid">
+            {Object.values(editor.state.draft.media).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                data-selected={item.id === mediaId ? "true" : undefined}
+                onClick={() => {
+                  if (!section) return;
+                  editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: item.id } }));
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={mediaPublicUrl(item.storage_path)} alt="" />
+              </button>
+            ))}
+          </div>
           <p className="vr-ed-label">Fookuspunkt</p>
           <button
             type="button"
@@ -550,7 +744,28 @@ function ImagePanel() {
             <span className="vr-focal-point" style={{ left: `${media.focal_x}%`, top: `${media.focal_y}%` }} />
           </button>
         </>
-      ) : null}
+      ) : (
+        <>
+          <div className="vr-image-preview vr-image-preview--empty">Pilt puudub</div>
+          <div className="vr-media-picker-grid">
+            {Object.values(editor.state.draft.media).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  if (!section) return;
+                  editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: item.id } }));
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={mediaPublicUrl(item.storage_path)} alt="" />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <EditorDivider />
+      <EditorContext kicker="Appearance" title="Image" />
       <EditorGroup label="Kärpimine">
         <EditorSelect
           value={image.crop ?? "landscape"}
@@ -610,11 +825,118 @@ function ImagePanel() {
           }
         />
       </EditorGroup>
-      {media ? (
-        <EditorGroup label="Alternatiivtekst">
-          <EditorTextInput value={media.alt_text ?? ""} onChange={(alt_text) => editor.patchMedia(media.id, { alt_text }, false)} />
-        </EditorGroup>
+      {section?.style?.mediaId ? (
+        <EditorButton
+          variant="danger"
+          onClick={() => editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: null } }))}
+        >
+          Remove image
+        </EditorButton>
       ) : null}
+    </div>
+  );
+}
+
+function AnimationPanel() {
+  const editor = useEditor();
+  const selected = editor.state.selected;
+  const section = selected?.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
+  if (!section) {
+    return (
+      <div className="vr-inspector-body">
+        <EditorContext kicker="Animatsioon" title={selected ? selectedKindLabel(selected.type) : "Element"} />
+        <p className="vr-ed-help">Selle elemendi jaoks eraldi animatsiooni ei ole.</p>
+      </div>
+    );
+  }
+
+  const animation = section.style?.animation ?? {};
+  const animationSectionId = section.id;
+  function patch(next: Partial<AnimationAppearance>, record = true) {
+    editor.patchSection(animationSectionId, (row) => ({
+      ...row,
+      style: { ...row.style, animation: { ...row.style?.animation, ...next } },
+    }), record);
+  }
+
+  return (
+    <div className="vr-inspector-body">
+      <EditorContext kicker="Animatsioon" title={labelFor(selected?.id ?? section.id, readText(editor)) || sectionTitle(section.section_type)} />
+      <EditorGroup label="On visible">
+        <div className="vr-ed-inline">
+          <EditorSelect
+            value={animation.preset ?? "none"}
+            options={[
+              { value: "none", label: "Puudub" },
+              { value: "fade-in", label: "Fade in" },
+              { value: "fade-up", label: "Fade up" },
+              { value: "fade-down", label: "Fade down" },
+              { value: "fade-left", label: "Fade left" },
+              { value: "fade-right", label: "Fade right" },
+              { value: "scale-in", label: "Scale in" },
+            ]}
+            onChange={(preset) => patch({ preset: preset as AnimationAppearance["preset"] })}
+          />
+          <EditorButton variant="secondary" onClick={() => undefined}>Replay</EditorButton>
+        </div>
+      </EditorGroup>
+      <EditorSlider label="Duration" min={0.2} max={3} step={0.1} value={animation.duration ?? 1} onChange={(duration) => patch({ duration }, false)} unit="s" exact />
+      <EditorSlider label="Delay" min={0} max={2} step={0.1} value={animation.delay ?? 0} onChange={(delay) => patch({ delay }, false)} unit="s" exact />
+      <EditorSlider label="Threshold" min={0} max={1} step={0.05} value={animation.threshold ?? 0.35} onChange={(threshold) => patch({ threshold }, false)} exact />
+      <EditorCheck checked={Boolean(animation.replayable)} onChange={(replayable) => patch({ replayable })}>
+        Replayable
+      </EditorCheck>
+      <p className="vr-ed-help">Avalik leht austab `prefers-reduced-motion` eelistust.</p>
+    </div>
+  );
+}
+
+function SettingsPanel() {
+  const editor = useEditor();
+  const selected = editor.state.selected;
+  if (!selected) return <PageOverview mode="settings" />;
+  if (editor.role !== "owner") {
+    return (
+      <div className="vr-inspector-body">
+        <EditorContext kicker="Seaded" title={selectedKindLabel(selected.type)} />
+        <p className="vr-ed-help">Tehnilised seaded on nähtavad ainult omanikule.</p>
+      </div>
+    );
+  }
+  const section = selected.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
+  return (
+    <div className="vr-inspector-body">
+      <EditorContext kicker="Settings" title={selectedKindLabel(selected.type)} />
+      <div className="vr-ed-tabs-line">
+        <span className="is-active">Element</span>
+        <span>Styles</span>
+      </div>
+      <EditorGroup label="ID">
+        <EditorTextInput value={selected.id} onChange={() => undefined} />
+      </EditorGroup>
+      {section ? (
+        <>
+          <EditorGroup label="Section key">
+            <EditorTextInput value={section.section_key} onChange={() => undefined} />
+          </EditorGroup>
+          <EditorGroup label="Type">
+            <EditorTextInput value={section.section_type} onChange={() => undefined} />
+          </EditorGroup>
+        </>
+      ) : null}
+      <EditorGroup label="Classes">
+        <EditorButton variant="ghost" disabled>+ Add class</EditorButton>
+      </EditorGroup>
+      <EditorGroup label="Attributes">
+        <EditorButton variant="ghost" disabled>+ Add attribute</EditorButton>
+      </EditorGroup>
+      <EditorGroup label="Tag">
+        <EditorSelect
+          value="default"
+          options={[{ value: "default", label: "Default" }]}
+          onChange={() => undefined}
+        />
+      </EditorGroup>
     </div>
   );
 }
@@ -891,6 +1213,25 @@ function sectionTitle(type: string) {
   }
 }
 
+function selectedKindLabel(type: string) {
+  switch (type) {
+    case "section":
+      return "Sektsioon";
+    case "image":
+      return "Pilt";
+    case "nav":
+      return "Menüülink";
+    case "link":
+      return "Link";
+    case "header":
+      return "Päis";
+    case "text":
+      return "Tekst";
+    default:
+      return "Element";
+  }
+}
+
 function BrushIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -899,11 +1240,19 @@ function BrushIcon() {
   );
 }
 
-function LayoutIcon() {
+function PlayIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="4" y="5" width="16" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M10 5v14" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 5.5v13l10-6.5-10-6.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 8.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6Z" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M4.8 13.4v-2.8l2-.5.8-1.9-1-1.8 2-2 1.8 1 1.9-.8.5-2h2.8l.5 2 1.9.8 1.8-1 2 2-1 1.8.8 1.9 2 .5v2.8l-2 .5-.8 1.9 1 1.8-2 2-1.8-1-1.9.8-.5 2h-2.8l-.5-2-1.9-.8-1.8 1-2-2 1-1.8-.8-1.9-2-.5Z" stroke="currentColor" strokeWidth="1.1" />
     </svg>
   );
 }

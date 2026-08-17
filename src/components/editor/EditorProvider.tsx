@@ -134,7 +134,7 @@ export function EditorProvider({
     setInspectorOpen(true);
     setThemePanel(false);
     setPreview(false);
-    setInspectorTab(selection.type === "section" || selection.type === "header" ? "layout" : "content");
+    setInspectorTab("content");
   }, []);
 
   const deselect = useCallback(() => {
