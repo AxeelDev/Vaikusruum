@@ -22,13 +22,14 @@
   --vr-wordmark-tracking: 0.22em;
   --vr-heading-tracking: 0.08em;
   --vr-paragraph-max-width: 38rem;
-  --vr-content-width: 1180px;
-  --vr-gutter-desktop: 64px;
+  --vr-content-width: 1440px;
+  --vr-page-gutter: clamp(50px, 6vw, 110px);
+  --vr-gutter-desktop: var(--vr-page-gutter);
   --vr-gutter-mobile: 22px;
-  --vr-section-space: 120px;
-  --vr-split-gap: 64px;
+  --vr-section-space: 96px;
+  --vr-split-gap: clamp(60px, 8vw, 150px);
   --vr-header-height: 88px;
-  --vr-paragraph-spacing: 18px;
+  --vr-paragraph-spacing: 20px;
   --vr-image-radius: 0px;
   --vr-button-radius: 999px;
   --vr-button-height: 52px;
@@ -39,6 +40,18 @@
   --vr-speck-opacity: 0.28;
   --vr-speck-color: #a8aaa3;
   --vr-focus: #b8642f;
+  --vr-editor-outline: #7f9aa6;
+  --vr-text-narrow: 520px;
+  --vr-text-normal: 660px;
+  --vr-text-reading: 760px;
+  --vr-space-1: 8px;
+  --vr-space-2: 16px;
+  --vr-space-3: 24px;
+  --vr-space-4: 32px;
+  --vr-space-5: 48px;
+  --vr-space-6: 64px;
+  --vr-space-7: 96px;
+  --vr-space-8: 128px;
 }
 
 *,

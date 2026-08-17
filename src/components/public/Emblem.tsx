@@ -14,9 +14,9 @@ export function Emblem({ className }: { className?: string }) {
           const t = (i + 3) / 17;
           const r = 28 + t * 148;
           const spiral = angle + t * 0.85;
-          const x = 200 + Math.cos(spiral) * r;
-          const y = 200 + Math.sin(spiral) * r;
-          const radius = 1.1 + t * 2.4;
+          const x = Number((200 + Math.cos(spiral) * r).toFixed(3));
+          const y = Number((200 + Math.sin(spiral) * r).toFixed(3));
+          const radius = Number((1.1 + t * 2.4).toFixed(3));
           const gold = 228 - t * 40;
           const orange = 178 - t * 30;
           return (
@@ -25,8 +25,8 @@ export function Emblem({ className }: { className?: string }) {
               cx={x}
               cy={y}
               r={radius}
-              fill={`rgb(${210 + t * 20}, ${gold}, ${orange})`}
-              opacity={0.55 + t * 0.35}
+              fill={`rgb(${Math.round(210 + t * 20)}, ${Math.round(gold)}, ${Math.round(orange)})`}
+              opacity={Number((0.55 + t * 0.35).toFixed(3))}
             />
           );
         });

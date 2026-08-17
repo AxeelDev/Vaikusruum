@@ -83,11 +83,11 @@ export const DEFAULT_THEME: ThemeTokens = {
   wordmarkTracking: 0.22,
   headingTracking: 0.08,
   paragraphMaxWidth: 38,
-  contentMaxWidth: 1180,
-  gutterDesktop: 64,
+  contentMaxWidth: 1440,
+  gutterDesktop: 110,
   gutterMobile: 22,
-  sectionSpace: 120,
-  splitGap: 64,
+  sectionSpace: 96,
+  splitGap: 150,
   headerHeight: 88,
   paragraphSpacing: 18,
   imageRadius: 0,
@@ -151,11 +151,11 @@ export function parseTheme(input: unknown): ThemeTokens {
     wordmarkTracking: num(raw.wordmarkTracking, DEFAULT_THEME.wordmarkTracking, 0.08, 0.4),
     headingTracking: num(raw.headingTracking, DEFAULT_THEME.headingTracking, 0, 0.3),
     paragraphMaxWidth: num(raw.paragraphMaxWidth, DEFAULT_THEME.paragraphMaxWidth, 24, 60),
-    contentMaxWidth: num(raw.contentMaxWidth, DEFAULT_THEME.contentMaxWidth, 720, 1400),
-    gutterDesktop: num(raw.gutterDesktop, DEFAULT_THEME.gutterDesktop, 24, 120),
+    contentMaxWidth: num(raw.contentMaxWidth, DEFAULT_THEME.contentMaxWidth, 720, 1680),
+    gutterDesktop: num(raw.gutterDesktop, DEFAULT_THEME.gutterDesktop, 24, 140),
     gutterMobile: num(raw.gutterMobile, DEFAULT_THEME.gutterMobile, 12, 40),
     sectionSpace: num(raw.sectionSpace, DEFAULT_THEME.sectionSpace, 48, 200),
-    splitGap: num(raw.splitGap, DEFAULT_THEME.splitGap, 16, 120),
+    splitGap: num(raw.splitGap, DEFAULT_THEME.splitGap, 16, 180),
     headerHeight: num(raw.headerHeight, DEFAULT_THEME.headerHeight, 56, 140),
     paragraphSpacing: num(raw.paragraphSpacing, DEFAULT_THEME.paragraphSpacing, 8, 40),
     imageRadius: num(raw.imageRadius, DEFAULT_THEME.imageRadius, 0, 24),
@@ -174,6 +174,13 @@ export function parseTheme(input: unknown): ThemeTokens {
 
 function fontCss(id: string, list: readonly { id: string; css: string }[]): string {
   return list.find((f) => f.id === id)?.css ?? list[0].css;
+}
+
+export const ALL_FONTS = [...DISPLAY_FONTS, ...BODY_FONTS];
+
+export function fontCssById(id: string | undefined): string | undefined {
+  if (!id) return undefined;
+  return ALL_FONTS.find((font) => font.id === id)?.css;
 }
 
 export function themeToCssVars(theme: ThemeTokens): CSSProperties {
@@ -203,10 +210,11 @@ export function themeToCssVars(theme: ThemeTokens): CSSProperties {
     "--vr-heading-tracking": `${t.headingTracking}em`,
     "--vr-paragraph-max-width": `${t.paragraphMaxWidth}rem`,
     "--vr-content-width": `${t.contentMaxWidth}px`,
-    "--vr-gutter-desktop": `${t.gutterDesktop}px`,
+    "--vr-page-gutter": `clamp(50px, 6vw, ${t.gutterDesktop}px)`,
+    "--vr-gutter-desktop": "var(--vr-page-gutter)",
     "--vr-gutter-mobile": `${t.gutterMobile}px`,
     "--vr-section-space": `${t.sectionSpace}px`,
-    "--vr-split-gap": `${t.splitGap}px`,
+    "--vr-split-gap": `clamp(60px, 8vw, ${t.splitGap}px)`,
     "--vr-header-height": `${t.headerHeight}px`,
     "--vr-paragraph-spacing": `${t.paragraphSpacing}px`,
     "--vr-image-radius": `${t.imageRadius}px`,

@@ -1,15 +1,17 @@
+import { SiteView } from "@/components/site/SiteView";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { SectionList } from "@/components/sections/SectionList";
 import {
   collectMediaIds,
   getEventsForOffering,
   getMediaByIds,
+  getNavItems,
   getOfferingsByIds,
   getPublishedPage,
   getSiteSettings,
   getTheme,
 } from "@/lib/content/queries";
+import { pageHref } from "@/lib/utils/urls";
 import type { EventRow, OfferingRow } from "@/types/content";
 
 export async function generateCmsMetadata(slug: string): Promise<Metadata> {
@@ -36,11 +38,12 @@ export async function CmsPage({ slug, teema }: { slug: string; teema?: string })
     return ids;
   });
 
-  const [offeringRows, media, settings, theme] = await Promise.all([
+  const [offeringRows, media, settings, theme, nav] = await Promise.all([
     getOfferingsByIds(offeringIds),
     getMediaByIds(collectMediaIds(data.sections)),
     getSiteSettings(),
     getTheme(),
+    getNavItems(),
   ]);
 
   const offerings: Record<string, OfferingRow> = {};
@@ -63,22 +66,15 @@ export async function CmsPage({ slug, teema }: { slug: string; teema?: string })
       : data.sections;
 
   return (
-    <>
-      {slug !== "avaleht" && slug !== "kontakt" ? (
-        <section className="vr-section vr-section--compact">
-          <div className="vr-centered">
-            <h1 className="vr-page-title">{data.page.title}</h1>
-          </div>
-        </section>
-      ) : null}
-      <SectionList
-        sections={sections}
-        offerings={offerings}
-        eventsByOffering={eventsByOffering}
-        media={media}
-        settings={settings}
-        themeDensity={theme.specksDensity}
-      />
-    </>
+    <SiteView
+      page={data.page}
+      sections={sections}
+      offerings={offerings}
+      eventsByOffering={eventsByOffering}
+      media={media}
+      settings={settings}
+      nav={nav.length ? nav : [{ href: pageHref(data.page.slug), label: data.page.nav_label || data.page.title, slug: data.page.slug }]}
+      themeDensity={theme.specksDensity}
+    />
   );
 }

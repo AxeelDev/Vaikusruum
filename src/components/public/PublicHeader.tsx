@@ -3,11 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { EditableText } from "@/components/site/Editable";
+import { useOptionalEditor } from "@/components/editor/EditorProvider";
 import type { NavItem } from "@/types/content";
 
-export function PublicHeader({ items }: { items: NavItem[] }) {
+export function PublicHeader({
+  items,
+  siteName = "Vaikusruum",
+  currentHref,
+}: {
+  items: NavItem[];
+  siteName?: string;
+  currentHref?: string;
+}) {
   const pathname = usePathname();
+  const current = currentHref ?? pathname;
   const [open, setOpen] = useState(false);
+  const editor = useOptionalEditor();
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -16,19 +28,54 @@ export function PublicHeader({ items }: { items: NavItem[] }) {
     };
   }, [open]);
 
+  useEffect(() => {
+    setOpen(false);
+  }, [current]);
+
   return (
-    <header className="vr-header">
-      <Link href="/" className="vr-wordmark vr-wordmark--header" onClick={() => setOpen(false)}>
-        VAIKUSRUUM
+    <header
+      className="vr-header"
+      data-vr-edit-id={editor && !editor.state.preview ? "header.bar" : undefined}
+      data-vr-editable={editor && !editor.state.preview ? "" : undefined}
+      data-vr-selected={editor?.state.selected?.id === "header.bar" ? "" : undefined}
+      onClick={(event) => {
+        if (!editor) return;
+        if (event.target !== event.currentTarget) return;
+        editor.select({ id: "header.bar", type: "header" });
+      }}
+    >
+      <Link href="/" className="vr-wordmark vr-wordmark--header">
+        <EditableText
+          as="span"
+          className="vr-wordmark vr-wordmark--header"
+          selection={{ id: "header.wordmark", type: "text", field: "site_name" }}
+          path={{ kind: "settings", key: "site_name" }}
+          value={siteName}
+        />
       </Link>
       <nav className="vr-nav" aria-label="Peamenüü">
         {items.map((item) => (
           <Link
             key={item.slug}
             href={item.href}
-            aria-current={pathname === item.href ? "page" : undefined}
+            aria-current={current === item.href ? "page" : undefined}
+            onClick={(event) => {
+              if (!editor) return;
+              event.preventDefault();
+              editor.select({
+                id: `header.nav.${item.slug}`,
+                type: "nav",
+                navSlug: item.slug,
+                field: "nav_label",
+              });
+            }}
           >
-            {item.label}
+            <EditableText
+              as="span"
+              selection={{ id: `header.nav.${item.slug}`, type: "nav", navSlug: item.slug, field: "nav_label" }}
+              path={{ kind: "nav-label", pageId: editor?.state.draft.pages.find((page) => page.slug === item.slug)?.id ?? "" }}
+              value={item.label}
+            />
           </Link>
         ))}
       </nav>
@@ -41,7 +88,7 @@ export function PublicHeader({ items }: { items: NavItem[] }) {
         </button>
         <nav aria-label="Mobiilimenüü">
           {items.map((item) => (
-            <Link key={item.slug} href={item.href} onClick={() => setOpen(false)}>
+            <Link key={item.slug} href={item.href}>
               {item.label}
             </Link>
           ))}

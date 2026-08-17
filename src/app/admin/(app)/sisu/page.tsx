@@ -8,6 +8,9 @@ export default async function SisuPage() {
   return (
     <div>
       <h1 className="vr-admin-title">Sisu</h1>
+      <p>
+        <Link href="/admin/editor">Ava visuaalne redaktor</Link>
+      </p>
       <table className="vr-table">
         <thead>
           <tr>

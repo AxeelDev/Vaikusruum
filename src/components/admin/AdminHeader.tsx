@@ -6,6 +6,7 @@ import { logoutAction } from "@/lib/actions/admin";
 import type { AdminUser } from "@/lib/auth/admin";
 
 const LINKS = [
+  { href: "/admin/editor", label: "Redaktor" },
   { href: "/admin/sisu", label: "Sisu" },
   { href: "/admin/tunnid", label: "Tunnid" },
   { href: "/admin/pildid", label: "Pildid" },
@@ -21,7 +22,7 @@ export function AdminHeader({ admin }: { admin: AdminUser }) {
   const links = admin.role === "owner" ? [...LINKS, { href: "/admin/advanced", label: "Advanced" }] : LINKS;
   return (
     <header className="vr-admin-header">
-      <Link href="/admin/sisu" className="vr-admin-brand">
+      <Link href="/admin/editor" className="vr-admin-brand">
         <span className="vr-wordmark vr-wordmark--header">VAIKUSRUUM</span>
         <small>Haldus</small>
       </Link>

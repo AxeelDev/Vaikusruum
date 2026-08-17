@@ -30,7 +30,7 @@ export async function loginAction(_prev: { error?: string } | undefined, formDat
     return { error: "Sellel kontol ei ole haldusõigust." };
   }
 
-  redirect("/admin/sisu");
+  redirect("/admin/editor");
 }
 
 export async function logoutAction() {
@@ -190,5 +190,109 @@ export async function deleteSubmissionAction(id: string) {
   const { error } = await supabase.from("form_submissions").delete().eq("id", id);
   if (error) return { error: "Kustutamine ebaõnnestus." };
   revalidatePath("/admin/registreerumised");
+  return { ok: true };
+}
+
+export type EditorSavePayload = {
+  pages: Array<{ id: string; title: string; nav_label: string | null; show_in_nav: boolean; nav_order: number }>;
+  sections: Array<{
+    id: string;
+    page_id: string;
+    section_key: string;
+    section_type: string;
+    sort_order: number;
+    enabled: boolean;
+    content: Record<string, unknown>;
+    style: Record<string, unknown>;
+  }>;
+  deletedSectionIds: string[];
+  offerings: Array<{
+    id: string;
+    title: string;
+    short_title: string | null;
+    location_name: string | null;
+    address: string | null;
+    schedule_summary: string | null;
+  }>;
+  media: Array<{ id: string; alt_text: string | null; focal_x: number; focal_y: number }>;
+  settings: {
+    site_name: string;
+    contact_email: string | null;
+    contact_phone: string | null;
+    footer_text: string | null;
+    social: Record<string, string | null | undefined>;
+  };
+  theme: unknown;
+  customCss?: string;
+};
+
+export async function saveEditorDraftAction(payload: EditorSavePayload) {
+  const admin = await requireAdmin();
+  const supabase = await createServerSupabase();
+
+  if (payload.deletedSectionIds.length > 0) {
+    const { error } = await supabase.from("sections").delete().in("id", payload.deletedSectionIds);
+    if (error) return { error: "Sektsioonide eemaldamine ebaõnnestus." };
+  }
+
+  for (const page of payload.pages) {
+    const { error } = await supabase
+      .from("pages")
+      .update({
+        title: page.title,
+        nav_label: page.nav_label,
+        show_in_nav: page.show_in_nav,
+        nav_order: page.nav_order,
+      })
+      .eq("id", page.id);
+    if (error) return { error: "Lehe salvestamine ebaõnnestus." };
+  }
+
+  if (payload.sections.length > 0) {
+    const { error } = await supabase.from("sections").upsert(
+      payload.sections.map((section) => ({
+        id: section.id,
+        page_id: section.page_id,
+        section_key: section.section_key,
+        section_type: section.section_type,
+        sort_order: section.sort_order,
+        enabled: section.enabled,
+        content: section.content,
+        style: section.style,
+      })),
+      { onConflict: "id" },
+    );
+    if (error) return { error: "Sektsioonide salvestamine ebaõnnestus." };
+  }
+
+  for (const offering of payload.offerings) {
+    const { error } = await supabase.from("offerings").update(offering).eq("id", offering.id);
+    if (error) return { error: "Tundide salvestamine ebaõnnestus." };
+  }
+
+  for (const item of payload.media) {
+    const { error } = await supabase
+      .from("media")
+      .update({ alt_text: item.alt_text, focal_x: item.focal_x, focal_y: item.focal_y })
+      .eq("id", item.id);
+    if (error) return { error: "Pildi salvestamine ebaõnnestus." };
+  }
+
+  const { error: settingsError } = await supabase.from("site_settings").update(payload.settings).eq("id", 1);
+  if (settingsError) return { error: "Seadete salvestamine ebaõnnestus." };
+
+  const { error: themeError } = await supabase.from("theme_settings").update({ tokens: parseTheme(payload.theme) }).eq("id", 1);
+  if (themeError) return { error: "Välimuse salvestamine ebaõnnestus." };
+
+  if (typeof payload.customCss === "string") {
+    if (admin.role !== "owner") return { error: "Ainult omanik saab muuta täiendavat CSS-i." };
+    const { error } = await supabase
+      .from("advanced_style_settings")
+      .update({ custom_css: payload.customCss, updated_by: admin.id })
+      .eq("id", 1);
+    if (error) return { error: "CSS-i salvestamine ebaõnnestus." };
+  }
+
+  revalidatePath("/", "layout");
   return { ok: true };
 }

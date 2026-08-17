@@ -6,7 +6,7 @@ import { themeToCssVars } from "@/lib/theme/theme";
 
 export default async function AdminEntryPage() {
   const admin = await getAdminUser();
-  if (admin) redirect("/admin/sisu");
+  if (admin) redirect("/admin/editor");
 
   const [exists, theme] = await Promise.all([adminExists(), getTheme()]);
 

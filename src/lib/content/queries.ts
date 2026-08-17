@@ -149,6 +149,51 @@ export async function getMediaByIds(ids: string[]): Promise<Record<string, Media
 
 export { mediaPublicUrl } from "@/lib/utils/urls";
 
+export async function getEditorBundle() {
+  const supabase = await createServerSupabase();
+  const [pagesRes, sectionsRes, offeringsRes, eventsRes, mediaRes] = await Promise.all([
+    supabase.from("pages").select("*").order("nav_order", { ascending: true }),
+    supabase.from("sections").select("*").order("sort_order", { ascending: true }),
+    supabase.from("offerings").select("*"),
+    supabase.from("events").select("*").order("sort_order", { ascending: true }),
+    supabase.from("media").select("*").order("created_at", { ascending: false }),
+  ]);
+
+  const pages = (pagesRes.data ?? []) as PageRow[];
+  const sections = (sectionsRes.data ?? []) as SectionRow[];
+  const sectionsByPage: Record<string, SectionRow[]> = {};
+  for (const section of sections) {
+    sectionsByPage[section.page_id] ??= [];
+    sectionsByPage[section.page_id].push(section);
+  }
+
+  const offerings: Record<string, OfferingRow> = {};
+  for (const row of (offeringsRes.data ?? []) as OfferingRow[]) offerings[row.id] = row;
+
+  const eventsByOffering: Record<string, EventRow[]> = {};
+  for (const event of (eventsRes.data ?? []) as EventRow[]) {
+    eventsByOffering[event.offering_id] ??= [];
+    eventsByOffering[event.offering_id].push(event);
+  }
+
+  const media: Record<string, MediaRow> = {};
+  for (const row of (mediaRes.data ?? []) as MediaRow[]) media[row.id] = row;
+
+  const [settings, theme, customCss] = await Promise.all([getSiteSettings(), getTheme(), getCustomCss()]);
+
+  return {
+    pages,
+    sectionsByPage,
+    offerings,
+    eventsByOffering,
+    media,
+    settings,
+    theme,
+    customCss,
+    deletedSectionIds: [] as string[],
+  };
+}
+
 export function collectMediaIds(sections: SectionRow[]): string[] {
   const ids: string[] = [];
   for (const section of sections) {

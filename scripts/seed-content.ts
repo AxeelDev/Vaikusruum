@@ -161,7 +161,7 @@ async function main() {
         id: O.gong,
         slug: "pehme-jooga-ja-gong",
         title: "Pehme jooga ja gong",
-        short_title: "Pehme jooga ja gong",
+        short_title: "Pehme jooga ja lõõgastus Veenuse gongiga",
         location_name: "Üksmaja Ladvaruum",
         address: "Valdeku 66, Tallinn",
         schedule_summary: "2 x kuus esmaspäeviti kell 19:00–20:30",
@@ -221,8 +221,8 @@ async function main() {
       section_type: "hero",
       sort_order: 1,
       enabled: true,
-      content: { intro: HERO_INTRO, showEmblem: true },
-      style: { background: "warm", minHeight: "viewport", specks: true },
+      content: { intro: HERO_INTRO, showEmblem: true, title: "VAIKUSRUUM" },
+      style: { background: "warm", height: "screen", verticalAlign: "center", specks: true },
     },
     {
       page_id: P.avaleht,
@@ -231,7 +231,7 @@ async function main() {
       sort_order: 2,
       enabled: true,
       content: { plain: MIINA_INTRO },
-      style: { background: "main", layout: "image-left", specks: true, mobileOrder: "image-first" },
+      style: { background: "main", layout: "image-left", height: "screen", verticalAlign: "center", specks: true, mobileOrder: "image-first" },
     },
     {
       page_id: P.avaleht,
@@ -240,7 +240,7 @@ async function main() {
       sort_order: 3,
       enabled: true,
       content: { body: paragraphs(YOGA_TEXT) },
-      style: { background: "soft", layout: "centered", specks: true },
+      style: { background: "soft", layout: "centered", height: "screen", verticalAlign: "center", specks: true },
     },
     {
       page_id: P.avaleht,
@@ -249,7 +249,7 @@ async function main() {
       sort_order: 4,
       enabled: true,
       content: { offeringIds: [O.kundalini, O.gong], moreInfoLabel: "rohkem infot" },
-      style: { background: "main", layout: "text-only", specks: true },
+      style: { background: "main", layout: "image-right", height: "screen", verticalAlign: "center", specks: true },
     },
     {
       page_id: P.avaleht,
@@ -258,7 +258,7 @@ async function main() {
       sort_order: 5,
       enabled: true,
       content: { label: "Eratunnid kokkuleppel", actionLabel: "Võta ühendust" },
-      style: { background: "warm", specks: true, minHeight: "compact" },
+      style: { background: "warm", specks: true, height: "large", verticalAlign: "center" },
     },
     {
       page_id: P.avaleht,
@@ -267,7 +267,7 @@ async function main() {
       sort_order: 6,
       enabled: true,
       content: { heading: "VÕTA KONTAKTI" },
-      style: { background: "warm", layout: "text-only", specks: true },
+      style: { background: "warm", layout: "text-only", height: "screen", verticalAlign: "center", specks: true },
     },
     {
       page_id: P.kundalini,

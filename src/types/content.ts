@@ -42,17 +42,49 @@ export type SectionRow = {
   updated_at: string;
 };
 
+export type HeightPreset = "screen" | "large" | "auto";
+export type VerticalAlign = "start" | "center" | "end";
+export type TextAlign = "left" | "center" | "right";
+export type ColumnBalance = "40-60" | "50-50" | "60-40";
+export type ImageCrop = "original" | "landscape" | "portrait" | "square";
+export type TextRole = "h1" | "h2" | "h3" | "p";
+
+export type TextAppearance = {
+  role?: TextRole;
+  color?: string;
+  fontId?: string;
+  size?: number;
+  weight?: number;
+  lineHeight?: number;
+  letterSpacing?: number;
+  align?: TextAlign;
+  width?: number;
+};
+
+export type ImageAppearance = {
+  crop?: ImageCrop;
+  width?: number;
+  radius?: number;
+  align?: "left" | "right" | "center";
+};
+
 export type SectionStyle = {
   background?: "main" | "warm" | "soft";
   layout?: "image-left" | "image-right" | "text-only" | "image-only" | "centered";
-  verticalAlign?: "start" | "center";
-  textAlign?: "left" | "center";
+  verticalAlign?: VerticalAlign;
+  textAlign?: TextAlign;
+  height?: HeightPreset;
   minHeight?: "none" | "compact" | "viewport";
   specks?: boolean;
   mediaId?: string | null;
   mobileOrder?: "image-first" | "text-first";
   topSpace?: number | null;
   bottomSpace?: number | null;
+  contentWidth?: number | null;
+  splitGap?: number | null;
+  columnBalance?: ColumnBalance;
+  fieldStyles?: Record<string, TextAppearance>;
+  image?: ImageAppearance;
 };
 
 export type OfferingRow = {
