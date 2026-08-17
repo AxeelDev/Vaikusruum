@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { saveEditorDraftAction, type EditorSavePayload } from "@/lib/actions/admin";
-import { cloneDraft, createSection, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
+import { cloneDraft, createSection, duplicateSection as cloneSectionRow, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
 import { mergeFieldStyle } from "@/lib/editor/appearance";
 import type { AddableSectionType, EditorDraft, EditorSelection, EditorState, InspectorTab } from "@/lib/editor/types";
 import type { AdminRole, MediaRow, OfferingRow, SectionRow, TextAppearance } from "@/types/content";
@@ -25,6 +25,16 @@ export type EditPath =
   | { kind: "faq"; sectionId: string; index: number; field: "question" | "answer" }
   | { kind: "list-item"; sectionId: string; index: number }
   | { kind: "testimonial"; sectionId: string; index: number; field: "quote" | "name" };
+
+export type PagePatch = Partial<{
+  title: string;
+  nav_label: string | null;
+  show_in_nav: boolean;
+  slug: string;
+  is_published: boolean;
+  seo_title: string | null;
+  seo_description: string | null;
+}>;
 
 type EditorApi = {
   state: EditorState;
@@ -43,15 +53,21 @@ type EditorApi = {
   patchSection: (sectionId: string, updater: (section: SectionRow) => SectionRow, record?: boolean) => void;
   patchTheme: (patch: Partial<ThemeTokens>, record?: boolean) => void;
   patchMedia: (id: string, patch: Partial<MediaRow>, record?: boolean) => void;
-  patchPage: (id: string, patch: Partial<{ title: string; nav_label: string | null; show_in_nav: boolean }>, record?: boolean) => void;
+  patchPage: (id: string, patch: PagePatch, record?: boolean) => void;
   patchFieldStyle: (sectionId: string, field: string, patch: Partial<TextAppearance>, record?: boolean) => void;
   switchPage: (pageId: string) => void;
+  switchPageBySlug: (slug: string) => boolean;
+  requestSwitchPage: (pageId: string) => void;
+  requestSwitchPageBySlug: (slug: string) => boolean;
+  confirmPendingPage: (mode: "save" | "discard") => Promise<void>;
+  cancelPendingPage: () => void;
   addSection: (type: AddableSectionType) => void;
   moveSection: (sectionId: string, direction: -1 | 1) => void;
+  duplicateSection: (sectionId: string) => void;
   removeSection: (sectionId: string) => void;
   undo: () => void;
   redo: () => void;
-  save: () => Promise<void>;
+  save: () => Promise<boolean>;
 };
 
 const StateContext = createContext<EditorState | null>(null);
@@ -90,6 +106,9 @@ export function EditorProvider({
   const [themePanel, setThemePanel] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveFlash, setSaveFlash] = useState(false);
+  const saveFlashTimer = useRef<number | null>(null);
+  const [pendingPageId, setPendingPageId] = useState<string | null>(null);
 
   const dirty = JSON.stringify(draft) !== saved;
 
@@ -189,7 +208,7 @@ export function EditorProvider({
   );
 
   const patchPage = useCallback(
-    (id: string, patch: Partial<{ title: string; nav_label: string | null; show_in_nav: boolean }>, record = true) => {
+    (id: string, patch: PagePatch, record = true) => {
       applyDraft(
         {
           ...cloneDraft(draft),
@@ -215,7 +234,44 @@ export function EditorProvider({
     setPageId(nextPageId);
     setSelected(null);
     setInlineEditingId(null);
+    setThemePanel(false);
+    setInspectorTab("content");
+    setInspectorOpen(true);
   }, []);
+
+  const switchPageBySlug = useCallback(
+    (slug: string) => {
+      const page = draft.pages.find((item) => item.slug === slug);
+      if (!page) return false;
+      if (page.id !== pageId) switchPage(page.id);
+      return true;
+    },
+    [draft.pages, pageId, switchPage],
+  );
+
+  const requestSwitchPage = useCallback(
+    (nextPageId: string) => {
+      if (nextPageId === pageId) return;
+      if (JSON.stringify(draft) !== saved) {
+        setPendingPageId(nextPageId);
+        return;
+      }
+      switchPage(nextPageId);
+    },
+    [draft, pageId, saved, switchPage],
+  );
+
+  const requestSwitchPageBySlug = useCallback(
+    (slug: string) => {
+      const page = draft.pages.find((item) => item.slug === slug);
+      if (!page) return false;
+      requestSwitchPage(page.id);
+      return true;
+    },
+    [draft.pages, requestSwitchPage],
+  );
+
+  const cancelPendingPage = useCallback(() => setPendingPageId(null), []);
 
   const addSection = useCallback(
     (type: AddableSectionType) => {
@@ -232,6 +288,22 @@ export function EditorProvider({
       select({ id: `section.${created.id}`, type: "section", sectionId: created.id });
     },
     [applyDraft, draft, pageId, select, selected?.sectionId],
+  );
+
+  const duplicateSection = useCallback(
+    (sectionId: string) => {
+      const current = pageSections(draft, pageId);
+      const index = current.findIndex((section) => section.id === sectionId);
+      if (index < 0) return;
+      const created = cloneSectionRow(current[index], index + 2);
+      const nextSections = [...current];
+      nextSections.splice(index + 1, 0, created);
+      const next = cloneDraft(draft);
+      next.sectionsByPage[pageId] = nextSections.map((section, i) => ({ ...section, sort_order: i + 1 }));
+      applyDraft(next, true);
+      select({ id: `section.${created.id}`, type: "section", sectionId: created.id });
+    },
+    [applyDraft, draft, pageId, select],
   );
 
   const moveSection = useCallback(
@@ -284,6 +356,10 @@ export function EditorProvider({
         nav_label: page.nav_label,
         show_in_nav: page.show_in_nav,
         nav_order: page.nav_order,
+        slug: page.slug,
+        is_published: page.is_published,
+        seo_title: page.seo_title,
+        seo_description: page.seo_description,
       })),
       sections: Object.values(draft.sectionsByPage)
         .flat()
@@ -326,12 +402,30 @@ export function EditorProvider({
     setSaving(false);
     if (result && "error" in result && result.error) {
       setSaveError(result.error);
-      return;
+      return false;
     }
     const cleaned = { ...draft, deletedSectionIds: [] };
     setDraft(cleaned);
     setSaved(JSON.stringify(cleaned));
+    setSaveFlash(true);
+    if (saveFlashTimer.current) window.clearTimeout(saveFlashTimer.current);
+    saveFlashTimer.current = window.setTimeout(() => setSaveFlash(false), 2500);
+    return true;
   }, [draft, role]);
+
+  const confirmPendingPage = useCallback(
+    async (mode: "save" | "discard") => {
+      const nextId = pendingPageId;
+      if (!nextId) return;
+      if (mode === "save") {
+        const ok = await save();
+        if (!ok) return;
+      }
+      setPendingPageId(null);
+      switchPage(nextId);
+    },
+    [pendingPageId, save, switchPage],
+  );
 
   const state: EditorState = useMemo(
     () => ({
@@ -349,7 +443,9 @@ export function EditorProvider({
       advanced,
       saving,
       saveError,
+      saveFlash,
       themePanel,
+      pendingPageId,
     }),
     [
       advanced,
@@ -362,8 +458,10 @@ export function EditorProvider({
       inspectorOpen,
       inspectorTab,
       pageId,
+      pendingPageId,
       preview,
       saveError,
+      saveFlash,
       saving,
       selected,
       themePanel,
@@ -399,8 +497,14 @@ export function EditorProvider({
       patchPage,
       patchFieldStyle,
       switchPage,
+      switchPageBySlug,
+      requestSwitchPage,
+      requestSwitchPageBySlug,
+      confirmPendingPage,
+      cancelPendingPage,
       addSection,
       moveSection,
+      duplicateSection,
       removeSection,
       undo,
       redo,
@@ -408,7 +512,10 @@ export function EditorProvider({
     }),
     [
       addSection,
+      cancelPendingPage,
+      confirmPendingPage,
       deselect,
+      duplicateSection,
       moveSection,
       patchFieldStyle,
       patchMedia,
@@ -417,11 +524,14 @@ export function EditorProvider({
       patchTheme,
       redo,
       removeSection,
+      requestSwitchPage,
+      requestSwitchPageBySlug,
       role,
       save,
       select,
       setPath,
       switchPage,
+      switchPageBySlug,
       undo,
     ],
   );

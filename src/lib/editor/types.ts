@@ -59,7 +59,9 @@ export type EditorState = {
   advanced: boolean;
   saving: boolean;
   saveError: string | null;
+  saveFlash: boolean;
   themePanel: boolean;
+  pendingPageId: string | null;
 };
 
 export type AddableSectionType = Extract<

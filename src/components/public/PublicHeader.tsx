@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { EditableText } from "@/components/site/Editable";
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
 import type { NavItem } from "@/types/content";
+
+const NAV_HINT = "Klõpsa lehe avamiseks · Shift-klõps muutmiseks";
 
 export function PublicHeader({
   items,
@@ -29,6 +31,23 @@ export function PublicHeader({
     };
   }, [open]);
 
+  function onNavClick(event: MouseEvent<HTMLAnchorElement>, slug: string) {
+    if (!editor) return;
+    event.preventDefault();
+    if (event.shiftKey && !editor.state.preview) {
+      event.stopPropagation();
+      editor.select({
+        id: `header.nav.${slug}`,
+        type: "nav",
+        navSlug: slug,
+        field: "nav_label",
+      });
+      return;
+    }
+    editor.requestSwitchPageBySlug(slug);
+    setMenuPath(null);
+  }
+
   return (
     <header
       className="vr-header"
@@ -36,18 +55,32 @@ export function PublicHeader({
       data-vr-editable={editor && !editor.state.preview ? "" : undefined}
       data-vr-selected={editor?.state.selected?.id === "header.bar" ? "" : undefined}
       onClick={(event) => {
-        if (!editor) return;
+        if (!editor || editor.state.preview) return;
         if (event.target !== event.currentTarget) return;
         editor.select({ id: "header.bar", type: "header" });
       }}
     >
-      <Link href="/" className="vr-wordmark vr-wordmark--header">
+      <Link
+        href="/"
+        className="vr-wordmark vr-wordmark--header"
+        title={editor && !editor.state.preview ? NAV_HINT : undefined}
+        onClick={(event) => {
+          if (!editor) return;
+          event.preventDefault();
+          if (event.shiftKey && !editor.state.preview) {
+            editor.select({ id: "header.wordmark", type: "text", field: "site_name" });
+            return;
+          }
+          editor.requestSwitchPageBySlug("avaleht");
+        }}
+      >
         <EditableText
           as="span"
           className="vr-wordmark vr-wordmark--header"
           selection={{ id: "header.wordmark", type: "text", field: "site_name" }}
           path={{ kind: "settings", key: "site_name" }}
           value={siteName}
+          clickMode="defer"
         />
       </Link>
       <nav className="vr-nav" aria-label="Peamenüü">
@@ -56,16 +89,8 @@ export function PublicHeader({
             key={item.slug}
             href={item.href}
             aria-current={current === item.href ? "page" : undefined}
-            onClick={(event) => {
-              if (!editor) return;
-              event.preventDefault();
-              editor.select({
-                id: `header.nav.${item.slug}`,
-                type: "nav",
-                navSlug: item.slug,
-                field: "nav_label",
-              });
-            }}
+            title={editor && !editor.state.preview ? NAV_HINT : undefined}
+            onClick={(event) => onNavClick(event, item.slug)}
           >
             <EditableText
               as="span"
@@ -85,7 +110,12 @@ export function PublicHeader({
         </button>
         <nav aria-label="Mobiilimenüü">
           {items.map((item) => (
-            <Link key={item.slug} href={item.href}>
+            <Link
+              key={item.slug}
+              href={item.href}
+              title={editor && !editor.state.preview ? NAV_HINT : undefined}
+              onClick={(event) => onNavClick(event, item.slug)}
+            >
               {item.label}
             </Link>
           ))}

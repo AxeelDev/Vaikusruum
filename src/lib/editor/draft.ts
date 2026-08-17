@@ -81,6 +81,19 @@ export function createSection(pageId: string, type: AddableSectionType, sortOrde
   };
 }
 
+export function duplicateSection(section: SectionRow, sortOrder: number): SectionRow {
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  return {
+    ...structuredClone(section),
+    id,
+    section_key: `${section.section_type}-${id.slice(0, 8)}`,
+    sort_order: sortOrder,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 export function reorderSections(sections: SectionRow[], sectionId: string, direction: -1 | 1): SectionRow[] {
   const ordered = [...sections].sort((a, b) => a.sort_order - b.sort_order);
   const index = ordered.findIndex((section) => section.id === sectionId);

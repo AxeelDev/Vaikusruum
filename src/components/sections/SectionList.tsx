@@ -375,6 +375,7 @@ function SectionView({
                     }}
                     path={{ kind: "section-content", sectionId: section.id, key: "moreInfoLabel" }}
                     value={label}
+                    clickMode="defer"
                   />
                 </Link>
               </p>
@@ -415,12 +416,13 @@ function SectionView({
               appearance={fieldStyle(section, "label")}
             />
             <Link className="vr-cta" href="/kontakt?teema=eratund">
-              <EditableText
-                as="span"
-                selection={{ id: `${prefix}.action`, type: "link", sectionId: section.id, field: "actionLabel" }}
-                path={{ kind: "section-content", sectionId: section.id, key: "actionLabel" }}
-                value={action}
-              />
+                  <EditableText
+                    as="span"
+                    selection={{ id: `${prefix}.action`, type: "link", sectionId: section.id, field: "actionLabel" }}
+                    path={{ kind: "section-content", sectionId: section.id, key: "actionLabel" }}
+                    value={action}
+                    clickMode="defer"
+                  />
             </Link>
           </div>
         </SectionInner>

@@ -17,6 +17,10 @@
   background: color-mix(in srgb, var(--vr-bg-main) 92%, transparent);
 }
 
+.vr-site[data-header-sticky="false"] .vr-header {
+  position: relative;
+}
+
 .vr-header a {
   text-decoration: none;
 }

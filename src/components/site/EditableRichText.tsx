@@ -3,7 +3,7 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
 import { RichText } from "@/components/public/RichText";
 import { emptyDoc } from "@/lib/content/rich-text";
@@ -22,6 +22,13 @@ export function EditableRichText({
   const editorApi = useOptionalEditor();
   const active = editorApi?.state.inlineEditingId === selection.id;
   const selected = editorApi?.state.selected?.id === selection.id && !editorApi.state.preview;
+  const mounted = Boolean(selected || active);
+  const timer = useRef<number | null>(null);
+  const activeRef = useRef(active);
+
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -30,15 +37,34 @@ export function EditableRichText({
       Link.configure({ openOnClick: false, autolink: true }),
     ],
     content: (value as object) ?? emptyDoc(),
+    editable: false,
     onUpdate: ({ editor: instance }) => {
-      if (!editorApi || !selection.sectionId) return;
+      const sectionId = selection.sectionId;
+      if (!editorApi || !sectionId || !activeRef.current) return;
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => {
+        editorApi.setPath(
+          { kind: "section-content", sectionId, key: "body" },
+          instance.getJSON() as TiptapNode,
+          false,
+        );
+      }, 400);
+    },
+    onBlur: ({ editor: instance }) => {
+      const sectionId = selection.sectionId;
+      if (!editorApi || !sectionId || !activeRef.current) return;
+      if (timer.current) window.clearTimeout(timer.current);
       editorApi.setPath(
-        { kind: "section-content", sectionId: selection.sectionId, key: "body" },
+        { kind: "section-content", sectionId, key: "body" },
         instance.getJSON() as TiptapNode,
-        false,
+        true,
       );
     },
   });
+
+  useEffect(() => {
+    editor?.setEditable(Boolean(active));
+  }, [active, editor]);
 
   useEffect(() => {
     if (!editor || active) return;
@@ -51,13 +77,13 @@ export function EditableRichText({
     return <RichText value={value} className={className} />;
   }
 
-  if (!active) {
+  if (!mounted) {
     return (
       <div
         className={className}
         data-vr-edit-id={selection.id}
         data-vr-editable=""
-        data-vr-selected={selected ? "" : undefined}
+        data-vr-selected={undefined}
         onClick={(event) => {
           event.stopPropagation();
           editorApi.select(selection);
@@ -80,8 +106,12 @@ export function EditableRichText({
       data-vr-editable=""
       data-vr-selected=""
       onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        if (!active) editorApi.startInlineEdit(selection.id);
+      }}
     >
-      {editor ? (
+      {editor && active ? (
         <div className="vr-inline-rich-toolbar">
           <button type="button" onClick={() => editor.chain().focus().toggleBold().run()}>
             B
@@ -106,12 +136,6 @@ export function EditableRichText({
             }}
           >
             Link
-          </button>
-          <button type="button" onClick={() => editor.chain().focus().undo().run()}>
-            ↶
-          </button>
-          <button type="button" onClick={() => editor.chain().focus().redo().run()}>
-            ↷
           </button>
         </div>
       ) : null}

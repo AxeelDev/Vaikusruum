@@ -15,6 +15,7 @@ export function SiteView({
   settings,
   nav,
   themeDensity,
+  headerSticky = true,
 }: {
   page: PageRow;
   sections: SectionRow[];
@@ -24,11 +25,12 @@ export function SiteView({
   settings: SiteSettings;
   nav: { href: string; label: string; slug: string }[];
   themeDensity: string;
+  headerSticky?: boolean;
 }) {
   const showTitle = page.slug !== "avaleht" && page.slug !== "kontakt";
 
   return (
-    <div className="vr-site">
+    <div className="vr-site" data-header-sticky={headerSticky ? "true" : "false"}>
       <PublicHeader items={nav} siteName={settings.site_name} currentHref={pageHref(page.slug)} />
       <main className="vr-main">
         {showTitle ? (

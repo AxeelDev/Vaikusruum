@@ -75,6 +75,7 @@ export async function CmsPage({ slug, teema }: { slug: string; teema?: string })
       settings={settings}
       nav={nav.length ? nav : [{ href: pageHref(data.page.slug), label: data.page.nav_label || data.page.title, slug: data.page.slug }]}
       themeDensity={theme.specksDensity}
+      headerSticky={theme.headerSticky}
     />
   );
 }

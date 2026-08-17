@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSection, reorderSections } from "@/lib/editor/draft";
+import { createSection, duplicateSection, reorderSections } from "@/lib/editor/draft";
 import { appearanceToStyle, mergeFieldStyle } from "@/lib/editor/appearance";
 import { resolveHeight, resolveVerticalAlign } from "@/components/layout/primitives";
 import type { SectionRow } from "@/types/content";
@@ -49,6 +49,14 @@ describe("editor draft helpers", () => {
     expect(created.section_type).toBe("faq");
     expect(created.style.height).toBe("screen");
   });
+
+  it("duplicates a section with a new id", () => {
+    const original = createSection("p1", "rich_text", 1);
+    const copy = duplicateSection(original, 2);
+    expect(copy.id).not.toBe(original.id);
+    expect(copy.section_type).toBe("rich_text");
+    expect(copy.sort_order).toBe(2);
+  });
 });
 
 describe("text appearance", () => {
@@ -62,5 +70,12 @@ describe("text appearance", () => {
   it("stores field styles on the section", () => {
     const next = mergeFieldStyle(section({}), "title", { letterSpacing: 0.2 });
     expect(next.style.fieldStyles?.title.letterSpacing).toBe(0.2);
+  });
+
+  it("canonicalizes colors and drops invalid ones", () => {
+    const saved = mergeFieldStyle(section({}), "title", { color: "#fff" });
+    expect(saved.style.fieldStyles?.title.color).toBe("#FFFFFF");
+    const cleared = mergeFieldStyle(saved, "title", { color: "#1234" });
+    expect(cleared.style.fieldStyles?.title.color).toBeUndefined();
   });
 });

@@ -194,7 +194,17 @@ export async function deleteSubmissionAction(id: string) {
 }
 
 export type EditorSavePayload = {
-  pages: Array<{ id: string; title: string; nav_label: string | null; show_in_nav: boolean; nav_order: number }>;
+  pages: Array<{
+    id: string;
+    title: string;
+    nav_label: string | null;
+    show_in_nav: boolean;
+    nav_order: number;
+    slug?: string;
+    is_published?: boolean;
+    seo_title?: string | null;
+    seo_description?: string | null;
+  }>;
   sections: Array<{
     id: string;
     page_id: string;
@@ -236,15 +246,19 @@ export async function saveEditorDraftAction(payload: EditorSavePayload) {
   }
 
   for (const page of payload.pages) {
-    const { error } = await supabase
-      .from("pages")
-      .update({
-        title: page.title,
-        nav_label: page.nav_label,
-        show_in_nav: page.show_in_nav,
-        nav_order: page.nav_order,
-      })
-      .eq("id", page.id);
+    const next: Record<string, unknown> = {
+      title: page.title,
+      nav_label: page.nav_label,
+      show_in_nav: page.show_in_nav,
+      nav_order: page.nav_order,
+    };
+    if (typeof page.is_published === "boolean") next.is_published = page.is_published;
+    if (page.seo_title !== undefined) next.seo_title = page.seo_title;
+    if (page.seo_description !== undefined) next.seo_description = page.seo_description;
+    if (admin.role === "owner" && page.slug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(page.slug)) {
+      next.slug = page.slug;
+    }
+    const { error } = await supabase.from("pages").update(next).eq("id", page.id);
     if (error) return { error: "Lehe salvestamine ebaõnnestus." };
   }
 

@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Inspector } from "@/components/editor/Inspector";
 import { useEditor } from "@/components/editor/EditorProvider";
+import {
+  Chevron,
+  EditorButton,
+  EditorIconButton,
+  EditorSegmented,
+  EditorSpinner,
+  EditorTooltip,
+} from "@/components/editor/ui";
 import { SiteView } from "@/components/site/SiteView";
 import { ADDABLE_SECTIONS, BREAKPOINT_WIDTH } from "@/lib/editor/types";
 import { pageSections } from "@/lib/editor/draft";
+import { hrefToSlug, pageLabel } from "@/lib/editor/pages";
 import { sanitizeCustomCss, themeToCssVars } from "@/lib/theme/theme";
 import { pageHref } from "@/lib/utils/urls";
 
@@ -13,6 +22,9 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
   const editor = useEditor();
   const { state } = editor;
   const [addOpen, setAddOpen] = useState(false);
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [ctx, setCtx] = useState<{ x: number; y: number; sectionId: string } | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const page = state.draft.pages.find((item) => item.id === state.pageId) ?? state.draft.pages[0];
   const sections = page ? pageSections(state.draft, page.id) : [];
   const nav = useMemo(
@@ -27,29 +39,73 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
         })),
     [state.draft.pages],
   );
+  const visiblePages = state.draft.pages.filter((item) => item.show_in_nav && item.is_published);
+  const hiddenPages = state.draft.pages.filter((item) => !item.show_in_nav || !item.is_published);
+
+  useEffect(() => {
+    document.documentElement.classList.add("vr-editor-lock");
+    return () => document.documentElement.classList.remove("vr-editor-lock");
+  }, []);
+
+  useEffect(() => {
+    canvasRef.current?.scrollTo({ top: 0 });
+    setAddOpen(false);
+    setPagesOpen(false);
+    setCtx(null);
+  }, [state.pageId]);
+
+  useEffect(() => {
+    if (!addOpen && !pagesOpen && !ctx) return;
+    function close() {
+      setAddOpen(false);
+      setPagesOpen(false);
+      setCtx(null);
+    }
+    const timer = window.setTimeout(() => window.addEventListener("click", close), 0);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("click", close);
+    };
+  }, [addOpen, ctx, pagesOpen]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typing = Boolean(target?.closest("input, textarea, select, [contenteditable='true']"));
       if (event.key === "Escape") {
+        if (state.preview) {
+          editor.setPreview(false);
+          return;
+        }
         if (state.inlineEditingId) {
           editor.stopInlineEdit();
           return;
         }
         if (state.selected) editor.deselect();
+        return;
+      }
+      if (event.key === "Enter" && !typing && state.selected && !state.inlineEditingId) {
+        const type = state.selected.type;
+        if (type === "text" || type === "nav" || type === "link") {
+          event.preventDefault();
+          editor.startInlineEdit(state.selected.id);
+        }
+        return;
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+        if (typing) return;
         event.preventDefault();
         if (event.shiftKey) editor.redo();
         else editor.undo();
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        void editor.save();
+        if (state.dirty && !state.saving) void editor.save();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editor, state.inlineEditingId, state.selected]);
+  }, [editor, state.dirty, state.inlineEditingId, state.preview, state.saving, state.selected]);
 
   useEffect(() => {
     function onLeave(event: BeforeUnloadEvent) {
@@ -70,93 +126,239 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
     );
   }
 
+  const canUndo = state.historyIndex > 0;
+  const canRedo = state.historyIndex < state.history.length - 1;
+
   return (
     <div className="vr-editor-app" style={themeToCssVars(state.draft.theme)}>
       {state.draft.customCss ? <style>{sanitizeCustomCss(state.draft.customCss)}</style> : null}
-      <div className="vr-editor-root" data-inspector-open={state.inspectorOpen ? "true" : "false"}>
+      <div
+        className="vr-editor-root"
+        data-inspector-open={state.inspectorOpen ? "true" : "false"}
+        data-has-selection={state.selected || state.themePanel ? "true" : "false"}
+      >
         <Inspector />
         <main className="vr-editor-workspace">
-        <div className="vr-editor-toolbar">
-          <div className="vr-editor-tools">
-            <div className="vr-editor-add">
-              <button type="button" aria-label="Lisa sektsioon" onClick={() => setAddOpen((open) => !open)}>
-                +
-              </button>
-              {addOpen ? (
-                <div className="vr-editor-menu">
-                  {ADDABLE_SECTIONS.map((item) => (
-                    <button
-                      key={item.type}
-                      type="button"
-                      onClick={() => {
-                        editor.addSection(item.type);
-                        setAddOpen(false);
-                      }}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
+          <div className="vr-editor-toolbar">
+            <div className="vr-editor-tools-left">
+              <div className="vr-editor-add">
+                <EditorTooltip label="Lisa sektsioon">
+                  <EditorIconButton ariaLabel="Lisa sektsioon" onClick={() => setAddOpen((open) => !open)}>
+                    +
+                  </EditorIconButton>
+                </EditorTooltip>
+                {addOpen ? (
+                  <div className="vr-editor-menu" onClick={(event) => event.stopPropagation()}>
+                    {ADDABLE_SECTIONS.map((item) => (
+                      <button
+                        key={item.type}
+                        type="button"
+                        onClick={() => {
+                          editor.addSection(item.type);
+                          setAddOpen(false);
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <EditorTooltip label="Võta tagasi">
+                <EditorIconButton ariaLabel="Võta tagasi" disabled={!canUndo} onClick={() => editor.undo()}>
+                  ↶
+                </EditorIconButton>
+              </EditorTooltip>
+              <EditorTooltip label="Tee uuesti">
+                <EditorIconButton ariaLabel="Tee uuesti" disabled={!canRedo} onClick={() => editor.redo()}>
+                  ↷
+                </EditorIconButton>
+              </EditorTooltip>
+            </div>
+            <div className="vr-editor-tools-mid">
+              <div className="vr-editor-pagepicker">
+                <EditorButton variant="secondary" onClick={() => setPagesOpen((open) => !open)}>
+                  {pageLabel(page)}
+                  <Chevron />
+                </EditorButton>
+                {pagesOpen ? (
+                  <div className="vr-editor-menu" onClick={(event) => event.stopPropagation()}>
+                    {visiblePages.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          editor.requestSwitchPage(item.id);
+                          setPagesOpen(false);
+                        }}
+                      >
+                        {pageLabel(item)}
+                      </button>
+                    ))}
+                    {hiddenPages.length ? (
+                      <>
+                        <hr className="vr-ed-divider" />
+                        {hiddenPages.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              editor.requestSwitchPage(item.id);
+                              setPagesOpen(false);
+                            }}
+                          >
+                            {pageLabel(item)}
+                            <span className="vr-ed-muted">peidetud</span>
+                          </button>
+                        ))}
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="vr-editor-tools-right">
+              <EditorSegmented
+                value={state.breakpoint}
+                options={[
+                  { value: "desktop", label: "Desktop" },
+                  { value: "tablet", label: "Tahvel" },
+                  { value: "mobile", label: "Mobiil" },
+                ]}
+                onChange={(value) => editor.setBreakpoint(value)}
+              />
+              <EditorButton variant="secondary" onClick={() => editor.setPreview(!state.preview)}>
+                {state.preview ? "Tagasi muutma" : "Eelvaade"}
+              </EditorButton>
+              {state.dirty ? (
+                <span className="vr-editor-status">
+                  <span className="vr-editor-status-dot" />
+                  Salvestamata
+                </span>
+              ) : state.saveFlash ? (
+                <span className="vr-editor-status">✓ Salvestatud</span>
               ) : null}
+              <EditorButton
+                variant="primary"
+                disabled={state.saving || !state.dirty}
+                onClick={() => void editor.save()}
+              >
+                {state.saving ? <EditorSpinner /> : null}
+                {state.saving ? "Salvestan…" : "Salvesta"}
+              </EditorButton>
             </div>
-            <button type="button" aria-label="Võta tagasi" disabled={state.historyIndex <= 0} onClick={() => editor.undo()}>
-              ↶
-            </button>
-            <button
-              type="button"
-              aria-label="Tee uuesti"
-              disabled={state.historyIndex >= state.history.length - 1}
-              onClick={() => editor.redo()}
-            >
-              ↷
-            </button>
-            <div className="vr-editor-breakpoints">
-              <button type="button" className={state.breakpoint === "desktop" ? "is-active" : ""} onClick={() => editor.setBreakpoint("desktop")}>
-                Desktop
-              </button>
-              <button type="button" className={state.breakpoint === "tablet" ? "is-active" : ""} onClick={() => editor.setBreakpoint("tablet")}>
-                Tahvel
-              </button>
-              <button type="button" className={state.breakpoint === "mobile" ? "is-active" : ""} onClick={() => editor.setBreakpoint("mobile")}>
-                Mobiil
-              </button>
-            </div>
-            <button type="button" className={state.preview ? "is-active" : ""} onClick={() => editor.setPreview(!state.preview)}>
-              Eelvaade
-            </button>
-            {state.dirty ? <span className="vr-editor-dirty">Salvestamata muudatused</span> : null}
-            <button type="button" className="vr-cta vr-editor-save" disabled={state.saving || !state.dirty} onClick={() => void editor.save()}>
-              {state.saving ? "Salvestan…" : "Salvesta"}
-            </button>
           </div>
-        </div>
-        {state.saveError ? <p className="vr-form-error vr-editor-error">{state.saveError}</p> : null}
-        <div className={`vr-editor-canvas vr-editor-canvas--${state.breakpoint}${state.preview ? " is-preview" : ""}`}>
+          {state.saveError ? <p className="vr-form-error vr-editor-error">{state.saveError}</p> : null}
           <div
-            className="vr-editor-frame"
-            style={{ width: BREAKPOINT_WIDTH[state.breakpoint] }}
+            ref={canvasRef}
+            className={`vr-editor-canvas vr-editor-canvas--${state.breakpoint}${state.preview ? " is-preview" : ""}`}
+            data-vr-edit-mode={state.preview ? "false" : "true"}
+            onContextMenu={(event) => {
+              if (state.preview) return;
+              const target = (event.target as HTMLElement).closest("[data-vr-edit-id]");
+              const id = target?.getAttribute("data-vr-edit-id") ?? "";
+              if (!id.startsWith("section.")) return;
+              event.preventDefault();
+              setCtx({ x: event.clientX, y: event.clientY, sectionId: id.slice("section.".length) });
+            }}
             onClickCapture={(event) => {
               const target = event.target as HTMLElement;
-              if (target.closest("a, button[type='submit']")) {
+              const link = target.closest("a");
+              if (link) {
                 event.preventDefault();
+                if (event.shiftKey || state.preview) return;
+                if (target.closest(".vr-nav, .vr-wordmark--header, .vr-menu-overlay")) return;
+                const href = link.getAttribute("href");
+                if (!href) return;
+                const slug = hrefToSlug(href);
+                if (slug) editor.requestSwitchPageBySlug(slug);
               }
+              if (target.closest("button[type='submit']")) event.preventDefault();
             }}
             onSubmitCapture={(event) => event.preventDefault()}
           >
-            <SiteView
-              page={page}
-              sections={sections}
-              offerings={state.draft.offerings}
-              eventsByOffering={state.draft.eventsByOffering}
-              media={state.draft.media}
-              settings={state.draft.settings}
-              nav={nav}
-              themeDensity={state.draft.theme.specksDensity}
-            />
+            <div className="vr-editor-frame" style={{ width: BREAKPOINT_WIDTH[state.breakpoint] }}>
+              <SiteView
+                page={page}
+                sections={sections}
+                offerings={state.draft.offerings}
+                eventsByOffering={state.draft.eventsByOffering}
+                media={state.draft.media}
+                settings={state.draft.settings}
+                nav={nav}
+                themeDensity={state.draft.theme.specksDensity}
+                headerSticky={state.draft.theme.headerSticky}
+              />
+            </div>
+          </div>
+        </main>
+      </div>
+      {state.pendingPageId ? (
+        <div className="vr-ed-modal-backdrop">
+          <div className="vr-ed-modal" role="dialog" aria-modal="true">
+            <p>Sul on salvestamata muudatusi.</p>
+            <div className="vr-ed-modal-actions">
+              <EditorButton variant="ghost" onClick={() => editor.cancelPendingPage()}>
+                Tagasi
+              </EditorButton>
+              <EditorButton variant="secondary" onClick={() => void editor.confirmPendingPage("discard")}>
+                Ava salvestamata
+              </EditorButton>
+              <EditorButton variant="primary" onClick={() => void editor.confirmPendingPage("save")}>
+                Salvesta ja ava
+              </EditorButton>
+            </div>
           </div>
         </div>
-      </main>
-      </div>
+      ) : null}
+      {ctx ? (
+        <div className="vr-ed-ctx" style={{ left: ctx.x, top: ctx.y }} onClick={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => {
+              editor.select({ id: `section.${ctx.sectionId}`, type: "section", sectionId: ctx.sectionId });
+              editor.setTab("content");
+              setCtx(null);
+            }}
+          >
+            Muuda
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              editor.duplicateSection(ctx.sectionId);
+              setCtx(null);
+            }}
+          >
+            Dubleeri
+          </button>
+          <button type="button" onClick={() => { editor.moveSection(ctx.sectionId, -1); setCtx(null); }}>
+            Liiguta üles
+          </button>
+          <button type="button" onClick={() => { editor.moveSection(ctx.sectionId, 1); setCtx(null); }}>
+            Liiguta alla
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              editor.patchSection(ctx.sectionId, (row) => ({ ...row, enabled: !row.enabled }));
+              setCtx(null);
+            }}
+          >
+            Peida
+          </button>
+          <button
+            type="button"
+            className="vr-ed-danger"
+            onClick={() => {
+              editor.removeSection(ctx.sectionId);
+              setCtx(null);
+            }}
+          >
+            Kustuta
+          </button>
+        </div>
+      ) : null}
       {debug ? (
         <EditorDebug
           pageSlug={page.slug}

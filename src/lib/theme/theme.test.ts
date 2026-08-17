@@ -15,7 +15,7 @@ describe("parseTheme", () => {
 
   it("rejects invalid colors", () => {
     expect(parseTheme({ bgMain: "red" }).bgMain).toBe(DEFAULT_THEME.bgMain);
-    expect(parseTheme({ bgMain: "#fff" }).bgMain).toBe("#fff");
+    expect(parseTheme({ bgMain: "#fff" }).bgMain).toBe("#FFFFFF");
   });
 
   it("accepts curated fonts only", () => {

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { parseColorToHex } from "@/lib/editor/color";
 import { fontCssById } from "@/lib/theme/theme";
 import type { ImageCrop, SectionRow, TextAppearance } from "@/types/content";
 
@@ -9,7 +10,8 @@ export function fieldStyle(section: SectionRow | undefined, field: string): Text
 export function appearanceToStyle(appearance?: TextAppearance): CSSProperties {
   if (!appearance) return {};
   const style: CSSProperties = {};
-  if (appearance.color) style.color = appearance.color;
+  const color = parseColorToHex(appearance.color);
+  if (color) style.color = color;
   const font = fontCssById(appearance.fontId);
   if (font) style.fontFamily = font;
   if (typeof appearance.size === "number") style.fontSize = `${appearance.size}px`;
@@ -37,13 +39,19 @@ export function mergeFieldStyle(
   patch: Partial<TextAppearance>,
 ): SectionRow {
   const current = fieldStyle(section, field) ?? {};
+  const next = { ...current, ...patch };
+  if (patch.color !== undefined) {
+    const color = parseColorToHex(patch.color);
+    if (color) next.color = color;
+    else delete next.color;
+  }
   return {
     ...section,
     style: {
       ...section.style,
       fieldStyles: {
         ...section.style?.fieldStyles,
-        [field]: { ...current, ...patch },
+        [field]: next,
       },
     },
   };

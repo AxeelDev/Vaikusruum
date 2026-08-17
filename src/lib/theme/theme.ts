@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { canonicalizeHex } from "@/lib/editor/color";
 
 export const DISPLAY_FONTS = [
   { id: "cormorant", label: "Cormorant Garamond", css: "var(--font-cormorant), 'Times New Roman', serif" },
@@ -57,6 +58,7 @@ export type ThemeTokens = {
   specksOpacity: number;
   specksDensity: SpeckDensity;
   specksColor: string;
+  headerSticky: boolean;
 };
 
 export const DEFAULT_THEME: ThemeTokens = {
@@ -101,9 +103,8 @@ export const DEFAULT_THEME: ThemeTokens = {
   specksOpacity: 0.28,
   specksDensity: "very-low",
   specksColor: "#A8AAA3",
+  headerSticky: true,
 };
-
-const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 function clamp(n: number, min: number, max: number): number {
   if (!Number.isFinite(n)) return min;
@@ -111,8 +112,11 @@ function clamp(n: number, min: number, max: number): number {
 }
 
 function hex(value: unknown, fallback: string): string {
-  if (typeof value === "string" && HEX.test(value.trim())) return value.trim();
-  return fallback;
+  if (typeof value === "string") {
+    const canonical = canonicalizeHex(value);
+    if (canonical) return canonical;
+  }
+  return canonicalizeHex(fallback) ?? fallback;
 }
 
 function num(value: unknown, fallback: number, min: number, max: number): number {
@@ -169,6 +173,7 @@ export function parseTheme(input: unknown): ThemeTokens {
     specksOpacity: num(raw.specksOpacity, DEFAULT_THEME.specksOpacity, 0, 1),
     specksDensity: density === "off" || density === "low" || density === "very-low" ? density : DEFAULT_THEME.specksDensity,
     specksColor: hex(raw.specksColor, DEFAULT_THEME.specksColor),
+    headerSticky: raw.headerSticky !== false,
   };
 }
 
