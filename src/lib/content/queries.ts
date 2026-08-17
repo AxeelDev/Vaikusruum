@@ -159,7 +159,25 @@ export async function getEditorBundle() {
     supabase.from("media").select("*").order("created_at", { ascending: false }),
   ]);
 
+  const failures = [
+    ["pages", pagesRes.error],
+    ["sections", sectionsRes.error],
+    ["offerings", offeringsRes.error],
+    ["events", eventsRes.error],
+    ["media", mediaRes.error],
+  ] as const;
+  for (const [label, error] of failures) {
+    if (error) {
+      console.error(`[editor] ${label} query failed:`, error.message);
+      throw new Error(`${label} laadimine ebaõnnestus.`);
+    }
+  }
+
   const pages = (pagesRes.data ?? []) as PageRow[];
+  if (pages.length === 0) {
+    throw new Error("Lehti ei leitud.");
+  }
+
   const sections = (sectionsRes.data ?? []) as SectionRow[];
   const sectionsByPage: Record<string, SectionRow[]> = {};
   for (const section of sections) {

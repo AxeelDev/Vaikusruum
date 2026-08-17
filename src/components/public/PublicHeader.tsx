@@ -18,7 +18,8 @@ export function PublicHeader({
 }) {
   const pathname = usePathname();
   const current = currentHref ?? pathname;
-  const [open, setOpen] = useState(false);
+  const [menuPath, setMenuPath] = useState<string | null>(null);
+  const open = menuPath === pathname;
   const editor = useOptionalEditor();
 
   useEffect(() => {
@@ -27,10 +28,6 @@ export function PublicHeader({
       document.body.style.overflow = "";
     };
   }, [open]);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [current]);
 
   return (
     <header
@@ -79,11 +76,11 @@ export function PublicHeader({
           </Link>
         ))}
       </nav>
-      <button type="button" className="vr-menu-toggle" onClick={() => setOpen(true)}>
+      <button type="button" className="vr-menu-toggle" onClick={() => setMenuPath(pathname)}>
         Menüü
       </button>
       <div className={open ? "vr-menu-overlay is-open" : "vr-menu-overlay"} aria-hidden={!open}>
-        <button type="button" className="vr-menu-close" onClick={() => setOpen(false)}>
+        <button type="button" className="vr-menu-close" onClick={() => setMenuPath(null)}>
           Sulge
         </button>
         <nav aria-label="Mobiilimenüü">

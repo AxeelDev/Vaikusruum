@@ -67,7 +67,7 @@ export function BootstrapForm() {
       </label>
       {error ? <p className="vr-form-error">{error}</p> : null}
       <button className="vr-cta" type="submit" disabled={pending}>
-        Loo esimene administraator
+        Loo konto
       </button>
     </form>
   );

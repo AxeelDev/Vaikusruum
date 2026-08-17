@@ -79,7 +79,7 @@ export function EditorProvider({
   const [draft, setDraft] = useState<EditorDraft>(initial);
   const [pageId, setPageId] = useState(home?.id ?? "");
   const [selected, setSelected] = useState<EditorSelection | null>(null);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("content");
   const [breakpoint, setBreakpoint] = useState<EditorState["breakpoint"]>("desktop");
   const [history, setHistory] = useState<EditorDraft[]>(() => [snapshot(initial)]);

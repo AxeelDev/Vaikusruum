@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Inspector } from "@/components/editor/Inspector";
 import { useEditor } from "@/components/editor/EditorProvider";
@@ -9,9 +8,8 @@ import { ADDABLE_SECTIONS, BREAKPOINT_WIDTH } from "@/lib/editor/types";
 import { pageSections } from "@/lib/editor/draft";
 import { sanitizeCustomCss, themeToCssVars } from "@/lib/theme/theme";
 import { pageHref } from "@/lib/utils/urls";
-import { logoutAction } from "@/lib/actions/admin";
 
-export function VisualEditor() {
+export function VisualEditor({ debug = false }: { debug?: boolean }) {
   const editor = useEditor();
   const { state } = editor;
   const [addOpen, setAddOpen] = useState(false);
@@ -63,29 +61,22 @@ export function VisualEditor() {
     return () => window.removeEventListener("beforeunload", onLeave);
   }, [state.dirty]);
 
-  if (!page) return <p>Lehti ei leitud.</p>;
+  if (!page) {
+    return (
+      <div className="vr-editor-boot-error">
+        <p className="vr-wordmark vr-wordmark--header">VAIKUSRUUM</p>
+        <p>Sisu laadimine ebaõnnestus.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className={`vr-editor-shell${state.inspectorOpen ? " is-inspecting" : ""}`} style={themeToCssVars(state.draft.theme)}>
+    <div className="vr-editor-app" style={themeToCssVars(state.draft.theme)}>
       {state.draft.customCss ? <style>{sanitizeCustomCss(state.draft.customCss)}</style> : null}
-      <Inspector />
-      <div className="vr-editor-workspace">
+      <div className="vr-editor-root" data-inspector-open={state.inspectorOpen ? "true" : "false"}>
+        <Inspector />
+        <main className="vr-editor-workspace">
         <div className="vr-editor-toolbar">
-          <select
-            className="vr-editor-pageselect"
-            value={page.id}
-            onChange={(event) => {
-              if (state.dirty && !window.confirm("Salvestamata muudatused. Vahetan lehte?")) return;
-              editor.switchPage(event.target.value);
-            }}
-            aria-label="Leht"
-          >
-            {state.draft.pages.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.nav_label || item.title}
-              </option>
-            ))}
-          </select>
           <div className="vr-editor-tools">
             <div className="vr-editor-add">
               <button type="button" aria-label="Lisa sektsioon" onClick={() => setAddOpen((open) => !open)}>
@@ -119,12 +110,6 @@ export function VisualEditor() {
             >
               ↷
             </button>
-            <button type="button" aria-label="Välimus" onClick={() => editor.setThemePanel(true)}>
-              <Brush />
-            </button>
-            <button type="button" className={state.preview ? "is-active" : ""} onClick={() => editor.setPreview(!state.preview)}>
-              Eelvaade
-            </button>
             <div className="vr-editor-breakpoints">
               <button type="button" className={state.breakpoint === "desktop" ? "is-active" : ""} onClick={() => editor.setBreakpoint("desktop")}>
                 Desktop
@@ -136,14 +121,13 @@ export function VisualEditor() {
                 Mobiil
               </button>
             </div>
+            <button type="button" className={state.preview ? "is-active" : ""} onClick={() => editor.setPreview(!state.preview)}>
+              Eelvaade
+            </button>
             {state.dirty ? <span className="vr-editor-dirty">Salvestamata muudatused</span> : null}
             <button type="button" className="vr-cta vr-editor-save" disabled={state.saving || !state.dirty} onClick={() => void editor.save()}>
               {state.saving ? "Salvestan…" : "Salvesta"}
             </button>
-            <Link href="/admin/sisu">Haldus</Link>
-            <form action={logoutAction}>
-              <button type="submit">Välju</button>
-            </form>
           </div>
         </div>
         {state.saveError ? <p className="vr-form-error vr-editor-error">{state.saveError}</p> : null}
@@ -171,15 +155,56 @@ export function VisualEditor() {
             />
           </div>
         </div>
+      </main>
       </div>
+      {debug ? (
+        <EditorDebug
+          pageSlug={page.slug}
+          selectedId={state.selected?.id ?? null}
+          inspectorOpen={state.inspectorOpen}
+        />
+      ) : null}
     </div>
   );
 }
 
-function Brush() {
+function EditorDebug({
+  pageSlug,
+  selectedId,
+  inspectorOpen,
+}: {
+  pageSlug: string;
+  selectedId: string | null;
+  inspectorOpen: boolean;
+}) {
+  const [metrics, setMetrics] = useState({ sidebar: 0, workspace: 0, canvas: 0, root: 0 });
+
+  useEffect(() => {
+    function measure() {
+      const root = document.querySelector(".vr-editor-root");
+      const sidebar = document.querySelector(".vr-inspector");
+      const workspace = document.querySelector(".vr-editor-workspace");
+      const canvas = document.querySelector(".vr-editor-canvas");
+      setMetrics({
+        root: Math.round(root?.getBoundingClientRect().width ?? 0),
+        sidebar: Math.round(sidebar?.getBoundingClientRect().width ?? 0),
+        workspace: Math.round(workspace?.getBoundingClientRect().width ?? 0),
+        canvas: Math.round(canvas?.getBoundingClientRect().width ?? 0),
+      });
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [inspectorOpen]);
+
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 20c2-1 3-3 3-5 0-3 3-6 7-6 1 0 3 1 4 2l-8 8c-1 1-4 2-6 1Z" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
+    <div className="vr-editor-debug">
+      <div>root: {metrics.root}</div>
+      <div>sidebar: {metrics.sidebar}</div>
+      <div>workspace: {metrics.workspace}</div>
+      <div>canvas: {metrics.canvas}</div>
+      <div>page: {pageSlug}</div>
+      <div>selected: {selectedId ?? "—"}</div>
+    </div>
   );
 }

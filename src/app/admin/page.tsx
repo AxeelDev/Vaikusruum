@@ -14,7 +14,7 @@ export default async function AdminEntryPage() {
     <div className="vr-login" style={themeToCssVars(theme)}>
       <div className="vr-login-box">
         <p className="vr-wordmark vr-wordmark--header">VAIKUSRUUM</p>
-        <h1 className="vr-admin-title">{exists ? "Logi sisse" : "Loo esimene administraator"}</h1>
+        <h1 className="vr-admin-title">{exists ? "Logi sisse" : "Loo administraatori konto"}</h1>
         {exists ? <LoginForm /> : <BootstrapForm />}
       </div>
     </div>

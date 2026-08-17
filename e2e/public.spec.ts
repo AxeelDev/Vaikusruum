@@ -71,7 +71,7 @@ test.describe("public site", () => {
 test.describe("admin entry", () => {
   test("admin shows bootstrap or login, never public signup extras", async ({ page }) => {
     await page.goto("/admin");
-    const bootstrap = page.getByRole("button", { name: "Loo esimene administraator" });
+    const bootstrap = page.getByRole("button", { name: "Loo konto" });
     const login = page.getByRole("button", { name: "Logi sisse" });
     await expect(bootstrap.or(login)).toBeVisible();
     await expect(page.locator("body")).not.toContainText("MFA");

@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEditor } from "@/components/editor/EditorProvider";
+import { logoutAction } from "@/lib/actions/admin";
 import { findSection } from "@/lib/editor/draft";
 import { fieldStyle } from "@/lib/editor/appearance";
 import { ALL_FONTS, DISPLAY_FONTS } from "@/lib/theme/theme";
@@ -66,7 +68,6 @@ function Slider({
 export function Inspector() {
   const editor = useEditor();
   const { state } = editor;
-  if (!state.inspectorOpen) return null;
 
   return (
     <aside className="vr-inspector" aria-label="Redaktor">
@@ -87,6 +88,12 @@ export function Inspector() {
         </button>
       </div>
       {state.themePanel ? <ThemePanel /> : <SelectionPanels />}
+      <div className="vr-inspector-admin">
+        <Link href="/admin/sisu">Haldus</Link>
+        <form action={logoutAction}>
+          <button type="submit">Välju</button>
+        </form>
+      </div>
     </aside>
   );
 }
@@ -96,7 +103,30 @@ function SelectionPanels() {
   const tab = editor.state.inspectorTab;
   const selected = editor.state.selected;
   if (!selected) {
-    return <p className="vr-inspector-empty">Klõpsa lehel olevat elementi.</p>;
+    const page = editor.state.draft.pages.find((item) => item.id === editor.state.pageId);
+    return (
+      <div className="vr-inspector-empty">
+        <p className="vr-inspector-kicker">Leht</p>
+        <label className="vr-inspector-field">
+          <span>Leht</span>
+          <select
+            value={editor.state.pageId}
+            onChange={(event) => {
+              if (editor.state.dirty && !window.confirm("Salvestamata muudatused. Vahetan lehte?")) return;
+              editor.switchPage(event.target.value);
+            }}
+          >
+            {editor.state.draft.pages.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.nav_label || item.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p>{page?.nav_label || page?.title || "Avaleht"}</p>
+        <p>Klõpsa lehel mõnel elemendil, et selle sisu või välimust muuta.</p>
+      </div>
+    );
   }
   if (tab === "appearance") return <AppearancePanel />;
   if (tab === "layout") return selected.type === "image" ? <ImagePanel /> : <SectionPanel />;
