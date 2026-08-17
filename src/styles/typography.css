@@ -1,0 +1,74 @@
+.vr-wordmark {
+  font-family: var(--vr-font-wordmark);
+  font-weight: 400;
+  font-size: var(--vr-wordmark-size);
+  letter-spacing: var(--vr-wordmark-tracking);
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: var(--vr-text);
+}
+
+.vr-wordmark--header {
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+  letter-spacing: clamp(0.14em, 0.2em, var(--vr-wordmark-tracking));
+}
+
+.vr-wordmark--hero {
+  font-size: clamp(2.1rem, 5.2vw, calc(var(--vr-wordmark-size) * 1.15));
+}
+
+.vr-page-title {
+  font-family: var(--vr-font-display);
+  font-weight: 400;
+  font-size: clamp(2rem, 4.5vw, calc(var(--vr-page-title-size) * var(--vr-heading-scale)));
+  letter-spacing: var(--vr-heading-tracking);
+  line-height: 1.15;
+  margin: 0 0 1.6rem;
+}
+
+.vr-heading {
+  font-family: var(--vr-font-display);
+  font-weight: 500;
+  font-size: calc(1.55rem * var(--vr-heading-scale));
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  margin: 0 0 1.1rem;
+}
+
+.vr-heading-sm {
+  font-family: var(--vr-font-display);
+  font-weight: 500;
+  font-size: calc(1.25rem * var(--vr-heading-scale));
+  margin: 0 0 0.7rem;
+}
+
+.vr-body p,
+.vr-rich p {
+  margin: 0 0 var(--vr-paragraph-spacing);
+}
+
+.vr-body p:last-child,
+.vr-rich p:last-child {
+  margin-bottom: 0;
+}
+
+.vr-rich ul,
+.vr-body ul {
+  margin: 0 0 var(--vr-paragraph-spacing);
+  padding-left: 1.15rem;
+}
+
+.vr-rich li + li,
+.vr-body li + li {
+  margin-top: 0.45rem;
+}
+
+.vr-rich a,
+.vr-body a,
+.vr-text-link {
+  text-underline-offset: 0.22em;
+}
+
+.vr-muted {
+  color: var(--vr-text-muted);
+}
