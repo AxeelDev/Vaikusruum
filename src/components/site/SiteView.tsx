@@ -34,7 +34,7 @@ export function SiteView({
       <PublicHeader items={nav} siteName={settings.site_name} currentHref={pageHref(page.slug)} />
       <main className="vr-main">
         {showTitle ? (
-          <section className="vr-section vr-screen-section vr-screen-section--auto vr-page-heading">
+          <section className="vr-page-heading">
             <div className="vr-section-inner">
               <div className="vr-reading">
                 <EditableText

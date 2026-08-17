@@ -53,6 +53,7 @@ type EditorApi = {
   patchSection: (sectionId: string, updater: (section: SectionRow) => SectionRow, record?: boolean) => void;
   patchTheme: (patch: Partial<ThemeTokens>, record?: boolean) => void;
   patchMedia: (id: string, patch: Partial<MediaRow>, record?: boolean) => void;
+  addMedia: (item: MediaRow) => void;
   patchPage: (id: string, patch: PagePatch, record?: boolean) => void;
   patchFieldStyle: (sectionId: string, field: string, patch: Partial<TextAppearance>, record?: boolean) => void;
   switchPage: (pageId: string) => void;
@@ -60,6 +61,9 @@ type EditorApi = {
   requestSwitchPage: (pageId: string) => void;
   requestSwitchPageBySlug: (slug: string) => boolean;
   confirmPendingPage: (mode: "save" | "discard") => Promise<void>;
+  requestNavigation: (href: string) => void;
+  confirmPendingNavigation: (mode: "save" | "discard") => Promise<void>;
+  cancelPendingNavigation: () => void;
   cancelPendingPage: () => void;
   addSection: (type: AddableSectionType) => void;
   moveSection: (sectionId: string, direction: -1 | 1) => void;
@@ -109,6 +113,7 @@ export function EditorProvider({
   const [saveFlash, setSaveFlash] = useState(false);
   const saveFlashTimer = useRef<number | null>(null);
   const [pendingPageId, setPendingPageId] = useState<string | null>(null);
+  const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
 
   const dirty = JSON.stringify(draft) !== saved;
 
@@ -207,6 +212,10 @@ export function EditorProvider({
     [applyDraft, draft],
   );
 
+  const addMedia = useCallback((item: MediaRow) => {
+    applyDraft({ ...cloneDraft(draft), media: { [item.id]: item, ...draft.media } }, true);
+  }, [applyDraft, draft]);
+
   const patchPage = useCallback(
     (id: string, patch: PagePatch, record = true) => {
       applyDraft(
@@ -272,6 +281,10 @@ export function EditorProvider({
   );
 
   const cancelPendingPage = useCallback(() => setPendingPageId(null), []);
+  const cancelPendingNavigation = useCallback(() => {
+    setPendingPageId(null);
+    setPendingNavigationHref(null);
+  }, []);
 
   const addSection = useCallback(
     (type: AddableSectionType) => {
@@ -427,6 +440,31 @@ export function EditorProvider({
     [pendingPageId, save, switchPage],
   );
 
+  const requestNavigation = useCallback(
+    (href: string) => {
+      if (JSON.stringify(draft) !== saved) {
+        setPendingNavigationHref(href);
+        return;
+      }
+      window.location.assign(href);
+    },
+    [draft, saved],
+  );
+
+  const confirmPendingNavigation = useCallback(
+    async (mode: "save" | "discard") => {
+      const href = pendingNavigationHref;
+      if (!href) return;
+      if (mode === "save") {
+        const ok = await save();
+        if (!ok) return;
+      }
+      setPendingNavigationHref(null);
+      window.location.assign(href);
+    },
+    [pendingNavigationHref, save],
+  );
+
   const state: EditorState = useMemo(
     () => ({
       pageId,
@@ -446,6 +484,7 @@ export function EditorProvider({
       saveFlash,
       themePanel,
       pendingPageId,
+      pendingNavigationHref,
     }),
     [
       advanced,
@@ -459,6 +498,7 @@ export function EditorProvider({
       inspectorTab,
       pageId,
       pendingPageId,
+      pendingNavigationHref,
       preview,
       saveError,
       saveFlash,
@@ -494,6 +534,7 @@ export function EditorProvider({
       patchSection,
       patchTheme,
       patchMedia,
+      addMedia,
       patchPage,
       patchFieldStyle,
       switchPage,
@@ -501,6 +542,9 @@ export function EditorProvider({
       requestSwitchPage,
       requestSwitchPageBySlug,
       confirmPendingPage,
+      requestNavigation,
+      confirmPendingNavigation,
+      cancelPendingNavigation,
       cancelPendingPage,
       addSection,
       moveSection,
@@ -512,8 +556,11 @@ export function EditorProvider({
     }),
     [
       addSection,
+      addMedia,
       cancelPendingPage,
       confirmPendingPage,
+      confirmPendingNavigation,
+      cancelPendingNavigation,
       deselect,
       duplicateSection,
       moveSection,
@@ -526,6 +573,7 @@ export function EditorProvider({
       removeSection,
       requestSwitchPage,
       requestSwitchPageBySlug,
+      requestNavigation,
       role,
       save,
       select,

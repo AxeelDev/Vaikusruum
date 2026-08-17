@@ -47,7 +47,7 @@ export function BootstrapForm() {
       setPending(false);
       return;
     }
-    router.push("/admin/editor");
+    router.push("/admin");
     router.refresh();
   }
 

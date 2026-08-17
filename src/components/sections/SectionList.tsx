@@ -239,8 +239,9 @@ function SectionView({
     const textOnly = layout === "text-only" || layout === "centered" || (!image && layout !== "image-only");
     const hasMedia = Boolean(image) && layout !== "text-only" && layout !== "centered";
     const reading = layout === "centered" || textOnly;
-    const longForm = section.section_type === "rich_text" && slug !== "avaleht";
+    const longForm = slug !== "avaleht" && (section.section_type === "rich_text" || textOnly);
     const textClass = longForm ? "vr-reading vr-body" : reading ? "vr-centered vr-body" : "vr-narrow vr-body";
+    const defaultTextAlign = longForm ? "left" : reading ? "center" : "left";
 
     if (layout === "image-only" && image) {
       return (
@@ -255,7 +256,7 @@ function SectionView({
     const text = (
       <div
         className={textClass}
-        style={{ textAlign: align ?? (reading ? "center" : "left") }}
+        style={{ textAlign: align ?? defaultTextAlign }}
       >
         {heading ? (
           <EditableText

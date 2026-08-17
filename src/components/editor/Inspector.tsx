@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useEditor } from "@/components/editor/EditorProvider";
 import {
+  Chevron,
   EditorButton,
   EditorCheck,
   EditorCollapse,
@@ -13,6 +15,7 @@ import {
   EditorSegmented,
   EditorSelect,
   EditorSlider,
+  EditorSpinner,
   EditorSwitch,
   EditorTextInput,
   EditorTextarea,
@@ -22,9 +25,12 @@ import { findSection, pageSections } from "@/lib/editor/draft";
 import { fieldStyle } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
 import { pageLabel } from "@/lib/editor/pages";
+import { ADDABLE_SECTIONS } from "@/lib/editor/types";
 import { ALL_FONTS, BODY_FONTS, DISPLAY_FONTS } from "@/lib/theme/theme";
+import { createBrowserSupabase } from "@/lib/supabase/browser";
+import { compressImage } from "@/lib/utils/compress-image";
 import { mediaPublicUrl } from "@/lib/utils/urls";
-import type { AnimationAppearance, HeightPreset, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
+import type { AnimationAppearance, HeightPreset, MediaRow, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
 
 const FONT_OPTIONS = ALL_FONTS.map((font) => ({
   value: font.id,
@@ -118,15 +124,145 @@ export function Inspector() {
           ×
         </EditorIconButton>
       </div>
+      <EditorPageControls />
       <div className="vr-inspector-scroll">
         {state.themePanel ? <ThemePanel /> : <SelectionPanels />}
       </div>
-      <div className="vr-inspector-footer">
-        <EditorButton variant="primary" onClick={() => editor.deselect()} disabled={!state.selected && !state.themePanel}>
-          Valmis
+      <EditorFooterControls />
+    </aside>
+  );
+}
+
+function EditorPageControls() {
+  const editor = useEditor();
+  const [addOpen, setAddOpen] = useState(false);
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const page = editor.state.draft.pages.find((item) => item.id === editor.state.pageId);
+  const visiblePages = editor.state.draft.pages.filter((item) => item.show_in_nav && item.is_published);
+  const hiddenPages = editor.state.draft.pages.filter((item) => !item.show_in_nav || !item.is_published);
+
+  if (!page) return null;
+
+  return (
+    <div className="vr-inspector-pagebar">
+      <div className="vr-ed-label">LEHT</div>
+      <div className="vr-editor-pagepicker">
+        <EditorButton
+          variant="secondary"
+          className="vr-editor-pagepicker-button"
+          onClick={() => setPagesOpen((open) => !open)}
+        >
+          {pageLabel(page)}
+          <Chevron />
+        </EditorButton>
+        {pagesOpen ? (
+          <div className="vr-editor-menu" onClick={(event) => event.stopPropagation()}>
+            {visiblePages.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  editor.requestSwitchPage(item.id);
+                  setPagesOpen(false);
+                }}
+              >
+                {pageLabel(item)}
+              </button>
+            ))}
+            {hiddenPages.length ? (
+              <>
+                <hr className="vr-ed-divider" />
+                {hiddenPages.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      editor.requestSwitchPage(item.id);
+                      setPagesOpen(false);
+                    }}
+                  >
+                    {pageLabel(item)}
+                    <span className="vr-ed-muted">peidetud</span>
+                  </button>
+                ))}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div className="vr-inspector-add">
+        <EditorButton variant="ghost" onClick={() => setAddOpen((open) => !open)}>
+          + Lisa sektsioon
+        </EditorButton>
+        {addOpen ? (
+          <div className="vr-editor-menu" onClick={(event) => event.stopPropagation()}>
+            {ADDABLE_SECTIONS.map((item) => (
+              <button
+                key={item.type}
+                type="button"
+                onClick={() => {
+                  editor.addSection(item.type);
+                  setAddOpen(false);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function EditorFooterControls() {
+  const editor = useEditor();
+  const { state } = editor;
+  const canUndo = state.historyIndex > 0;
+  const canRedo = state.historyIndex < state.history.length - 1;
+  const saveText = state.saving ? "Salvestan…" : state.saveFlash && !state.dirty ? "Salvestatud" : "Salvesta";
+
+  return (
+    <div className="vr-inspector-footer">
+      <EditorSegmented
+        value={state.breakpoint}
+        options={[
+          { value: "desktop", label: "Desktop" },
+          { value: "tablet", label: "Tahvel" },
+          { value: "mobile", label: "Mobiil" },
+        ]}
+        onChange={(value) => editor.setBreakpoint(value)}
+      />
+      <div className="vr-inspector-footer-row">
+        <EditorIconButton ariaLabel="Võta tagasi" disabled={!canUndo} onClick={() => editor.undo()}>
+          ↶
+        </EditorIconButton>
+        <EditorIconButton ariaLabel="Tee uuesti" disabled={!canRedo} onClick={() => editor.redo()}>
+          ↷
+        </EditorIconButton>
+        <EditorButton variant="secondary" onClick={() => editor.setPreview(!state.preview)}>
+          {state.preview ? "Tagasi muutma" : "Eelvaade"}
         </EditorButton>
       </div>
-    </aside>
+      {state.saveError ? <p className="vr-form-error vr-editor-error">{state.saveError}</p> : null}
+      <EditorButton
+        variant="primary"
+        className="vr-inspector-save"
+        disabled={state.saving || !state.dirty}
+        onClick={() => void editor.save()}
+      >
+        {state.saving ? <EditorSpinner /> : null}
+        {saveText}
+      </EditorButton>
+      <div className="vr-inspector-exits">
+        <button type="button" onClick={() => editor.requestNavigation("/admin")}>
+          Haldus
+        </button>
+        <button type="button" onClick={() => editor.requestNavigation("/")}>
+          Välju
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -153,8 +289,6 @@ function SelectionPanels() {
 function PageOverview({ mode = "content" }: { mode?: "content" | "settings" }) {
   const editor = useEditor();
   const page = editor.state.draft.pages.find((item) => item.id === editor.state.pageId);
-  const visible = editor.state.draft.pages.filter((item) => item.show_in_nav && item.is_published);
-  const hidden = editor.state.draft.pages.filter((item) => !item.show_in_nav || !item.is_published);
   if (!page) return null;
 
   return (
@@ -166,36 +300,6 @@ function PageOverview({ mode = "content" }: { mode?: "content" | "settings" }) {
           <EditorDivider />
         </>
       ) : null}
-      <EditorContext kicker="Lehed" title={pageLabel(page)} />
-      <div className="vr-ed-pages">
-        {visible.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={item.id === page.id ? "is-active" : undefined}
-            onClick={() => editor.requestSwitchPage(item.id)}
-          >
-            {pageLabel(item)}
-          </button>
-        ))}
-        {hidden.length ? (
-          <>
-            <EditorDivider />
-            {hidden.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={item.id === page.id ? "is-active" : undefined}
-                onClick={() => editor.requestSwitchPage(item.id)}
-              >
-                {pageLabel(item)}
-                <span className="vr-ed-muted">peidetud</span>
-              </button>
-            ))}
-          </>
-        ) : null}
-      </div>
-      <EditorDivider />
       <EditorContext kicker="Leht" title={page.title} />
       <EditorGroup label="Pealkiri">
         <EditorTextInput value={page.title} onChange={(title) => editor.patchPage(page.id, { title }, false)} onCommit={(title) => editor.patchPage(page.id, { title }, true)} />
@@ -691,15 +795,53 @@ function NavItemPanel() {
 
 function ImagePanel() {
   const editor = useEditor();
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const selected = editor.state.selected;
   const section = selected?.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
-  const mediaId = selected?.mediaId || section?.style?.mediaId || "";
+  const mediaId = section?.style?.mediaId || selected?.mediaId || "";
   const media = mediaId ? editor.state.draft.media[mediaId] : undefined;
   const image = section?.style?.image ?? {};
 
+  async function upload(fileList: FileList | null) {
+    const file = fileList?.[0];
+    if (!file || !section) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setUploadError("Kasuta JPEG, PNG või WebP pilti.");
+      return;
+    }
+    setUploading(true);
+    setUploadError("");
+    const blob = await compressImage(file);
+    const ext = blob.type === "image/webp" ? "webp" : file.name.split(".").pop() || "jpg";
+    const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const supabase = createBrowserSupabase();
+    const { error: uploadErr } = await supabase.storage.from("site-media").upload(path, blob, {
+      contentType: blob.type || file.type,
+    });
+    if (uploadErr) {
+      setUploading(false);
+      setUploadError("Üleslaadimine ebaõnnestus.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("media")
+      .insert({ storage_path: path, alt_text: file.name.replace(/\.[^.]+$/, "") })
+      .select("*")
+      .single();
+    setUploading(false);
+    if (error || !data) {
+      setUploadError("Pildi salvestamine ebaõnnestus.");
+      return;
+    }
+    const item = data as MediaRow;
+    editor.addMedia(item);
+    editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: item.id } }));
+  }
+
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Image" title={media?.alt_text || "Pilt"} />
+      <EditorContext kicker="Pilt" title={media?.alt_text || "Pilt"} />
       {media ? (
         <>
           <div className="vr-image-preview">
@@ -707,11 +849,16 @@ function ImagePanel() {
             <img src={mediaPublicUrl(media.storage_path)} alt="" />
           </div>
           <p className="vr-ed-help">{media.storage_path.split("/").pop()}</p>
-          <EditorGroup label="Alt Text">
+          <EditorGroup label="Alternatiivtekst">
             <EditorTextInput value={media.alt_text ?? ""} onChange={(alt_text) => editor.patchMedia(media.id, { alt_text }, false)} />
           </EditorGroup>
           <EditorDivider />
-          <EditorContext kicker="Images" title="Replace" />
+          <EditorContext kicker="Pildid" title="Vaheta pilti" />
+          <label className="vr-ed-upload">
+            {uploading ? "Laen üles…" : "Laadi üles"}
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void upload(event.target.files)} />
+          </label>
+          {uploadError ? <p className="vr-form-error">{uploadError}</p> : null}
           <div className="vr-media-picker-grid">
             {Object.values(editor.state.draft.media).map((item) => (
               <button
@@ -747,6 +894,11 @@ function ImagePanel() {
       ) : (
         <>
           <div className="vr-image-preview vr-image-preview--empty">Pilt puudub</div>
+          <label className="vr-ed-upload">
+            {uploading ? "Laen üles…" : "Laadi üles"}
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void upload(event.target.files)} />
+          </label>
+          {uploadError ? <p className="vr-form-error">{uploadError}</p> : null}
           <div className="vr-media-picker-grid">
             {Object.values(editor.state.draft.media).map((item) => (
               <button
@@ -765,7 +917,7 @@ function ImagePanel() {
         </>
       )}
       <EditorDivider />
-      <EditorContext kicker="Appearance" title="Image" />
+      <EditorContext kicker="Välimus" title="Pilt" />
       <EditorGroup label="Kärpimine">
         <EditorSelect
           value={image.crop ?? "landscape"}
@@ -845,7 +997,13 @@ function AnimationPanel() {
     return (
       <div className="vr-inspector-body">
         <EditorContext kicker="Animatsioon" title={selected ? selectedKindLabel(selected.type) : "Element"} />
-        <p className="vr-ed-help">Selle elemendi jaoks eraldi animatsiooni ei ole.</p>
+        <EditorGroup label="Tüüp">
+          <EditorSelect value="none" options={[{ value: "none", label: "Puudub" }]} onChange={() => undefined} />
+        </EditorGroup>
+        <EditorGroup label="Kestus">
+          <EditorTextInput value="" placeholder="Vali animatsioon" onChange={() => undefined} />
+        </EditorGroup>
+        <p className="vr-ed-help">Selle elemendi animatsioon pärineb sektsioonilt.</p>
       </div>
     );
   }
@@ -858,11 +1016,12 @@ function AnimationPanel() {
       style: { ...row.style, animation: { ...row.style?.animation, ...next } },
     }), record);
   }
+  const active = animation.preset && animation.preset !== "none";
 
   return (
     <div className="vr-inspector-body">
       <EditorContext kicker="Animatsioon" title={labelFor(selected?.id ?? section.id, readText(editor)) || sectionTitle(section.section_type)} />
-      <EditorGroup label="On visible">
+      <EditorGroup label="Tüüp">
         <div className="vr-ed-inline">
           <EditorSelect
             value={animation.preset ?? "none"}
@@ -877,15 +1036,21 @@ function AnimationPanel() {
             ]}
             onChange={(preset) => patch({ preset: preset as AnimationAppearance["preset"] })}
           />
-          <EditorButton variant="secondary" onClick={() => undefined}>Replay</EditorButton>
+          <EditorButton variant="secondary" disabled={!active} onClick={() => undefined}>Replay</EditorButton>
         </div>
       </EditorGroup>
-      <EditorSlider label="Duration" min={0.2} max={3} step={0.1} value={animation.duration ?? 1} onChange={(duration) => patch({ duration }, false)} unit="s" exact />
-      <EditorSlider label="Delay" min={0} max={2} step={0.1} value={animation.delay ?? 0} onChange={(delay) => patch({ delay }, false)} unit="s" exact />
-      <EditorSlider label="Threshold" min={0} max={1} step={0.05} value={animation.threshold ?? 0.35} onChange={(threshold) => patch({ threshold }, false)} exact />
-      <EditorCheck checked={Boolean(animation.replayable)} onChange={(replayable) => patch({ replayable })}>
-        Replayable
-      </EditorCheck>
+      {active ? (
+        <>
+          <EditorSlider label="Kestus" min={0.2} max={3} step={0.1} value={animation.duration ?? 1} onChange={(duration) => patch({ duration }, false)} unit="s" exact />
+          <EditorSlider label="Viivitus" min={0} max={2} step={0.1} value={animation.delay ?? 0} onChange={(delay) => patch({ delay }, false)} unit="s" exact />
+          <EditorSlider label="Künnis" min={0} max={1} step={0.05} value={animation.threshold ?? 0.35} onChange={(threshold) => patch({ threshold }, false)} exact />
+          <EditorCheck checked={Boolean(animation.replayable)} onChange={(replayable) => patch({ replayable })}>
+            Korda
+          </EditorCheck>
+        </>
+      ) : (
+        <p className="vr-ed-help">Vali animatsioon, et kestust ja viivitust muuta.</p>
+      )}
       <p className="vr-ed-help">Avalik leht austab `prefers-reduced-motion` eelistust.</p>
     </div>
   );

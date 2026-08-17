@@ -60,50 +60,52 @@ export function PublicHeader({
         editor.select({ id: "header.bar", type: "header" });
       }}
     >
-      <Link
-        href="/"
-        className="vr-wordmark vr-wordmark--header"
-        title={editor && !editor.state.preview ? NAV_HINT : undefined}
-        onClick={(event) => {
-          if (!editor) return;
-          event.preventDefault();
-          if (event.shiftKey && !editor.state.preview) {
-            editor.select({ id: "header.wordmark", type: "text", field: "site_name" });
-            return;
-          }
-          editor.requestSwitchPageBySlug("avaleht");
-        }}
-      >
-        <EditableText
-          as="span"
+      <div className="vr-header-inner">
+        <Link
+          href="/"
           className="vr-wordmark vr-wordmark--header"
-          selection={{ id: "header.wordmark", type: "text", field: "site_name" }}
-          path={{ kind: "settings", key: "site_name" }}
-          value={siteName}
-          clickMode="defer"
-        />
-      </Link>
-      <nav className="vr-nav" aria-label="Peamenüü">
-        {items.map((item) => (
-          <Link
-            key={item.slug}
-            href={item.href}
-            aria-current={current === item.href ? "page" : undefined}
-            title={editor && !editor.state.preview ? NAV_HINT : undefined}
-            onClick={(event) => onNavClick(event, item.slug)}
-          >
-            <EditableText
-              as="span"
-              selection={{ id: `header.nav.${item.slug}`, type: "nav", navSlug: item.slug, field: "nav_label" }}
-              path={{ kind: "nav-label", pageId: editor?.state.draft.pages.find((page) => page.slug === item.slug)?.id ?? "" }}
-              value={item.label}
-            />
-          </Link>
-        ))}
-      </nav>
-      <button type="button" className="vr-menu-toggle" onClick={() => setMenuPath(pathname)}>
-        Menüü
-      </button>
+          title={editor && !editor.state.preview ? NAV_HINT : undefined}
+          onClick={(event) => {
+            if (!editor) return;
+            event.preventDefault();
+            if (event.shiftKey && !editor.state.preview) {
+              editor.select({ id: "header.wordmark", type: "text", field: "site_name" });
+              return;
+            }
+            editor.requestSwitchPageBySlug("avaleht");
+          }}
+        >
+          <EditableText
+            as="span"
+            className="vr-wordmark vr-wordmark--header"
+            selection={{ id: "header.wordmark", type: "text", field: "site_name" }}
+            path={{ kind: "settings", key: "site_name" }}
+            value={siteName}
+            clickMode="defer"
+          />
+        </Link>
+        <nav className="vr-nav" aria-label="Peamenüü">
+          {items.map((item) => (
+            <Link
+              key={item.slug}
+              href={item.href}
+              aria-current={current === item.href ? "page" : undefined}
+              title={editor && !editor.state.preview ? NAV_HINT : undefined}
+              onClick={(event) => onNavClick(event, item.slug)}
+            >
+              <EditableText
+                as="span"
+                selection={{ id: `header.nav.${item.slug}`, type: "nav", navSlug: item.slug, field: "nav_label" }}
+                path={{ kind: "nav-label", pageId: editor?.state.draft.pages.find((page) => page.slug === item.slug)?.id ?? "" }}
+                value={item.label}
+              />
+            </Link>
+          ))}
+        </nav>
+        <button type="button" className="vr-menu-toggle" onClick={() => setMenuPath(pathname)}>
+          Menüü
+        </button>
+      </div>
       <div className={open ? "vr-menu-overlay is-open" : "vr-menu-overlay"} aria-hidden={!open}>
         <button type="button" className="vr-menu-close" onClick={() => setMenuPath(null)}>
           Sulge

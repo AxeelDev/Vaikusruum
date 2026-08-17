@@ -62,6 +62,7 @@ export type EditorState = {
   saveFlash: boolean;
   themePanel: boolean;
   pendingPageId: string | null;
+  pendingNavigationHref: string | null;
 };
 
 export type AddableSectionType = Extract<

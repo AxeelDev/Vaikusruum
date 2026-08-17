@@ -30,7 +30,7 @@ export async function loginAction(_prev: { error?: string } | undefined, formDat
     return { error: "Sellel kontol ei ole haldusõigust." };
   }
 
-  redirect("/admin/editor");
+  redirect("/admin");
 }
 
 export async function logoutAction() {
@@ -89,7 +89,7 @@ export async function createEventAction(offeringId: string, displayDate: string,
     sort_order: 99,
   });
   if (error) return { error: "Kuupäeva lisamine ebaõnnestus." };
-  revalidatePath("/admin/tunnid");
+  revalidatePath("/admin");
   return { ok: true };
 }
 
@@ -98,7 +98,7 @@ export async function deleteEventAction(id: string) {
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("events").delete().eq("id", id);
   if (error) return { error: "Kustutamine ebaõnnestus." };
-  revalidatePath("/admin/tunnid");
+  revalidatePath("/admin");
   return { ok: true };
 }
 
@@ -138,7 +138,7 @@ export async function updateMediaAction(id: string, fields: Record<string, unkno
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("media").update(fields).eq("id", id);
   if (error) return { error: "Salvestamine ebaõnnestus." };
-  revalidatePath("/admin/pildid");
+  revalidatePath("/admin/media");
   return { ok: true };
 }
 
@@ -148,7 +148,7 @@ export async function deleteMediaAction(id: string, storagePath: string) {
   await supabase.storage.from("site-media").remove([storagePath]);
   const { error } = await supabase.from("media").delete().eq("id", id);
   if (error) return { error: "Kustutamine ebaõnnestus." };
-  revalidatePath("/admin/pildid");
+  revalidatePath("/admin/media");
   return { ok: true };
 }
 
@@ -169,7 +169,7 @@ export async function createAdminAction(email: string, password: string, role: "
     display_name: email,
   });
   if (insertError) return { error: "Halduri lisamine ebaõnnestus." };
-  revalidatePath("/admin/seaded");
+  revalidatePath("/admin/admins");
   return { ok: true };
 }
 
@@ -180,7 +180,7 @@ export async function removeAdminAction(userId: string) {
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("admin_users").delete().eq("user_id", userId);
   if (error) return { error: "Eemaldamine ebaõnnestus." };
-  revalidatePath("/admin/seaded");
+  revalidatePath("/admin/admins");
   return { ok: true };
 }
 
@@ -189,7 +189,7 @@ export async function deleteSubmissionAction(id: string) {
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("form_submissions").delete().eq("id", id);
   if (error) return { error: "Kustutamine ebaõnnestus." };
-  revalidatePath("/admin/registreerumised");
+  revalidatePath("/admin/submissions");
   return { ok: true };
 }
 

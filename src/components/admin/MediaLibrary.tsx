@@ -43,12 +43,14 @@ export function MediaLibrary({ items }: { items: MediaRow[] }) {
   }
 
   return (
-    <div>
-      <h1 className="vr-admin-title">Pildid</h1>
-      <label className="vr-field">
-        Vali uus pilt
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => onUpload(e.target.files)} />
-      </label>
+    <div className="vr-admin-panel">
+      <div className="vr-admin-page-head">
+        <h1 className="vr-admin-title">Pildid</h1>
+        <label className="vr-admin-upload">
+          Laadi üles
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => onUpload(e.target.files)} />
+        </label>
+      </div>
       {message ? <p>{message}</p> : null}
       <div className="vr-media-grid">
         {mediaItems.map((item) => (
@@ -72,7 +74,7 @@ function MediaCard({ item, onDeleted }: { item: MediaRow; onDeleted: () => void 
           onBlur={(e) => updateMediaAction(item.id, { alt_text: e.target.value })}
         />
       </label>
-      <p className="vr-muted">Fookus</p>
+      <p className="vr-admin-note">Fookuspunkt</p>
       <FocalControl item={item} src={src} />
       <button
         type="button"

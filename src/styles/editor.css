@@ -1,7 +1,5 @@
 :root {
   --editor-sidebar-width: 264px;
-  --editor-toolbar-height: 38px;
-  --editor-toolbar-safe: 58px;
   --editor-bg: #373a44;
   --editor-shell: #373a44;
   --editor-panel: #3d404a;
@@ -21,11 +19,11 @@
   --editor-selection: #35b7b8;
   --editor-danger: #bd6467;
   --editor-track: #5a5d67;
-  --z-site: 1;
-  --z-selection: 20;
-  --z-editor-toolbar: 50;
-  --z-inspector: 60;
-  --z-modal: 100;
+  --z-public-content: 1;
+  --z-public-header: 20;
+  --z-editor-selection: 40;
+  --z-editor-popover: 80;
+  --z-editor-modal: 100;
 }
 
 html.vr-editor-lock,
@@ -89,7 +87,7 @@ html.vr-editor-lock body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  min-height: 52px;
+  min-height: 48px;
   background: var(--editor-shell);
   border-bottom: 1px solid var(--editor-border-soft);
 }
@@ -102,9 +100,28 @@ html.vr-editor-lock body {
 
 .vr-inspector-tabs .vr-ed-iconbtn {
   width: 100%;
-  height: 52px;
+  height: 48px;
   border-radius: 0;
   color: var(--editor-text-secondary);
+}
+
+.vr-inspector-pagebar {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 10px;
+  padding: 14px 14px 16px;
+  border-bottom: 1px solid var(--editor-border-soft);
+  background: var(--editor-panel);
+}
+
+.vr-inspector-add,
+.vr-editor-pagepicker {
+  position: relative;
+}
+
+.vr-editor-pagepicker-button {
+  width: 100%;
+  justify-content: space-between;
 }
 
 .vr-inspector-contextbar {
@@ -140,15 +157,43 @@ html.vr-editor-lock body {
 }
 
 .vr-inspector-footer {
-  flex: 0 0 78px;
-  padding: 18px 16px;
+  flex: 0 0 auto;
+  padding: 14px;
   border-top: 1px solid var(--editor-border-soft);
   background: var(--editor-panel);
+  display: grid;
+  gap: 10px;
 }
 
-.vr-inspector-footer .vr-ed-btn {
+.vr-inspector-save {
   width: 100%;
   height: 42px;
+}
+
+.vr-inspector-footer-row {
+  display: grid;
+  grid-template-columns: 38px 38px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.vr-inspector-exits {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.vr-inspector-exits button {
+  background: none;
+  border: 0;
+  padding: 5px 0;
+  color: var(--editor-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.vr-inspector-exits button:hover {
+  color: var(--editor-text);
 }
 
 .vr-editor-workspace {
@@ -160,53 +205,12 @@ html.vr-editor-lock body {
   background: var(--editor-shell);
 }
 
-.vr-editor-toolbar {
-  height: var(--editor-toolbar-height);
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: auto;
-  min-width: 0;
-  z-index: var(--z-editor-toolbar);
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 4px;
-  background: var(--editor-panel);
-  border: 1px solid var(--editor-border-soft);
-  border-radius: 3px;
-  color: var(--editor-text);
-  box-shadow: none;
-}
-
-.vr-editor-tools-left,
-.vr-editor-tools-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.vr-editor-tools-right {
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-.vr-editor-tools-mid {
-  min-width: 0;
-  order: 3;
-}
-
-.vr-editor-add {
-  position: relative;
-}
-
 .vr-editor-menu,
 .vr-ed-popover {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: var(--z-modal);
+  z-index: var(--z-editor-popover);
   min-width: 12rem;
   background: var(--editor-panel);
   border: 1px solid var(--editor-border);
@@ -238,15 +242,6 @@ html.vr-editor-lock body {
   background: var(--editor-panel-hover);
 }
 
-.vr-editor-pagepicker {
-  position: relative;
-}
-
-.vr-editor-pagepicker > button {
-  min-width: 11rem;
-  justify-content: space-between;
-}
-
 .vr-editor-status {
   display: inline-flex;
   align-items: center;
@@ -276,10 +271,10 @@ html.vr-editor-lock body {
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
-  z-index: var(--z-site);
+  z-index: var(--z-public-content);
   width: 100%;
   background: var(--editor-shell);
-  padding-top: var(--editor-toolbar-safe);
+  --vr-site-viewport-height: 100%;
 }
 
 .vr-editor-frame {
@@ -287,7 +282,8 @@ html.vr-editor-lock body {
   min-width: 0;
   margin: 0;
   background: var(--vr-bg-main);
-  --vr-site-viewport-height: calc(100svh - var(--editor-toolbar-safe));
+  min-height: 100%;
+  --vr-site-viewport-height: 100%;
 }
 
 .vr-editor-canvas--tablet,
@@ -342,7 +338,7 @@ html.vr-editor-lock body {
   position: absolute;
   inset: 0;
   background: var(--vr-bg-main);
-  z-index: var(--z-modal);
+  z-index: var(--z-editor-modal);
   padding: 5rem var(--vr-gutter-mobile) 2rem;
   opacity: 0;
   pointer-events: none;
@@ -364,8 +360,7 @@ html.vr-editor-lock body {
 }
 
 [data-vr-edit-mode="true"] [data-vr-editable] {
-  padding: 4px;
-  margin: -4px;
+  outline-offset: 2px;
 }
 
 [data-vr-edit-mode="true"] [data-vr-editable]:hover {
@@ -375,8 +370,8 @@ html.vr-editor-lock body {
 
 [data-vr-edit-mode="true"] [data-vr-selected] {
   outline: 1px solid rgba(53, 183, 184, 0.9);
-  outline-offset: 1px;
-  z-index: var(--z-selection);
+  outline-offset: 2px;
+  z-index: var(--z-editor-selection);
 }
 
 .vr-section-move {
@@ -385,7 +380,7 @@ html.vr-editor-lock body {
   right: 0.7rem;
   display: flex;
   gap: 0.15rem;
-  z-index: var(--z-selection);
+  z-index: var(--z-editor-selection);
 }
 
 .vr-section-move button,
@@ -445,7 +440,7 @@ html.vr-editor-lock body {
   position: fixed;
   left: 12px;
   bottom: 12px;
-  z-index: var(--z-modal);
+  z-index: var(--z-editor-modal);
   background: color-mix(in srgb, var(--editor-panel) 94%, #3d3a35);
   border: 1px solid var(--editor-border);
   padding: 0.55rem 0.7rem;
@@ -473,7 +468,7 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.52;
   cursor: default;
 }
 
@@ -554,7 +549,7 @@ html.vr-editor-lock body {
   top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
-  z-index: var(--z-modal);
+  z-index: var(--z-editor-popover);
   padding: 4px 8px;
   border-radius: 3px;
   background: #252832;
@@ -950,6 +945,33 @@ html.vr-editor-lock body {
   gap: 8px;
 }
 
+.vr-ed-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--editor-border);
+  border-radius: 3px;
+  background: var(--editor-control);
+  color: var(--editor-text);
+  cursor: pointer;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.vr-ed-upload:hover {
+  background: var(--editor-control-hover);
+}
+
+.vr-ed-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .vr-ed-tabs-line {
   display: flex;
   gap: 28px;
@@ -1105,7 +1127,7 @@ html.vr-editor-lock body {
 .vr-ed-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
+  z-index: var(--z-editor-modal);
   background: rgba(57, 55, 50, 0.18);
   display: grid;
   place-items: center;
@@ -1151,7 +1173,7 @@ html.vr-editor-lock body {
 
 .vr-ed-ctx {
   position: fixed;
-  z-index: var(--z-modal);
+  z-index: var(--z-editor-popover);
   min-width: 11rem;
   background: var(--editor-panel);
   border: 1px solid var(--editor-border);
@@ -1308,27 +1330,6 @@ html.vr-editor-lock body {
   .vr-editor-root[data-inspector-open="false"] .vr-inspector,
   .vr-editor-root[data-has-selection="false"] .vr-inspector {
     display: none;
-  }
-
-  .vr-editor-toolbar {
-    left: 8px;
-    right: 8px;
-    top: 8px;
-    height: auto;
-    min-height: var(--editor-toolbar-height);
-    padding: 4px;
-    flex-wrap: wrap;
-  }
-
-  .vr-editor-tools-mid,
-  .vr-editor-tools-left,
-  .vr-editor-tools-right {
-    justify-self: stretch;
-    justify-content: flex-start;
-  }
-
-  .vr-editor-tools-right {
-    justify-content: flex-start;
   }
 
   .vr-ed-tooltip[data-tooltip]:hover::after {

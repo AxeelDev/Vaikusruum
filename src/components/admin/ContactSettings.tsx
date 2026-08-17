@@ -27,7 +27,20 @@ export function ContactSettings({ settings }: { settings: SiteSettings }) {
 
   return (
     <div className="vr-admin-panel">
-      <h1 className="vr-admin-title">Kontakt</h1>
+      <h1 className="vr-admin-title">Seaded</h1>
+      <section className="vr-admin-section">
+        <h2>Üldine</h2>
+        <label className="vr-field">
+          Saidi nimi
+          <input value={row.site_name} onChange={(e) => setRow({ ...row, site_name: e.target.value })} />
+        </label>
+        <label className="vr-field">
+          Jaluse tekst
+          <input value={row.footer_text ?? ""} onChange={(e) => setRow({ ...row, footer_text: e.target.value })} />
+        </label>
+      </section>
+      <section className="vr-admin-section">
+        <h2>Kontakt</h2>
       <label className="vr-field">
         E-post
         <input value={row.contact_email ?? ""} onChange={(e) => setRow({ ...row, contact_email: e.target.value })} />
@@ -36,6 +49,9 @@ export function ContactSettings({ settings }: { settings: SiteSettings }) {
         Telefon
         <input value={row.contact_phone ?? ""} onChange={(e) => setRow({ ...row, contact_phone: e.target.value })} />
       </label>
+      </section>
+      <section className="vr-admin-section">
+        <h2>Registreerimine</h2>
       <label className="vr-field">
         Vaikimisi registreerimise e-post
         <input
@@ -43,6 +59,9 @@ export function ContactSettings({ settings }: { settings: SiteSettings }) {
           onChange={(e) => setRow({ ...row, default_registration_email: e.target.value })}
         />
       </label>
+      </section>
+      <section className="vr-admin-section">
+        <h2>Sotsiaalmeedia</h2>
       <label className="vr-field">
         Instagram
         <input
@@ -71,6 +90,11 @@ export function ContactSettings({ settings }: { settings: SiteSettings }) {
           onChange={(e) => setRow({ ...row, social: { ...row.social, youtube: e.target.value } })}
         />
       </label>
+      </section>
+      <section className="vr-admin-section">
+        <h2>SEO</h2>
+        <p className="vr-admin-note">Lehepõhiseid SEO välju muudetakse visuaalses editoris lehe seadete all.</p>
+      </section>
       <div className="vr-admin-actions">
         <button className="vr-cta" type="button" onClick={save}>
           Salvesta

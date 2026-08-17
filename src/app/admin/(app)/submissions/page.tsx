@@ -1,7 +1,7 @@
 import { deleteSubmissionAction } from "@/lib/actions/admin";
 import { createServerSupabase } from "@/lib/supabase/server";
 
-export default async function RegistreerumisedPage() {
+export default async function SubmissionsPage() {
   const supabase = await createServerSupabase();
   const { data } = await supabase
     .from("form_submissions")
@@ -9,14 +9,14 @@ export default async function RegistreerumisedPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div>
+    <div className="vr-admin-panel">
       <h1 className="vr-admin-title">Registreerumised</h1>
-      <table className="vr-table">
+      <table className="vr-table vr-table--compact">
         <thead>
           <tr>
-            <th>Aeg</th>
-            <th>Liik</th>
             <th>Nimi</th>
+            <th>Tüüp</th>
+            <th>Kuupäev</th>
             <th>E-post</th>
             <th>Sõnum</th>
             <th></th>
@@ -25,9 +25,9 @@ export default async function RegistreerumisedPage() {
         <tbody>
           {(data ?? []).map((row) => (
             <tr key={row.id}>
-              <td>{new Date(row.created_at).toLocaleString("et-EE")}</td>
-              <td>{row.kind}</td>
               <td>{row.name}</td>
+              <td>{row.kind}</td>
+              <td>{new Date(row.created_at).toLocaleDateString("et-EE")}</td>
               <td>{row.email}</td>
               <td>
                 {row.phone ? `${row.phone} · ` : ""}
@@ -43,7 +43,7 @@ export default async function RegistreerumisedPage() {
           ))}
         </tbody>
       </table>
-      {(data ?? []).length === 0 ? <p className="vr-muted">Sõnumeid veel ei ole.</p> : null}
+      {(data ?? []).length === 0 ? <p className="vr-admin-note">Sõnumeid veel ei ole.</p> : null}
     </div>
   );
 }
