@@ -28,12 +28,13 @@ See kirjutab gitignore’itud `.env.vercel` faili olemasolevast `.env` failist.
 
 ## Andmebaas ja sisu
 
-Migratsioonid: `supabase/migrations`.
-
 ```bash
+pnpm db:migrate
 pnpm seed
 pnpm seed:media
 ```
+
+`pnpm db:migrate` rakendab `supabase/migrations` failid järjekorras ja jätab meelde, mis juba tehtud. Uuesti käivitamine on ohutu.
 
 Seed on idempotentne (upsert slugide/võtmete järgi).
 
