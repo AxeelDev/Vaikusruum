@@ -40,8 +40,8 @@
   --z-public-content: 1;
   --z-public-header: 20;
   --z-editor-selection: 40;
-  --z-editor-inspector: 100;
   --z-editor-topbar: 110;
+  --z-editor-inspector: 120;
   --z-editor-popover: 200;
   --z-editor-modal: 300;
 }
@@ -123,6 +123,8 @@ html.vr-editor-lock body {
   grid-auto-columns: 48px;
   width: 100%;
   height: 48px;
+  flex: 0 0 48px;
+  min-height: 48px;
   background: color-mix(in srgb, var(--ed-sidebar-bg) 70%, #2f323b);
 }
 

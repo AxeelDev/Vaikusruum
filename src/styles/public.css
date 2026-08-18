@@ -327,6 +327,11 @@
   text-align: center;
 }
 
+.vr-split-text {
+  min-width: 0;
+  container-type: inline-size;
+}
+
 .vr-hero-copy {
   width: min(100%, var(--node-max-width, 100%));
   margin-inline: auto;
@@ -351,6 +356,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--vr-space-4);
+  container-type: inline-size;
 }
 
 .vr-layout-column--single {
@@ -374,6 +380,7 @@
   justify-items: center;
   text-align: center;
   min-height: 48px;
+  container-type: inline-size;
 }
 
 .vr-layout-group--small {
@@ -994,7 +1001,8 @@
   }
 
   .vr-wordmark--hero {
-    font-size: min(var(--node-font-size-tablet, var(--node-font-size, clamp(44px, 5cqi, 56px))), 96px);
+    --node-font-size-max: 12cqi;
+    --node-letter-spacing-max: 0.1em;
   }
 
   .vr-page-title {
@@ -1107,9 +1115,9 @@
   }
 
   .vr-wordmark--hero {
-    font-size: clamp(36px, 11cqi, min(58px, var(--node-font-size, 58px)));
-    letter-spacing: min(0.12em, var(--node-letter-spacing, 0.12em));
-    overflow-wrap: normal;
+    --node-font-size-max: 10.5cqi;
+    --node-letter-spacing-max: 0.08em;
+    white-space: nowrap;
   }
 
   .vr-page-title {

@@ -81,8 +81,8 @@ describe("editor draft helpers", () => {
 describe("text appearance", () => {
   it("maps visual sliders to element styles without raw CSS keywords", () => {
     const style = appearanceToStyle({ size: 56, letterSpacing: 0.22, align: "center" });
-    expect(style.fontSize).toBe("56px");
-    expect(style.letterSpacing).toBe("0.22em");
+    expect(style.fontSize).toBe("min(56px, var(--node-font-size-max, 12cqi))");
+    expect(style.letterSpacing).toBe("min(0.22em, var(--node-letter-spacing-max, 0.16em))");
     expect(style.textAlign).toBe("center");
     expect((style as Record<string, string>)["--node-font-size"]).toBe("56px");
   });

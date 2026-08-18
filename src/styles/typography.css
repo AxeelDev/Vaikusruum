@@ -14,12 +14,15 @@
 }
 
 .vr-wordmark--hero {
-  font-size: var(--node-font-size, clamp(40px, 3.4cqi, 56px));
-  letter-spacing: var(--node-letter-spacing, 0.12em);
+  --node-font-size-max: 11cqi;
+  --node-letter-spacing-max: 0.12em;
+  font-size: min(var(--node-font-size, 56px), var(--node-font-size-max));
+  letter-spacing: min(var(--node-letter-spacing, 0.12em), var(--node-letter-spacing-max));
   line-height: var(--node-line-height, 1);
   margin: 0;
-  max-width: min(100%, var(--node-max-width, 100%));
+  max-width: 100%;
   min-width: 0;
+  white-space: nowrap;
   overflow-wrap: normal;
 }
 

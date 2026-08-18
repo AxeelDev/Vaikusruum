@@ -235,8 +235,8 @@ export function textStyleToCss(style: CanonicalTextStyle): CSSProperties {
     css["--node-font-family"] = fontFamily;
   }
   if (typeof style.fontSize === "number") {
-    css.fontSize = `${style.fontSize}px`;
     css["--node-font-size"] = `${style.fontSize}px`;
+    css.fontSize = `min(${style.fontSize}px, var(--node-font-size-max, 12cqi))`;
   }
   if (typeof style.fontWeight === "number") {
     css.fontWeight = style.fontWeight;
@@ -247,8 +247,8 @@ export function textStyleToCss(style: CanonicalTextStyle): CSSProperties {
     css["--node-line-height"] = String(style.lineHeight);
   }
   if (typeof style.letterSpacing === "number") {
-    css.letterSpacing = `${style.letterSpacing}em`;
     css["--node-letter-spacing"] = `${style.letterSpacing}em`;
+    css.letterSpacing = `min(${style.letterSpacing}em, var(--node-letter-spacing-max, 0.16em))`;
   }
   if (typeof style.paragraphSpacing === "number") {
     css["--node-paragraph-spacing"] = `${style.paragraphSpacing}px`;
