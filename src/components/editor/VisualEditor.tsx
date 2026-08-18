@@ -1,14 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Inspector } from "@/components/editor/Inspector";
-import { useEditor } from "@/components/editor/EditorProvider";
+import { useDragRuntime, useEditor } from "@/components/editor/EditorProvider";
 import { EditorButton } from "@/components/editor/ui";
 import { SiteView } from "@/components/site/SiteView";
 import { BREAKPOINT_WIDTH } from "@/lib/editor/types";
 import { ADDABLE_ELEMENTS, type AddableElementType, type EditorSelection } from "@/lib/editor/types";
 import { pageSections } from "@/lib/editor/draft";
 import { hrefToSlug } from "@/lib/editor/pages";
+import {
+  dropsEqual,
+  expandRect,
+  rectFromDom,
+  resolveDropIntent,
+  type CachedDropTarget,
+  type DropIntent,
+  type ResolvedDrop,
+} from "@/lib/editor/drop-intent";
 import { logoutAction } from "@/lib/actions/admin";
 import { sanitizeCustomCss, themeToCssVars } from "@/lib/theme/theme";
 import { pageHref } from "@/lib/utils/urls";
@@ -28,19 +37,15 @@ type DropVisual = {
   target: OverlayBox;
   line?: OverlayBox;
   empty?: OverlayBox;
+  beside?: OverlayBox;
+  intent: DropIntent;
+  label: string;
+  targetLabel: string;
   placement: "before" | "after" | "left" | "right" | "inside";
   sectionId: string;
   parentId: string;
   index: number;
   targetNodeId?: string;
-};
-
-type DropTarget = {
-  sectionId: string;
-  parentId: string;
-  kind: string;
-  rect: DOMRect;
-  children: Array<{ id: string; rect: DOMRect }>;
 };
 
 type DragSession = {
@@ -55,14 +60,15 @@ type DragSession = {
   label: string;
   source: HTMLElement;
   dragging: boolean;
-  targets: DropTarget[];
-  drop: DropVisual | null;
+  targets: CachedDropTarget[];
+  drop: ResolvedDrop | null;
   ghost: HTMLElement | null;
   removeListeners?: () => void;
 };
 
 export function VisualEditor({ debug = false }: { debug?: boolean }) {
   const editor = useEditor();
+  const drag = useDragRuntime();
   const { state } = editor;
   const [ctx, setCtx] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [hoverBox, setHoverBox] = useState<OverlayBox | null>(null);
@@ -75,6 +81,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
   const suppressClickRef = useRef(false);
   const suppressAddClickRef = useRef(false);
   const autoScrollRef = useRef<{ frame: number | null; speed: number }>({ frame: null, speed: 0 });
+  const rafRef = useRef<number | null>(null);
   const page = state.draft.pages.find((item) => item.id === state.pageId) ?? state.draft.pages[0];
   const sections = page ? pageSections(state.draft, page.id) : [];
   const nav = useMemo(
@@ -128,7 +135,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
 
   function updateHoverOverlay(id: string | null) {
     hoveredIdRef.current = id;
-    editor.setHoveredNode(id);
+    drag.setHoveredNode(id);
     if (!id || state.preview) {
       setHoverBox(null);
       return;
@@ -140,28 +147,112 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
     setHoverBox(boxForElement(elementForEditId(id)));
   }
 
-  function collectDropTargets(session: DragSession): DropTarget[] {
+  function collectDropTargets(session: DragSession): CachedDropTarget[] {
     const canvas = canvasRef.current;
     if (!canvas) return [];
-    const selector = session.sectionId
-      ? `[data-vr-drop-container][data-vr-section-id="${escapeSelector(session.sectionId)}"]`
-      : "[data-vr-drop-container][data-vr-section-id]";
-    return Array.from(canvas.querySelectorAll<HTMLElement>(selector)).flatMap((container) => {
-      if (session.source.contains(container)) return [];
+    const canvasRect = canvas.getBoundingClientRect();
+    const nodes = Array.from(canvas.querySelectorAll<HTMLElement>("[data-vr-node-id]"));
+    const targets: CachedDropTarget[] = [];
+    for (const element of nodes) {
+      if (session.source.contains(element) && element !== session.source) continue;
+      const nodeId = element.dataset.vrNodeId;
+      const sectionId = element.dataset.vrSectionId;
+      if (!nodeId || !sectionId || nodeId === session.nodeId) continue;
+      if (session.sectionId && sectionId !== session.sectionId) continue;
+      const parent = element.parentElement?.closest<HTMLElement>("[data-vr-drop-container]");
+      const parentId = parent?.dataset.vrDropContainer ?? parent?.dataset.vrNodeId ?? nodeId;
+      const rect = rectFromDom(element.getBoundingClientRect());
+      if (rect.bottom < canvasRect.top - 80 || rect.top > canvasRect.bottom + 80) continue;
+      const kind = element.dataset.vrNodeKind === "group" || element.dataset.vrNodeKind === "column" ? element.dataset.vrNodeKind : "element";
+      const siblings = parent ? Array.from(parent.children).filter((child): child is HTMLElement => child instanceof HTMLElement && Boolean(child.dataset.vrNodeId)) : [];
+      targets.push({
+        nodeId,
+        sectionId,
+        parentId,
+        kind: kind === "group" || kind === "column" ? kind : "element",
+        index: Math.max(0, siblings.findIndex((child) => child.dataset.vrNodeId === nodeId)),
+        childCount: siblings.length,
+        rect,
+        label: element.dataset.vrDragLabel || "Element",
+        canBeside: kind === "element" || kind === "group",
+        canInside: kind === "group" || kind === "column",
+        priority: kind === "element" ? 0 : kind === "group" ? 24 : 48,
+      });
+    }
+    const empties = Array.from(canvas.querySelectorAll<HTMLElement>("[data-vr-drop-container]")).filter((container) => {
+      const sectionId = container.dataset.vrSectionId;
+      if (session.sectionId && sectionId !== session.sectionId) return false;
+      return Array.from(container.children).every((child) => !(child instanceof HTMLElement) || !child.dataset.vrNodeId);
+    });
+    for (const container of empties) {
       const parentId = container.dataset.vrDropContainer;
       const sectionId = container.dataset.vrSectionId;
-      if (!parentId || !sectionId) return [];
-      const children = Array.from(container.children).flatMap((child) => {
-        if (!(child instanceof HTMLElement)) return [];
-        const id = child.dataset.vrNodeId;
-        if (!id || id === session.nodeId) return [];
-        return [{ id, rect: child.getBoundingClientRect() }];
+      if (!parentId || !sectionId) continue;
+      const rect = rectFromDom(container.getBoundingClientRect());
+      targets.push({
+        nodeId: parentId,
+        sectionId,
+        parentId,
+        kind: "container",
+        index: 0,
+        childCount: 0,
+        rect,
+        label: container.dataset.vrNodeKind === "column" ? "Veerg" : "Grupp",
+        canBeside: false,
+        canInside: true,
+        priority: 36,
       });
-      return [{ sectionId, parentId, kind: container.dataset.vrNodeKind ?? "container", rect: container.getBoundingClientRect(), children }];
-    });
+    }
+    return targets;
   }
 
-  function toCanvasBox(rect: DOMRect, label?: string): OverlayBox | null {
+  function visualFromResolved(resolved: ResolvedDrop): DropVisual | null {
+    const targetBox = toCanvasBox(resolved.rect as unknown as DOMRect, resolved.targetLabel);
+    if (!targetBox) return null;
+    const hit = expandRect(resolved.rect, 8);
+    const beside = resolved.intent === "beside-left" || resolved.intent === "beside-right";
+    const vertical = resolved.intent === "before" || resolved.intent === "after";
+    const line = beside
+      ? toCanvasBox({
+          left: resolved.intent === "beside-left" ? resolved.rect.left - 1 : resolved.rect.right - 1,
+          top: resolved.rect.top,
+          width: 2,
+          height: resolved.rect.height,
+        }, resolved.label)
+      : vertical
+        ? toCanvasBox({
+            left: resolved.rect.left,
+            top: resolved.intent === "before" ? resolved.rect.top - 1 : resolved.rect.bottom - 1,
+            width: resolved.rect.width,
+            height: 2,
+          }, resolved.label)
+        : undefined;
+    return {
+      target: { ...targetBox, label: resolved.targetLabel },
+      line: line ?? undefined,
+      empty: resolved.intent.startsWith("inside") ? targetBox : undefined,
+      beside: beside
+        ? {
+            left: resolved.intent === "beside-left" ? targetBox.left - Math.min(targetBox.width, 220) : targetBox.left + targetBox.width,
+            top: targetBox.top,
+            width: Math.min(targetBox.width, 220),
+            height: targetBox.height,
+            label: resolved.label,
+          }
+        : undefined,
+      intent: resolved.intent,
+      label: resolved.label,
+      targetLabel: resolved.targetLabel,
+      placement: resolved.placement,
+      sectionId: resolved.sectionId,
+      parentId: resolved.parentId,
+      index: resolved.index,
+      targetNodeId: resolved.targetNodeId,
+    };
+    void hit;
+  }
+
+  function toCanvasBox(rect: { left: number; top: number; width: number; height: number }, label?: string): OverlayBox | null {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const canvasRect = canvas.getBoundingClientRect();
@@ -174,101 +265,13 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
     };
   }
 
-  function nearestDrop(session: DragSession, clientX: number, clientY: number): DropVisual | null {
-    const candidates = session.targets
-      .filter((target) => {
-        const rect = target.rect;
-        return (
-          clientX >= rect.left - 32 &&
-          clientX <= rect.right + 32 &&
-          clientY >= rect.top - 32 &&
-          clientY <= rect.bottom + 32
-        );
-      })
-      .sort((a, b) => a.rect.width * a.rect.height - b.rect.width * b.rect.height);
-    const target = candidates[0];
-    if (!target) return null;
-
-    let index = target.children.length;
-    let placement: DropVisual["placement"] = "inside";
-    let targetNodeId: string | undefined;
-    const directChild = target.children.find((child) => (
-      clientX >= child.rect.left &&
-      clientX <= child.rect.right &&
-      clientY >= child.rect.top &&
-      clientY <= child.rect.bottom
-    ));
-    if (directChild) {
-      const xRatio = (clientX - directChild.rect.left) / Math.max(directChild.rect.width, 1);
-      const yRatio = (clientY - directChild.rect.top) / Math.max(directChild.rect.height, 1);
-      const childIndex = target.children.findIndex((child) => child.id === directChild.id);
-      targetNodeId = directChild.id;
-      if (xRatio <= 0.25) {
-        placement = "left";
-        index = childIndex;
-      } else if (xRatio >= 0.75) {
-        placement = "right";
-        index = childIndex + 1;
-      } else if (yRatio < 0.5) {
-        placement = "before";
-        index = childIndex;
-      } else {
-        placement = "after";
-        index = childIndex + 1;
-      }
-    }
-    for (let i = 0; i < target.children.length; i += 1) {
-      if (directChild) break;
-      const child = target.children[i];
-      if (clientY < child.rect.top + child.rect.height / 2) {
-        index = i;
-        placement = "before";
-        targetNodeId = child.id;
-        break;
-      }
-    }
-
-    const targetBox = toCanvasBox(target.rect);
-    if (!targetBox) return null;
-
-    if (target.children.length === 0) {
-      return {
-        target: { ...targetBox, label: target.kind === "column" ? "COLUMN" : undefined },
-        empty: targetBox,
-        placement: "inside",
-        sectionId: target.sectionId,
-        parentId: target.parentId,
-        index: 0,
-      };
-    }
-
-    const directRect = directChild?.rect;
-    const before = target.children[index - 1]?.rect;
-    const after = target.children[index]?.rect;
-    const viewportTop = placement === "left" || placement === "right"
-      ? directRect?.top ?? target.rect.top
-      : after ? after.top : before ? before.bottom : target.rect.top + target.rect.height / 2;
-    const viewportLeft = placement === "left"
-      ? directRect?.left ?? target.rect.left
-      : placement === "right"
-        ? directRect?.right ?? target.rect.right
-        : target.rect.left;
-    const lineBox = toCanvasBox(
-      placement === "left" || placement === "right"
-        ? new DOMRect(viewportLeft - 1, viewportTop, 2, directRect?.height ?? target.rect.height)
-        : new DOMRect(target.rect.left, viewportTop - 1, target.rect.width, 2),
+  function nearestDrop(session: DragSession, clientX: number, clientY: number): ResolvedDrop | null {
+    return resolveDropIntent(
+      session.targets,
+      { x: clientX, y: clientY },
+      session.nodeId,
+      session.drop ? { targetNodeId: session.drop.targetNodeId, intent: session.drop.intent } : null,
     );
-    return lineBox
-      ? {
-          target: { ...targetBox, label: target.kind === "column" ? "COLUMN" : undefined },
-          line: lineBox,
-          placement,
-          sectionId: target.sectionId,
-          parentId: target.parentId,
-          index,
-          targetNodeId,
-        }
-      : null;
   }
 
   function positionGhost(session: DragSession) {
@@ -284,7 +287,8 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
     ghost.style.width = `${Math.min(rect.width, 320)}px`;
     ghost.style.maxHeight = "220px";
     ghost.style.transform = `translate3d(${session.currentX + 12}px, ${session.currentY + 12}px, 0)`;
-    document.body.appendChild(ghost);
+    const host = canvasRef.current ?? document.body;
+    host.appendChild(ghost);
     session.ghost = ghost;
   }
 
@@ -322,7 +326,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
       active.targets = collectDropTargets(active);
       const nextDrop = nearestDrop(active, active.currentX, active.currentY);
       active.drop = nextDrop;
-      setDropVisual(nextDrop);
+      setDropVisual(nextDrop ? visualFromResolved(nextDrop) : null);
       updateSelectionOverlay();
       autoScrollRef.current.frame = window.requestAnimationFrame(tick);
     };
@@ -352,7 +356,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
         editor.moveNode(session.sectionId, session.nodeId, session.drop.parentId, session.drop.index, session.drop.placement, session.drop.targetNodeId);
       }
     } else {
-      editor.setDraggedNode(null);
+      drag.setDraggedNode(null);
     }
     dragRef.current = null;
     setDragging(false);
@@ -364,7 +368,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
     session.dragging = true;
     session.source.setAttribute("data-editor-dragging", "");
     session.targets = collectDropTargets(session);
-    editor.setDraggedNode(session.nodeId);
+    drag.setDraggedNode(session.nodeId);
     const selection = selectionFromElement(session.source);
     if (selection && !session.addType) editor.select(selection);
     createGhost(session);
@@ -376,9 +380,16 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
     session.currentX = event.clientX;
     session.currentY = event.clientY;
     positionGhost(session);
-    const nextDrop = nearestDrop(session, event.clientX, event.clientY);
-    session.drop = nextDrop;
-    setDropVisual(nextDrop);
+    if (rafRef.current) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      const active = dragRef.current;
+      if (!active?.dragging) return;
+      const nextDrop = nearestDrop(active, active.currentX, active.currentY);
+      if (dropsEqual(active.drop, nextDrop)) return;
+      active.drop = nextDrop;
+      setDropVisual(nextDrop ? visualFromResolved(nextDrop) : null);
+    });
     scheduleAutoScroll(session, event.clientY);
   }
 
@@ -474,6 +485,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
       mediaId: hit.dataset.vrSelectionMediaId,
       offeringId: hit.dataset.vrSelectionOfferingId,
       navSlug: hit.dataset.vrSelectionNavSlug,
+      layoutNodeId: hit.dataset.vrNodeId ?? hit.closest<HTMLElement>("[data-vr-node-id]")?.dataset.vrNodeId,
     };
   }
 
@@ -589,16 +601,16 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      if (!state.hoveredNodeId || state.hoveredNodeId === state.selected?.id) {
+      if (!drag.hoveredNodeId || drag.hoveredNodeId === state.selected?.id) {
         setHoverBox(null);
         return;
       }
-      setHoverBox(boxForElement(elementForEditId(state.hoveredNodeId)));
+      setHoverBox(boxForElement(elementForEditId(drag.hoveredNodeId)));
     });
     return () => window.cancelAnimationFrame(frame);
     // Hover overlay is a DOM measurement, not derived render state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.hoveredNodeId, state.selected?.id, state.draft, state.breakpoint, state.preview]);
+  }, [drag.hoveredNodeId, state.selected?.id, state.draft, state.breakpoint, state.preview]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -695,7 +707,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
       <div
         className="vr-editor-root"
         data-inspector-open={state.inspectorOpen ? "true" : "false"}
-        data-has-selection={state.selected || state.themePanel ? "true" : "false"}
+        data-has-selection={state.selected || state.inspectorContext.kind === "site" ? "true" : "false"}
       >
         <Inspector />
         <main className="vr-editor-workspace">
@@ -748,7 +760,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
             onSubmitCapture={(event) => event.preventDefault()}
           >
             <div className="vr-editor-frame" style={{ width: BREAKPOINT_WIDTH[state.breakpoint] }}>
-              <SiteView
+              <MemoSiteView
                 page={page}
                 sections={sections}
                 offerings={state.draft.offerings}
@@ -862,6 +874,8 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
   );
 }
 
+const MemoSiteView = memo(SiteView);
+
 function EditorTopBar({
   onAddElement,
   onAddPointerDown,
@@ -874,6 +888,7 @@ function EditorTopBar({
   const editor = useEditor();
   const { state } = editor;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const page = state.draft.pages.find((item) => item.id === state.pageId);
   const canUndo = state.historyIndex > 0;
@@ -954,11 +969,23 @@ function EditorTopBar({
           {saveText}
         </button>
         <div className="vr-editor-more">
-          <button type="button" aria-label="Menüü" onClick={() => setMenuOpen((open) => !open)}>
+          <button type="button" aria-label="Rohkem" data-active={moreOpen ? "true" : undefined} onClick={() => setMoreOpen((open) => !open)}>
             ⋮
           </button>
-          {menuOpen ? (
+          {moreOpen ? (
             <div className="vr-editor-menu vr-editor-top-menu">
+              <button
+                type="button"
+                onClick={() => {
+                  editor.openSiteDesign();
+                  setMoreOpen(false);
+                }}
+              >
+                Saidi kujundus
+              </button>
+              <button type="button" onClick={() => editor.requestNavigation("/admin/design")}>
+                Halduse kujundus
+              </button>
               <button type="button" onClick={() => editor.requestNavigation("/admin")}>
                 Haldus
               </button>
@@ -1050,7 +1077,32 @@ function EditorCanvasOverlay({
             height: dropVisual.empty.height,
           }}
         >
-          Drop here
+          Sisse
+        </div>
+      ) : null}
+      {dropVisual?.beside ? (
+        <div
+          className="vr-editor-beside-preview"
+          style={{
+            left: dropVisual.beside.left,
+            top: dropVisual.beside.top,
+            width: dropVisual.beside.width,
+            height: dropVisual.beside.height,
+          }}
+        >
+          <span>{dropVisual.label}</span>
+        </div>
+      ) : null}
+      {dropVisual ? (
+        <div
+          className="vr-editor-drop-tooltip"
+          style={{
+            left: dropVisual.target.left,
+            top: Math.max(8, dropVisual.target.top - 28),
+          }}
+        >
+          <strong>{dropVisual.targetLabel}</strong>
+          <span>{dropVisual.label}</span>
         </div>
       ) : null}
     </div>
@@ -1063,7 +1115,7 @@ function OverlayRect({ box, kind }: { box: OverlayBox; kind: "hover" | "selected
       className={`vr-editor-overlay-rect vr-editor-overlay-rect--${kind === "insertVertical" ? "insert vr-editor-overlay-rect--insert-vertical" : kind}`}
       style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
     >
-      {box.label && kind === "selected" ? <span>{box.label.toUpperCase()}</span> : null}
+      {box.label && (kind === "selected" || kind === "insert" || kind === "insertVertical") ? <span>{kind === "selected" ? box.label : box.label}</span> : null}
     </div>
   );
 }

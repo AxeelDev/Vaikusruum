@@ -43,7 +43,7 @@ export default async function AdminEntryPage() {
       },
       {
         href: "/admin/design",
-        title: "Kujundus",
+        title: "Saidi kujundus",
         description: "Muuda globaalseid värve, fonte, vahesid ja nuppe.",
       },
       {

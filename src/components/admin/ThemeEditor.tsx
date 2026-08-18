@@ -40,7 +40,7 @@ export function ThemeEditor({ initial }: { initial: ThemeTokens }) {
 
   return (
     <div>
-      <h1 className="vr-admin-title">Välimus</h1>
+      <h1 className="vr-admin-title">Saidi kujundus</h1>
       <h2 className="vr-heading">Värvid</h2>
       <div className="vr-swatch-row">
         <ColorField label="Põhitaust" value={theme.bgMain} onChange={(v) => set("bgMain", v)} />

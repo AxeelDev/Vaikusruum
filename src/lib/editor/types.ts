@@ -10,7 +10,24 @@ import type {
 import type { ThemeTokens } from "@/lib/theme/theme";
 
 export type EditorBreakpoint = "desktop" | "tablet" | "mobile";
-export type InspectorTab = "content" | "appearance" | "animation" | "settings";
+export type InspectorTabId = "content" | "appearance" | "layout" | "animation" | "advanced";
+export type InspectorTab = InspectorTabId | "settings";
+export type InspectorContext =
+  | { kind: "none" }
+  | { kind: "site" }
+  | { kind: "page"; pageId: string }
+  | { kind: "node"; nodeId: string };
+
+export type EditPath =
+  | { kind: "section-content"; sectionId: string; key: string }
+  | { kind: "offering"; offeringId: string; key: keyof OfferingRow }
+  | { kind: "settings"; key: "site_name" | "footer_text" | "contact_email" | "contact_phone" }
+  | { kind: "nav-label"; pageId: string }
+  | { kind: "page-title"; pageId: string }
+  | { kind: "faq"; sectionId: string; index: number; field: "question" | "answer" }
+  | { kind: "list-item"; sectionId: string; index: number }
+  | { kind: "testimonial"; sectionId: string; index: number; field: "quote" | "name" };
+
 export type SelectedType =
   | "page"
   | "section"
@@ -43,28 +60,32 @@ export type EditorSelection = {
   offeringId?: string;
   mediaId?: string;
   navSlug?: string;
+  layoutNodeId?: string;
 };
 
 export type EditorState = {
   pageId: string;
   selected: EditorSelection | null;
   inspectorOpen: boolean;
+  inspectorContext: InspectorContext;
   inspectorTab: InspectorTab;
   breakpoint: EditorBreakpoint;
   draft: EditorDraft;
   dirty: boolean;
   history: EditorDraft[];
   historyIndex: number;
-  draggedNodeId: string | null;
-  hoveredNodeId: string | null;
   preview: boolean;
   advanced: boolean;
   saving: boolean;
   saveError: string | null;
   saveFlash: boolean;
-  themePanel: boolean;
   pendingPageId: string | null;
   pendingNavigationHref: string | null;
+};
+
+export type DragRuntimeState = {
+  draggedNodeId: string | null;
+  hoveredNodeId: string | null;
 };
 
 export type AddableSectionType = Extract<

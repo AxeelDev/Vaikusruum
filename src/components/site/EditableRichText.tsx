@@ -26,6 +26,10 @@ export function EditableRichText({
       data-vr-edit-id={editor.state.preview ? undefined : selection.id}
       data-vr-editable={editor.state.preview ? undefined : ""}
       data-vr-selected={selected ? "" : undefined}
+      data-vr-selection-id={editor.state.preview ? undefined : selection.id}
+      data-vr-selection-type={editor.state.preview ? undefined : selection.type}
+      data-vr-selection-section-id={editor.state.preview ? undefined : selection.sectionId}
+      data-vr-selection-field={editor.state.preview ? undefined : selection.field}
       onClick={(event) => {
         if (editor.state.preview) return;
         event.preventDefault();

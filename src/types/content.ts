@@ -84,6 +84,9 @@ export type LayoutGroupNode = {
   gap?: "small" | "medium" | "large";
   horizontalAlign?: HorizontalAlign;
   textAlign?: TextAlign;
+  ephemeral?: boolean;
+  preferredRatio?: ColumnBalance | "custom";
+  preferredCustomRatio?: number;
   children: LayoutNode[];
 };
 
@@ -163,6 +166,8 @@ export type SectionStyle = {
   splitGap?: number | null;
   columnBalance?: ColumnBalance;
   columnRatio?: number | null;
+  preferredColumnBalance?: ColumnBalance;
+  preferredColumnRatio?: number | null;
   layoutTree?: SectionLayoutTree;
   fieldStyles?: Record<string, TextAppearance>;
   image?: ImageAppearance;

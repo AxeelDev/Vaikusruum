@@ -13,19 +13,13 @@ import { saveEditorDraftAction, type EditorSavePayload } from "@/lib/actions/adm
 import { cloneDraft, createSection, duplicateSection as cloneSectionRow, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
 import { insertLayoutElement, moveLayoutNode, normalizeSectionLayout, resizeLayoutColumns } from "@/lib/editor/layout-tree";
 import { mergeFieldStyle } from "@/lib/editor/appearance";
-import type { AddableElementType, AddableSectionType, EditorDraft, EditorSelection, EditorState, InspectorTab } from "@/lib/editor/types";
+import { resolveInspectorTab, resolveNodeKind } from "@/lib/editor/node-registry";
+import { readEditorContent } from "@/lib/editor/content-binding";
+import type { AddableElementType, AddableSectionType, DragRuntimeState, EditPath, EditorDraft, EditorSelection, EditorState, InspectorContext, InspectorTab } from "@/lib/editor/types";
 import type { AdminRole, MediaRow, OfferingRow, SectionRow, TextAppearance } from "@/types/content";
 import type { ThemeTokens } from "@/lib/theme/theme";
 
-export type EditPath =
-  | { kind: "section-content"; sectionId: string; key: string }
-  | { kind: "offering"; offeringId: string; key: keyof OfferingRow }
-  | { kind: "settings"; key: "site_name" | "footer_text" | "contact_email" | "contact_phone" }
-  | { kind: "nav-label"; pageId: string }
-  | { kind: "page-title"; pageId: string }
-  | { kind: "faq"; sectionId: string; index: number; field: "question" | "answer" }
-  | { kind: "list-item"; sectionId: string; index: number }
-  | { kind: "testimonial"; sectionId: string; index: number; field: "quote" | "name" };
+export type { EditPath };
 
 export type PagePatch = Partial<{
   title: string;
@@ -43,13 +37,13 @@ type EditorApi = {
   select: (selection: EditorSelection) => void;
   deselect: () => void;
   closeInspector: () => void;
+  goBack: () => void;
   setTab: (tab: InspectorTab) => void;
   setBreakpoint: (breakpoint: EditorState["breakpoint"]) => void;
   setPreview: (preview: boolean) => void;
   setAdvanced: (advanced: boolean) => void;
-  setThemePanel: (open: boolean) => void;
-  setDraggedNode: (id: string | null) => void;
-  setHoveredNode: (id: string | null) => void;
+  openSiteDesign: () => void;
+  closeSiteDesign: () => void;
   setPath: (path: EditPath, value: unknown, record?: boolean) => void;
   patchSection: (sectionId: string, updater: (section: SectionRow) => SectionRow, record?: boolean) => void;
   patchTheme: (patch: Partial<ThemeTokens>, record?: boolean) => void;
@@ -82,6 +76,11 @@ type EditorApi = {
 const StateContext = createContext<EditorState | null>(null);
 const ApiContext = createContext<Omit<EditorApi, "state"> | null>(null);
 const RoleContext = createContext<AdminRole>("editor");
+const DragStateContext = createContext<DragRuntimeState>({ draggedNodeId: null, hoveredNodeId: null });
+const DragApiContext = createContext<{
+  setDraggedNode: (id: string | null) => void;
+  setHoveredNode: (id: string | null) => void;
+} | null>(null);
 
 const HISTORY_LIMIT = 50;
 
@@ -105,6 +104,8 @@ export function EditorProvider({
   const [pageId, setPageId] = useState(home?.id ?? "");
   const [selected, setSelected] = useState<EditorSelection | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorContext, setInspectorContext] = useState<InspectorContext>({ kind: "none" });
+  const [inspectorBack, setInspectorBack] = useState<InspectorContext>({ kind: "none" });
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("content");
   const [breakpoint, setBreakpoint] = useState<EditorState["breakpoint"]>("desktop");
   const [history, setHistory] = useState<EditorDraft[]>(() => [snapshot(initial)]);
@@ -113,7 +114,6 @@ export function EditorProvider({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  const [themePanel, setThemePanel] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveFlash, setSaveFlash] = useState(false);
@@ -143,14 +143,44 @@ export function EditorProvider({
   const select = useCallback((selection: EditorSelection) => {
     setSelected(selection);
     setInspectorOpen(true);
-    setThemePanel(false);
     setPreview(false);
-    setInspectorTab("content");
-  }, []);
+    setInspectorContext((current) => {
+      if (current.kind === "site") setInspectorBack(current);
+      return { kind: "node", nodeId: selection.id };
+    });
+    setInspectorTab((current) => {
+      const content = readEditorContent(draft, selection);
+      const kind = resolveNodeKind(selection, { rich: content.format === "rich" });
+      return resolveInspectorTab(kind, current, role);
+    });
+  }, [draft, role]);
 
   const deselect = useCallback(() => {
     setSelected(null);
+    setInspectorContext({ kind: "none" });
+    setInspectorTab("content");
   }, []);
+
+  const openSiteDesign = useCallback(() => {
+    setInspectorBack(inspectorContext);
+    setInspectorContext({ kind: "site" });
+    setInspectorTab("appearance");
+    setInspectorOpen(true);
+    setPreview(false);
+  }, [inspectorContext]);
+
+  const closeSiteDesign = useCallback(() => {
+    setInspectorContext(inspectorBack.kind === "site" ? { kind: "none" } : inspectorBack);
+    if (inspectorBack.kind !== "node") setInspectorTab("content");
+  }, [inspectorBack]);
+
+  const goBack = useCallback(() => {
+    if (inspectorContext.kind === "site") {
+      closeSiteDesign();
+      return;
+    }
+    deselect();
+  }, [closeSiteDesign, deselect, inspectorContext.kind]);
 
   const setPath = useCallback(
     (path: EditPath, value: unknown, record = true) => {
@@ -247,7 +277,7 @@ export function EditorProvider({
   const switchPage = useCallback((nextPageId: string) => {
     setPageId(nextPageId);
     setSelected(null);
-    setThemePanel(false);
+    setInspectorContext({ kind: "none" });
     setInspectorTab("content");
     setInspectorOpen(true);
   }, []);
@@ -419,6 +449,8 @@ export function EditorProvider({
       }
       applyDraft(next, true);
       setSelected(null);
+      setInspectorContext({ kind: "none" });
+      setInspectorTab("content");
     },
     [applyDraft, draft, pageId],
   );
@@ -545,25 +577,35 @@ export function EditorProvider({
     [pendingNavigationHref, save],
   );
 
+  const dragState = useMemo<DragRuntimeState>(
+    () => ({ draggedNodeId, hoveredNodeId }),
+    [draggedNodeId, hoveredNodeId],
+  );
+  const dragApi = useMemo(
+    () => ({
+      setDraggedNode: setDraggedNodeId,
+      setHoveredNode: setHoveredNodeId,
+    }),
+    [],
+  );
+
   const state: EditorState = useMemo(
     () => ({
       pageId,
       selected,
       inspectorOpen,
+      inspectorContext,
       inspectorTab,
       breakpoint,
       draft,
       dirty,
       history,
       historyIndex,
-      draggedNodeId,
-      hoveredNodeId,
       preview,
       advanced,
       saving,
       saveError,
       saveFlash,
-      themePanel,
       pendingPageId,
       pendingNavigationHref,
     }),
@@ -574,8 +616,7 @@ export function EditorProvider({
       draft,
       history,
       historyIndex,
-      draggedNodeId,
-      hoveredNodeId,
+      inspectorContext,
       inspectorOpen,
       inspectorTab,
       pageId,
@@ -586,7 +627,6 @@ export function EditorProvider({
       saveFlash,
       saving,
       selected,
-      themePanel,
     ],
   );
 
@@ -596,19 +636,13 @@ export function EditorProvider({
       select,
       deselect,
       closeInspector: () => setInspectorOpen(false),
+      goBack,
       setTab: setInspectorTab,
       setBreakpoint,
       setPreview,
       setAdvanced,
-      setThemePanel: (open) => {
-        setThemePanel(open);
-        if (open) {
-          setInspectorOpen(true);
-          setInspectorTab("appearance");
-        }
-      },
-      setDraggedNode: setDraggedNodeId,
-      setHoveredNode: setHoveredNodeId,
+      openSiteDesign,
+      closeSiteDesign,
       setPath,
       patchSection,
       patchTheme,
@@ -642,14 +676,17 @@ export function EditorProvider({
       addElement,
       addMedia,
       cancelPendingPage,
+      closeSiteDesign,
       confirmPendingPage,
       confirmPendingNavigation,
       cancelPendingNavigation,
       deselect,
       duplicateSection,
+      goBack,
       moveNode,
       moveSection,
       moveSectionToIndex,
+      openSiteDesign,
       patchFieldStyle,
       patchMedia,
       patchPage,
@@ -674,7 +711,11 @@ export function EditorProvider({
   return (
     <RoleContext.Provider value={role}>
       <StateContext.Provider value={state}>
-        <ApiContext.Provider value={api}>{children}</ApiContext.Provider>
+        <ApiContext.Provider value={api}>
+          <DragStateContext.Provider value={dragState}>
+            <DragApiContext.Provider value={dragApi}>{children}</DragApiContext.Provider>
+          </DragStateContext.Provider>
+        </ApiContext.Provider>
       </StateContext.Provider>
     </RoleContext.Provider>
   );
@@ -691,4 +732,16 @@ export function useEditor(): EditorApi {
   const editor = useOptionalEditor();
   if (!editor) throw new Error("EditorProvider puudub.");
   return editor;
+}
+
+export function useDragRuntime(): DragRuntimeState & {
+  setDraggedNode: (id: string | null) => void;
+  setHoveredNode: (id: string | null) => void;
+} {
+  const state = useContext(DragStateContext);
+  const api = useContext(DragApiContext);
+  if (!api) {
+    return { ...state, setDraggedNode: () => undefined, setHoveredNode: () => undefined };
+  }
+  return { ...state, ...api };
 }

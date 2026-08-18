@@ -34,7 +34,7 @@ export function findSection(draft: EditorDraft, sectionId: string): SectionRow |
 export function defaultSectionContent(type: SectionType): Record<string, unknown> {
   switch (type) {
     case "hero":
-      return { intro: "", showEmblem: true };
+      return { intro: "", showEmblem: true, title: "VAIKUSRUUM" };
     case "split_media_text":
       return { plain: "Uus tekst" };
     case "rich_text":

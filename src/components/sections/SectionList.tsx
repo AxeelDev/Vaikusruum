@@ -346,7 +346,7 @@ function SectionView({
     }
     if (node.elementType === "image") return { id: `${section.id}.image`, type: "image", field: node.field ?? "image", mediaId };
     if (node.elementType === "text" && node.field) {
-      return { id: node.field === "body" ? `${prefix}.body` : `${prefix}.${node.field}`, type: "text" };
+      return { id: node.field === "body" ? `${prefix}.body` : `${prefix}.${node.field}`, type: "text", field: node.field };
     }
     if (node.elementType === "offering") return { id: node.id, type: "text", offeringId: node.offeringId };
     if (node.field) return { id: `${prefix}.${node.field}`, type: "text", field: node.field };
@@ -569,7 +569,7 @@ function SectionView({
             className={section.section_type === "hero" ? "vr-wordmark vr-wordmark--hero" : "vr-heading"}
             selection={selection}
             path={{ kind: "section-content", sectionId: section.id, key: field }}
-            value={String(section.content.title ?? "VAIKUSRUUM")}
+            value={typeof section.content.title === "string" && section.content.title ? section.content.title : String(settings.site_name || "VAIKUSRUUM")}
             appearance={section.section_type === "hero" ? { ...titleAppearance, width: undefined } : titleAppearance}
           />
         </div>
@@ -577,7 +577,7 @@ function SectionView({
     }
     if (field === "heading") {
       const value = typeof section.content.heading === "string" ? section.content.heading : "";
-      if (!value) return null;
+      if (!value && !editor) return null;
       return (
         <div className="vr-layout-element">
           <EditableText
@@ -593,7 +593,7 @@ function SectionView({
     }
     if (field === "intro" || field === "plain") {
       const value = typeof section.content[field] === "string" ? section.content[field] : "";
-      if (!value) return null;
+      if (!value && !editor) return null;
       return (
         <div className="vr-layout-element">
           <EditableText

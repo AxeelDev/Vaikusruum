@@ -104,6 +104,27 @@ html.vr-editor-lock body {
   width: 100%;
 }
 
+.vr-inspector-tabs[data-mode="labels"] {
+  padding: 0 8px;
+  gap: 0;
+}
+
+.vr-inspector-tabs[data-mode="labels"] button {
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--editor-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.vr-inspector-tabs[data-mode="labels"] button.is-active {
+  color: var(--editor-text);
+  border-bottom-color: var(--editor-accent);
+}
+
 .vr-inspector-tabs .vr-ed-iconbtn {
   width: 100%;
   height: 48px;
@@ -529,6 +550,9 @@ html.vr-editor-lock body {
   position: absolute;
   box-sizing: border-box;
   pointer-events: none;
+}
+
+.vr-editor-overlay:not([data-dragging="true"]) .vr-editor-overlay-rect {
   transition:
     left 90ms ease-out,
     top 90ms ease-out,
@@ -590,6 +614,44 @@ html.vr-editor-lock body {
   color: var(--editor-accent);
   font-size: 12px;
   letter-spacing: 0.04em;
+}
+
+.vr-editor-beside-preview {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(53, 183, 184, 0.7);
+  background: rgba(53, 183, 184, 0.08);
+  color: var(--editor-accent);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.vr-editor-drop-tooltip {
+  position: absolute;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: #102526;
+  color: #d7f4f4;
+  font-size: 11px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.vr-editor-drop-tooltip strong {
+  font-weight: 600;
+}
+
+.vr-editor-drop-tooltip span {
+  color: var(--editor-accent);
+}
+
+.vr-editor-canvas.is-dragging .vr-layout-child {
+  transition: none;
 }
 
 [data-vr-edit-mode="true"] [data-vr-draggable-node]:hover {

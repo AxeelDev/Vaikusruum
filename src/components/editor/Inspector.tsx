@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type PointerEvent } from "react";
-import { useEditor } from "@/components/editor/EditorProvider";
+import { useEffect, useMemo, useState, type PointerEvent } from "react";
+import { useDragRuntime, useEditor } from "@/components/editor/EditorProvider";
 import { RichEditor } from "@/components/admin/RichEditor";
 import {
   EditorButton,
@@ -19,19 +19,22 @@ import {
   EditorSwitch,
   EditorTextInput,
   EditorTextarea,
-  EditorTooltip,
 } from "@/components/editor/ui";
 import { findSection, pageSections } from "@/lib/editor/draft";
 import { fieldStyle } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
-import { findLayoutNode, getSectionLayoutTree, ratioToLeftPercent, sectionLayoutSummary } from "@/lib/editor/layout-tree";
+import { findLayoutNode, getSectionLayoutTree, listLayoutElements, parentOfNode, ratioToLeftPercent, sectionLayoutSummary } from "@/lib/editor/layout-tree";
 import { pageLabel } from "@/lib/editor/pages";
 import { ADDABLE_SECTIONS } from "@/lib/editor/types";
 import { ALL_FONTS, BODY_FONTS, DISPLAY_FONTS } from "@/lib/theme/theme";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { compressImage } from "@/lib/utils/compress-image";
 import { mediaPublicUrl } from "@/lib/utils/urls";
-import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
+import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
+import { readEditorContent } from "@/lib/editor/content-binding";
+import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
+import type { InspectorTabId } from "@/lib/editor/types";
+import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
 import type { TiptapNode } from "@/types/content";
 
 const FONT_OPTIONS = ALL_FONTS.map((font) => ({
@@ -47,7 +50,19 @@ function createMediaStoragePath(ext: string) {
 export function Inspector() {
   const editor = useEditor();
   const { state } = editor;
-  const hasContext = Boolean(state.selected || state.themePanel);
+  const model = useMemo(
+    () =>
+      buildInspectorModel({
+        draft: state.draft,
+        selection: state.selected,
+        context: state.inspectorContext,
+        tab: state.inspectorTab,
+        role: editor.role,
+        pageId: state.pageId,
+      }),
+    [editor.role, state.draft, state.inspectorContext, state.inspectorTab, state.pageId, state.selected],
+  );
+  const hasContext = model.context.kind !== "none";
   const [width, setWidth] = useState(() => {
     if (typeof window === "undefined") return 320;
     const stored = Number(window.localStorage.getItem("vr.editor.inspectorWidth"));
@@ -78,87 +93,39 @@ export function Inspector() {
 
   return (
     <aside className="vr-inspector" aria-label="Redaktor" style={{ width }}>
-      <div className="vr-inspector-top">
-        <div className="vr-inspector-tabs">
-          <EditorTooltip label="Sisu / elemendid">
-            <EditorIconButton
-              ariaLabel="Sisu"
-              active={state.inspectorTab === "content" && !state.themePanel}
-              onClick={() => {
-                editor.setThemePanel(false);
-                editor.setTab("content");
-              }}
-            >
-              A
-            </EditorIconButton>
-          </EditorTooltip>
-          <EditorTooltip label="Välimus">
-            <EditorIconButton
-              ariaLabel="Välimus"
-              active={state.inspectorTab === "appearance" || state.themePanel}
-              onClick={() => {
-                editor.setThemePanel(false);
-                editor.setTab("appearance");
-              }}
-            >
-              <BrushIcon />
-            </EditorIconButton>
-          </EditorTooltip>
-          <EditorTooltip label="Animatsioon">
-            <EditorIconButton
-              ariaLabel="Animatsioon"
-              active={state.inspectorTab === "animation" && !state.themePanel}
-              onClick={() => {
-                editor.setThemePanel(false);
-                editor.setTab("animation");
-              }}
-            >
-              <PlayIcon />
-            </EditorIconButton>
-          </EditorTooltip>
-          <EditorTooltip label="Seaded">
-            <EditorIconButton
-              ariaLabel="Seaded"
-              active={state.inspectorTab === "settings" && !state.themePanel}
-              onClick={() => {
-                editor.setThemePanel(false);
-                editor.setTab("settings");
-              }}
-            >
-              <GearIcon />
-            </EditorIconButton>
-          </EditorTooltip>
-        </div>
-      </div>
       <div className="vr-inspector-contextbar">
-        <EditorIconButton
-          ariaLabel="Tagasi"
-          disabled={!hasContext}
-          onClick={() => {
-            editor.deselect();
-            editor.setThemePanel(false);
-            editor.setTab("content");
-          }}
-        >
+        <EditorIconButton ariaLabel="Tagasi" disabled={!hasContext} onClick={() => editor.goBack()}>
           ‹
         </EditorIconButton>
-        <span>{state.selected ? selectedKindLabel(state.selected.type) : state.themePanel ? "Üldine välimus" : "Leht"}</span>
+        <span>{model.breadcrumb}</span>
         <EditorIconButton
           ariaLabel="Sulge"
           onClick={() => {
-            if (hasContext) {
-              editor.deselect();
-              editor.setThemePanel(false);
-            } else {
-              editor.closeInspector();
-            }
+            if (hasContext) editor.goBack();
+            else editor.closeInspector();
           }}
         >
           ×
         </EditorIconButton>
       </div>
+      {model.tabs.length ? (
+        <div className="vr-inspector-top">
+          <div className="vr-inspector-tabs" data-mode="labels" style={{ gridTemplateColumns: `repeat(${model.tabs.length}, 1fr)` }}>
+            {model.tabs.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                className={model.tab === tab ? "is-active" : undefined}
+                onClick={() => editor.setTab(tab)}
+              >
+                {INSPECTOR_TAB_LABELS[tab]}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="vr-inspector-scroll">
-        {state.themePanel ? <ThemePanel /> : <SelectionPanels />}
+        {model.context.kind === "site" ? <SiteDesignInspector /> : <SelectionPanels tab={model.tab} />}
       </div>
       <EditorFooterControls />
       <button
@@ -295,26 +262,25 @@ function EditorFooterControls() {
   );
 }
 
-function SelectionPanels() {
+function SelectionPanels({ tab }: { tab: InspectorTabId }) {
   const editor = useEditor();
-  const tab = editor.state.inspectorTab;
   const selected = editor.state.selected;
-  if (!selected) {
-    if (tab === "appearance") return <ThemePanel />;
-    if (tab === "animation") return <PageAnimationPlaceholder />;
-    if (tab === "settings") return <PageOverview mode="settings" />;
-    return <PageOverview />;
-  }
-  if (selected.type === "container") return <ContainerPanel />;
-  if (selected.type === "image") return <ImagePanel />;
-  if (selected.type === "text" && isStructuredContentSelection(editor)) return <StructuredContentPanel />;
-  if (tab === "appearance") return <AppearancePanel />;
+  if (!selected) return <PageOverview />;
   if (tab === "animation") return <AnimationPanel />;
-  if (tab === "settings") return <SettingsPanel />;
-  if (selected.type === "section") return <SectionPanel />;
+  if (tab === "advanced" || tab === ("settings" as InspectorTabId)) return <SettingsPanel />;
+  if (tab === "layout") {
+    if (selected.type === "container") return <ContainerPanel />;
+    if (selected.type === "section") return <SectionPanel mode="layout" />;
+    return <ContainerPanel />;
+  }
+  if (tab === "appearance") return <NodeAppearanceInspector />;
+  if (selected.type === "container") return <ContainerPanel />;
+  if (selected.type === "image") return <ImagePanel mode="content" />;
+  if (selected.type === "section") return <SectionPanel mode="content" />;
   if (selected.type === "header") return <HeaderPanel />;
   if (selected.type === "nav") return <NavItemPanel />;
-  return <ContentPanel />;
+  if (isStructuredContentSelection(editor)) return <StructuredContentPanel />;
+  return <NodeContentInspector />;
 }
 
 function isStructuredContentSelection(editor: ReturnType<typeof useEditor>) {
@@ -413,6 +379,7 @@ function PageOverview({ mode = "content" }: { mode?: "content" | "settings" }) {
 
 function EditorElementTree() {
   const editor = useEditor();
+  const drag = useDragRuntime();
   const page = editor.state.draft.pages.find((item) => item.id === editor.state.pageId);
   if (!page) return null;
   const sections = pageSections(editor.state.draft, page.id);
@@ -422,17 +389,17 @@ function EditorElementTree() {
         <details key={section.id} className="vr-element-group" open>
           <summary
             data-selected={editor.state.selected?.id === `section.${section.id}` ? "true" : undefined}
-            data-hovered={editor.state.hoveredNodeId === `section.${section.id}` ? "true" : undefined}
+            data-hovered={drag.hoveredNodeId === `section.${section.id}` ? "true" : undefined}
             draggable
             onDragStart={(event) => {
-              editor.setDraggedNode(`section.${section.id}`);
+              drag.setDraggedNode(`section.${section.id}`);
               event.dataTransfer.effectAllowed = "move";
               event.dataTransfer.setData("application/x-vr-section", JSON.stringify({ sectionId: section.id }));
               event.dataTransfer.setData("text/plain", semanticSectionName(section, page.slug));
             }}
-            onDragEnd={() => editor.setDraggedNode(null)}
+            onDragEnd={() => drag.setDraggedNode(null)}
             onDragOver={(event) => {
-              if (!editor.state.draggedNodeId?.startsWith("section.")) return;
+              if (!drag.draggedNodeId?.startsWith("section.")) return;
               event.preventDefault();
             }}
             onDrop={(event) => {
@@ -446,8 +413,8 @@ function EditorElementTree() {
               event.preventDefault();
               editor.select({ id: `section.${section.id}`, type: "section", sectionId: section.id });
             }}
-            onMouseEnter={() => editor.setHoveredNode(`section.${section.id}`)}
-            onMouseLeave={() => editor.setHoveredNode(null)}
+            onMouseEnter={() => drag.setHoveredNode(`section.${section.id}`)}
+            onMouseLeave={() => drag.setHoveredNode(null)}
           >
             <span className="vr-element-icon">▣</span>
             <span>
@@ -466,6 +433,7 @@ function EditorElementTree() {
 
 function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: LayoutNode; slug: string }) {
   const editor = useEditor();
+  const drag = useDragRuntime();
   const selected = editor.state.selected?.id === node.id;
 
   if (node.type === "columns") {
@@ -473,17 +441,17 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
       <details className="vr-element-node" open>
         <summary
           data-selected={selected ? "true" : undefined}
-          data-hovered={editor.state.hoveredNodeId === node.id ? "true" : undefined}
+          data-hovered={drag.hoveredNodeId === node.id ? "true" : undefined}
           onClick={(event) => {
             event.preventDefault();
             editor.select({ id: node.id, type: "container", sectionId: section.id });
           }}
-          onMouseEnter={() => editor.setHoveredNode(node.id)}
-          onMouseLeave={() => editor.setHoveredNode(null)}
+          onMouseEnter={() => drag.setHoveredNode(node.id)}
+          onMouseLeave={() => drag.setHoveredNode(null)}
         >
           <span className="vr-element-icon">▥</span>
           <span>
-            <strong>{node.label}</strong>
+            <strong>{clientLayoutLabel(section, node, slug)}</strong>
             <small>{sectionLayoutSummary(section)}</small>
           </span>
         </summary>
@@ -501,13 +469,13 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
       <details className="vr-element-node" open>
         <summary
           data-selected={selected ? "true" : undefined}
-          data-hovered={editor.state.hoveredNodeId === node.id ? "true" : undefined}
+          data-hovered={drag.hoveredNodeId === node.id ? "true" : undefined}
           onClick={(event) => {
             event.preventDefault();
             editor.select({ id: node.id, type: "container", sectionId: section.id });
           }}
           onDragOver={(event) => {
-            if (!editor.state.draggedNodeId || editor.state.draggedNodeId.startsWith("section.")) return;
+            if (!drag.draggedNodeId || drag.draggedNodeId.startsWith("section.")) return;
             event.preventDefault();
           }}
           onDrop={(event) => {
@@ -518,12 +486,12 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
             if (dragged.sectionId !== section.id) return;
             editor.moveNode(section.id, dragged.nodeId, node.id, node.children.length);
           }}
-          onMouseEnter={() => editor.setHoveredNode(node.id)}
-          onMouseLeave={() => editor.setHoveredNode(null)}
+          onMouseEnter={() => drag.setHoveredNode(node.id)}
+          onMouseLeave={() => drag.setHoveredNode(null)}
         >
           <span className="vr-element-icon">{node.type === "column" ? "▤" : "▧"}</span>
           <span>
-            <strong>{node.label}</strong>
+            <strong>{clientLayoutLabel(section, node, slug)}</strong>
             <small>{node.children.length} elementi</small>
           </span>
         </summary>
@@ -542,18 +510,18 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
       type="button"
       className="vr-element-leaf"
       data-selected={editor.state.selected?.id === row.selection.id ? "true" : undefined}
-      data-hovered={editor.state.hoveredNodeId === row.selection.id ? "true" : undefined}
+      data-hovered={drag.hoveredNodeId === row.selection.id ? "true" : undefined}
       draggable
       onDragStart={(event) => {
-        editor.setDraggedNode(node.id);
+        drag.setDraggedNode(node.id);
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("application/x-vr-node", JSON.stringify({ sectionId: section.id, nodeId: node.id, label: node.label }));
         event.dataTransfer.setData("text/plain", node.label);
       }}
-      onDragEnd={() => editor.setDraggedNode(null)}
+      onDragEnd={() => drag.setDraggedNode(null)}
       onClick={() => editor.select(row.selection)}
-      onMouseEnter={() => editor.setHoveredNode(row.selection.id)}
-      onMouseLeave={() => editor.setHoveredNode(null)}
+      onMouseEnter={() => drag.setHoveredNode(row.selection.id)}
+      onMouseLeave={() => drag.setHoveredNode(null)}
     >
       <span className="vr-element-icon">{row.icon}</span>
       <span>
@@ -578,10 +546,11 @@ function LayoutTreeNodeWithDrop({
   slug: string;
 }) {
   const editor = useEditor();
+  const drag = useDragRuntime();
   return (
     <div
       onDragOver={(event) => {
-        if (!editor.state.draggedNodeId || editor.state.draggedNodeId.startsWith("section.")) return;
+        if (!drag.draggedNodeId || drag.draggedNodeId.startsWith("section.")) return;
         event.preventDefault();
       }}
       onDrop={(event) => {
@@ -604,15 +573,15 @@ function layoutElementRow(section: SectionRow, node: Extract<LayoutNode, { type:
     const mediaId = resolveSectionMediaId(section);
     return {
       icon: "◫",
-      label: node.label,
+      label: clientLayoutLabel(section, node, slug),
       preview: mediaId ? "Pilt" : section.section_type === "hero" ? "emblem-source.svg" : undefined,
-      selection: { id: `${section.id}.image`, type: "image" as const, sectionId: section.id, mediaId, field: "image" },
+    selection: { id: `${section.id}.image`, type: "image" as const, sectionId: section.id, mediaId, field: "image", layoutNodeId: node.id },
     };
   }
   if (node.elementType === "offering") {
     return {
       icon: "A",
-      label: node.label,
+      label: clientLayoutLabel(section, node, slug),
       preview: "Tunni info",
       selection: {
         id: `${prefix}.${node.offeringId}.title`,
@@ -625,9 +594,9 @@ function layoutElementRow(section: SectionRow, node: Extract<LayoutNode, { type:
   }
   return {
     icon: node.elementType === "link" ? "↗" : "A",
-    label: node.label,
+    label: clientLayoutLabel(section, node, slug),
     preview: node.field && typeof section.content[node.field] === "string" ? String(section.content[node.field]).slice(0, 42) : undefined,
-    selection: { id: `${prefix}.${node.field ?? node.id}`, type: "text" as const, sectionId: section.id, field: node.field },
+    selection: { id: `${prefix}.${node.field ?? node.id}`, type: "text" as const, sectionId: section.id, field: node.field, layoutNodeId: node.id },
   };
 }
 
@@ -638,101 +607,48 @@ function resolveSectionMediaId(section: SectionRow): string | undefined {
   return typeof section.content.mediaId === "string" && section.content.mediaId ? section.content.mediaId : undefined;
 }
 
-function semanticSectionName(section: SectionRow, slug = "") {
-  if (section.section_key === "hero") return "Hero";
-  if (section.section_key === "miina") return "Tutvustus";
-  if (section.section_key === "yoga") return "Jooga tutvustus";
-  if (section.section_key === "offerings") return "Tunnid";
-  if (section.section_key === "contact") return "Kontakt";
-  if (slug === "minust" && section.section_key === "bio") return "Minust";
-  const heading = section.content.heading || section.content.title || section.content.label;
-  if (typeof heading === "string" && heading.trim() && section.section_type !== "hero") return heading.trim().slice(0, 34);
-  switch (section.section_type) {
-    case "hero":
-      return "Hero";
-    case "split_media_text":
-      return "Pilt ja tekst";
-    case "offering_overview":
-      return "Tunnid";
-    case "private_lessons":
-      return "Eratunnid";
-    case "faq":
-      return "Küsimused ja vastused";
-    case "important_info":
-      return "Head teada";
-    case "contact":
-      return "Kontakt";
-    default:
-      return sectionTitle(section.section_type);
-  }
-}
-
-function imageLabel(section: SectionRow, slug = "") {
-  if (section.section_key === "hero") return "Hero kujund";
-  if (section.section_key === "miina") return "Tutvustuse foto";
-  if (section.section_key === "yoga") return "Jooga foto";
-  if (section.section_key === "offerings") return "Tundide foto";
-  if (section.section_key === "contact") return "Kontakti foto";
-  if (slug === "minust" && section.section_key === "bio") return "Portree";
-  return "Pilt";
-}
-
-function PageAnimationPlaceholder() {
-  return (
-    <div className="vr-inspector-empty">
-      <EditorContext kicker="Animatsioon" title="Vali element" />
-      <p className="vr-ed-help">Animatsiooni muutmiseks vali lehelt sektsioon, tekst või pilt.</p>
-    </div>
-  );
-}
-
-function ContentPanel() {
+function NodeContentInspector() {
   const editor = useEditor();
   const selected = editor.state.selected!;
-  const value = readText(editor);
-  const kicker =
-    selected.type === "nav" ? "Menüülink" : selected.type === "link" ? "Link" : selected.type === "image" ? "Pilt" : "Tekst";
+  const content = readEditorContent(editor.state.draft, selected);
+  const kicker = content.label;
+
+  function writePlain(next: string, record: boolean) {
+    if (!content.path) return;
+    editor.setPath(content.path, next, record);
+  }
+
+  function writeRich(next: TiptapNode, record: boolean) {
+    if (!content.path) return;
+    editor.setPath(content.path, next, record);
+  }
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker={kicker} title={labelFor(selected.id, value)} />
-      {isRichTextSelection(editor) ? (
+      <EditorContext kicker={kicker} title={content.plainPreview || kicker} />
+      {content.format === "rich" ? (
         <>
           <EditorGroup label="Tekst">
-            <RichEditor
-              value={readRichText(editor)}
-              onChange={(next) => writeRichText(editor, next, false)}
-              onCommit={(next) => writeRichText(editor, next, true)}
-            />
+            <RichEditor value={content.value} onChange={(next) => writeRich(next, false)} onCommit={(next) => writeRich(next, true)} />
           </EditorGroup>
           <p className="vr-ed-help">Lõuend renderdab tulemust. Sisu salvestub andmebaasi tavalise Salvesta nupuga.</p>
         </>
+      ) : content.format === "structured" ? (
+        <StructuredContentPanel />
       ) : (
         <EditorGroup label="Tekst">
           <EditorTextarea
-            rows={value.includes("\n") ? 8 : 3}
-            value={value}
-            onChange={(next) => writeText(editor, next, false)}
-            onCommit={(next) => writeText(editor, next, true)}
+            key={selected.id}
+            rows={content.value.includes("\n") ? 8 : 3}
+            value={content.value}
+            onChange={(next) => writePlain(next, false)}
+            onCommit={(next) => writePlain(next, true)}
           />
         </EditorGroup>
       )}
       {selected.type === "nav" ? <NavTarget /> : null}
-      {selected.type === "link" ? (
-        <EditorGroup label="Sihtkoht">
-          <EditorSelect
-            value="page"
-            options={[
-              { value: "page", label: "Leht" },
-              { value: "url", label: "URL" },
-              { value: "email", label: "E-post" },
-              { value: "register", label: "Registreerimine" },
-            ]}
-            onChange={() => undefined}
-          />
-        </EditorGroup>
-      ) : null}
       {selected.field?.startsWith("q.") || selected.field?.startsWith("a.") ? <FaqItemControls /> : null}
+      <MoveActions />
       <EditorButton variant="primary" onClick={() => editor.deselect()}>
         Valmis
       </EditorButton>
@@ -740,38 +656,38 @@ function ContentPanel() {
   );
 }
 
-function readRichText(editor: ReturnType<typeof useEditor>): unknown {
-  const selected = editor.state.selected;
-  if (!selected?.sectionId || !selected.field) return undefined;
-  const section = findSection(editor.state.draft, selected.sectionId);
-  return section?.content[selected.field];
-}
-
-function writeRichText(editor: ReturnType<typeof useEditor>, value: TiptapNode, record: boolean) {
-  const selected = editor.state.selected;
-  if (!selected?.sectionId || !selected.field) return;
-  editor.setPath({ kind: "section-content", sectionId: selected.sectionId, key: selected.field }, value, record);
-}
-
-function isRichTextSelection(editor: ReturnType<typeof useEditor>) {
-  const selected = editor.state.selected;
-  if (!selected?.sectionId || selected.field !== "body") return false;
-  const section = findSection(editor.state.draft, selected.sectionId);
-  return Boolean(section && typeof section.content.body === "object" && section.content.body !== null);
-}
-
-function AppearancePanel() {
+function NodeAppearanceInspector() {
   const editor = useEditor();
   const selected = editor.state.selected;
-  if (!selected?.sectionId || !selected.field) return <ThemePanel />;
+  if (!selected) return <PageOverview />;
+  if (selected.type === "image") return <ImagePanel mode="appearance" />;
+  if (selected.type === "section") return <SectionPanel mode="appearance" />;
+  if (selected.type === "container") return <ContainerPanel />;
+  if (selected.type === "header") return <HeaderPanel />;
+  if (!selected.sectionId || !selected.field) {
+    return (
+      <div className="vr-inspector-body">
+        <EditorContext kicker="Välimus" title={selectedKindLabel(selected.type)} />
+        <p className="vr-ed-help">Selle elemendi välimust muudetakse valitud objekti kaudu, mitte saidi üldise kujunduse kaudu.</p>
+      </div>
+    );
+  }
   const section = findSection(editor.state.draft, selected.sectionId);
-  if (!section) return <ThemePanel />;
+  if (!section) {
+    return (
+      <div className="vr-inspector-body">
+        <EditorContext kicker="Välimus" title={selectedKindLabel(selected.type)} />
+        <p className="vr-ed-help">Valitud elemendi välimust ei õnnestunud laadida.</p>
+      </div>
+    );
+  }
   const appearance = fieldStyle(section, selected.field) ?? {};
   const advanced = editor.state.advanced;
   const sectionId = selected.sectionId;
   const field = selected.field;
   const swatches = themeColorSwatches(editor.state.draft.theme);
   const inherited = !appearance.color;
+  const content = readEditorContent(editor.state.draft, selected);
 
   function patch(next: Partial<TextAppearance>, record = false) {
     editor.patchFieldStyle(sectionId, field, next, record);
@@ -779,7 +695,7 @@ function AppearancePanel() {
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Välimus" title={labelFor(selected.id, readText(editor))} />
+      <EditorContext kicker="Välimus" title={content.plainPreview || content.label} />
       <EditorGroup label="Tüüp">
         <EditorSelect
           value={appearance.role ?? "p"}
@@ -828,14 +744,11 @@ function AppearancePanel() {
       {editor.role === "owner" ? (
         <EditorSwitch checked={editor.state.advanced} onChange={(checked) => editor.setAdvanced(checked)} label="Täpsed väärtused" />
       ) : null}
-      <EditorButton variant="ghost" onClick={() => editor.setThemePanel(true)}>
-        Üldine välimus
-      </EditorButton>
     </div>
   );
 }
 
-function SectionPanel() {
+function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | "layout" }) {
   const editor = useEditor();
   const selected = editor.state.selected;
   const sectionId = selected?.sectionId;
@@ -850,7 +763,9 @@ function SectionPanel() {
   return (
     <div className="vr-inspector-body">
       <EditorContext kicker="Sektsioon" title={semanticSectionName(section)} />
-      {section.section_type === "faq" ? <FaqSectionContent sectionId={section.id} /> : null}
+      {mode === "content" && section.section_type === "faq" ? <FaqSectionContent sectionId={section.id} /> : null}
+      {mode === "appearance" ? (
+        <>
       <EditorGroup label="Taust">
         <EditorSelect
           value={style.background ?? "main"}
@@ -885,6 +800,10 @@ function SectionPanel() {
               onChange={(verticalAlign) => patchStyle({ verticalAlign: verticalAlign as VerticalAlign })}
             />
           </EditorGroup>
+        </>
+      ) : null}
+      {mode === "layout" ? (
+        <>
           <EditorGroup label="Paigutus">
             <EditorSelect
               value={style.layout ?? ""}
@@ -953,6 +872,10 @@ function SectionPanel() {
               onChange={(mobileOrder) => patchStyle({ mobileOrder: mobileOrder as SectionStyle["mobileOrder"] })}
             />
           </EditorGroup>
+        </>
+      ) : null}
+      {mode === "content" ? (
+        <>
       <EditorCheck checked={section.enabled} onChange={(enabled) => editor.patchSection(section.id, (row) => ({ ...row, enabled }))}>
         Nähtav
       </EditorCheck>
@@ -967,6 +890,8 @@ function SectionPanel() {
           Kustuta
         </EditorButton>
       </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -992,15 +917,15 @@ function ContainerPanel() {
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker={node.type === "column" ? "Veerg" : node.type === "columns" ? "Container" : "Grupp"} title={node.label} />
+      <EditorContext kicker="Paigutus" title={clientLayoutLabel(section, node)} />
       {root ? (
         <>
-          <EditorGroup label="Layout">
+          <EditorGroup label="Paigutus">
             <EditorSelect
               value="columns"
               options={[
-                { value: "columns", label: "Columns" },
-                { value: "single", label: "Single column" },
+                { value: "columns", label: "Kaks veergu" },
+                { value: "single", label: "Üks veerg" },
               ]}
               onChange={() => undefined}
             />
@@ -1026,6 +951,7 @@ function ContainerPanel() {
               }}
             />
           </EditorGroup>
+          <p className="vr-ed-help">Vasak {currentRatio}% · Parem {100 - currentRatio}% · Mobiilis üksteise all</p>
           <EditorSlider
             label="Täpne suhe"
             min={30}
@@ -1145,7 +1071,7 @@ function NavItemPanel() {
   );
 }
 
-function ImagePanel() {
+function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
   const editor = useEditor();
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -1193,8 +1119,8 @@ function ImagePanel() {
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Image" title={section ? imageLabel(section) : media?.alt_text || "Pilt"} />
-      {media ? (
+      <EditorContext kicker="Pilt" title={section ? imageLabel(section) : media?.alt_text || "Pilt"} />
+      {mode === "content" && media ? (
         <>
           <div className="vr-image-preview">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1247,7 +1173,7 @@ function ImagePanel() {
             <span className="vr-focal-point" style={{ left: `${media.focal_x}%`, top: `${media.focal_y}%` }} />
           </button>
         </>
-      ) : (
+      ) : mode === "content" ? (
         <>
           <div className="vr-image-preview vr-image-preview--empty">
             {section?.section_type === "hero" && section.content.showEmblem !== false ? <span>Vaikimisi hero kujund</span> : "Pilt puudub"}
@@ -1272,8 +1198,11 @@ function ImagePanel() {
               </button>
             ))}
           </div>
+          <MoveActions />
         </>
-      )}
+      ) : null}
+      {mode === "appearance" ? (
+        <>
       <EditorDivider />
       <EditorContext kicker="Välimus" title="Pilt" />
       <EditorGroup label="Kärpimine">
@@ -1349,7 +1278,53 @@ function ImagePanel() {
           Eemalda pilt
         </EditorButton>
       ) : null}
+        </>
+      ) : null}
+      {mode === "content" ? <MoveActions /> : null}
     </div>
+  );
+}
+
+function MoveActions() {
+  const editor = useEditor();
+  const selected = editor.state.selected;
+  const [picking, setPicking] = useState<"left" | "right" | null>(null);
+  if (!selected?.sectionId) return null;
+  const section = findSection(editor.state.draft, selected.sectionId);
+  if (!section) return null;
+  const nodeId = selected.layoutNodeId;
+  if (!nodeId) return null;
+  const parent = parentOfNode(section, nodeId);
+  const elements = listLayoutElements(section).filter((item) => item.id !== nodeId);
+
+  function move(placement: "before" | "after" | "left" | "right", targetNodeId?: string) {
+    if (!parent) return;
+    const target = targetNodeId ?? parent.parent.children[placement === "before" || placement === "left" ? Math.max(0, parent.index - 1) : parent.index]?.id;
+    editor.moveNode(section!.id, nodeId!, parent.parent.id, placement === "before" || placement === "left" ? parent.index : parent.index + 1, placement, target);
+    setPicking(null);
+  }
+
+  return (
+    <EditorGroup label="Liiguta">
+      <div className="vr-inspector-row">
+        <EditorButton variant="ghost" onClick={() => setPicking("left")}>Kõrvale vasakule…</EditorButton>
+        <EditorButton variant="ghost" onClick={() => setPicking("right")}>Kõrvale paremale…</EditorButton>
+      </div>
+      <div className="vr-inspector-row">
+        <EditorButton variant="ghost" onClick={() => move("before")}>Üles</EditorButton>
+        <EditorButton variant="ghost" onClick={() => move("after")}>Alla</EditorButton>
+      </div>
+      {picking ? (
+        <div className="vr-ed-pages">
+          <p className="vr-ed-help">Vali element, millest {picking === "left" ? "vasakule" : "paremale"} asetada.</p>
+          {elements.map((item) => (
+            <button key={item.id} type="button" onClick={() => move(picking, item.id)}>
+              {clientLayoutLabel(section, item)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </EditorGroup>
   );
 }
 
@@ -1470,15 +1445,24 @@ function SettingsPanel() {
   );
 }
 
-function ThemePanel() {
+function SiteDesignInspector() {
   const editor = useEditor();
   const theme = editor.state.draft.theme;
   const swatches = themeColorSwatches(theme);
   const exact = editor.state.advanced;
+  const [tab, setTab] = useState<(typeof SITE_DESIGN_TABS)[number]["id"]>("colors");
+  const tabs = SITE_DESIGN_TABS;
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Üldine välimus" title="Vaikusruum" />
+      <EditorContext kicker="Sait" title="Saidi kujundus" />
+      <div className="vr-inspector-tabs" data-mode="labels" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+        {tabs.map((item) => (
+          <button key={item.id} type="button" className={tab === item.id ? "is-active" : undefined} onClick={() => setTab(item.id)}>
+            {item.label}
+          </button>
+        ))}
+      </div>
       <EditorCollapse title="Värvid" defaultOpen>
         <EditorColor label="Põhitaust" value={theme.bgMain} fallback={theme.bgMain} swatches={swatches} onChange={(bgMain) => editor.patchTheme({ bgMain })} />
         <EditorColor label="Soe taust" value={theme.bgWarm} fallback={theme.bgWarm} swatches={swatches} onChange={(bgWarm) => editor.patchTheme({ bgWarm })} />
@@ -1630,91 +1614,7 @@ function FaqSectionContent({ sectionId }: { sectionId: string }) {
 }
 
 function readText(editor: ReturnType<typeof useEditor>): string {
-  const selected = editor.state.selected;
-  if (!selected) return "";
-  if (selected.id === "header.wordmark" || selected.field === "site_name") return editor.state.draft.settings.site_name;
-  if (selected.id === "footer.text") return editor.state.draft.settings.footer_text ?? "";
-  if (selected.type === "nav" && selected.navSlug) {
-    const page = editor.state.draft.pages.find((item) => item.slug === selected.navSlug);
-    return page?.nav_label || page?.title || "";
-  }
-  if (selected.offeringId && selected.field) {
-    const offering = editor.state.draft.offerings[selected.offeringId];
-    return String((offering as Record<string, unknown> | undefined)?.[selected.field] ?? "");
-  }
-  if (selected.sectionId && selected.field) {
-    const section = findSection(editor.state.draft, selected.sectionId);
-    if (!section) return "";
-    if (selected.field.startsWith("q.")) {
-      const index = Number(selected.field.slice(2));
-      return String((section.content.items as Array<{ question: string }>)[index]?.question ?? "");
-    }
-    if (selected.field.startsWith("a.")) {
-      const index = Number(selected.field.slice(2));
-      return String((section.content.items as Array<{ answer: string }>)[index]?.answer ?? "");
-    }
-    if (selected.field.startsWith("item.")) {
-      const index = Number(selected.field.slice(5));
-      return String((section.content.items as string[])[index] ?? "");
-    }
-    if (selected.field.startsWith("quote.")) {
-      const index = Number(selected.field.slice(6));
-      return String((section.content.items as Array<{ quote: string }>)[index]?.quote ?? "");
-    }
-    const raw = section.content[selected.field];
-    if (typeof raw === "string") return raw;
-    return "";
-  }
-  if (selected.field === "title") {
-    const page = editor.state.draft.pages.find((item) => item.id === editor.state.pageId);
-    return page?.title ?? "";
-  }
-  return "";
-}
-
-function writeText(editor: ReturnType<typeof useEditor>, value: string, record: boolean) {
-  const selected = editor.state.selected;
-  if (!selected) return;
-  if (selected.id === "header.wordmark" || selected.field === "site_name") {
-    editor.setPath({ kind: "settings", key: "site_name" }, value, record);
-    return;
-  }
-  if (selected.id === "footer.text") {
-    editor.setPath({ kind: "settings", key: "footer_text" }, value, record);
-    return;
-  }
-  if (selected.type === "nav" && selected.navSlug) {
-    const page = editor.state.draft.pages.find((item) => item.slug === selected.navSlug);
-    if (page) editor.setPath({ kind: "nav-label", pageId: page.id }, value, record);
-    return;
-  }
-  if (selected.offeringId && selected.field) {
-    editor.setPath({ kind: "offering", offeringId: selected.offeringId, key: selected.field as keyof OfferingRow }, value, record);
-    return;
-  }
-  if (selected.sectionId && selected.field?.startsWith("q.")) {
-    editor.setPath({ kind: "faq", sectionId: selected.sectionId, index: Number(selected.field.slice(2)), field: "question" }, value, record);
-    return;
-  }
-  if (selected.sectionId && selected.field?.startsWith("a.")) {
-    editor.setPath({ kind: "faq", sectionId: selected.sectionId, index: Number(selected.field.slice(2)), field: "answer" }, value, record);
-    return;
-  }
-  if (selected.sectionId && selected.field?.startsWith("item.")) {
-    editor.setPath({ kind: "list-item", sectionId: selected.sectionId, index: Number(selected.field.slice(5)) }, value, record);
-    return;
-  }
-  if (selected.sectionId && selected.field?.startsWith("quote.")) {
-    editor.setPath({ kind: "testimonial", sectionId: selected.sectionId, index: Number(selected.field.slice(6)), field: "quote" }, value, record);
-    return;
-  }
-  if (selected.field === "title" && !selected.sectionId) {
-    editor.setPath({ kind: "page-title", pageId: editor.state.pageId }, value, record);
-    return;
-  }
-  if (selected.sectionId && selected.field) {
-    editor.setPath({ kind: "section-content", sectionId: selected.sectionId, key: selected.field }, value, record);
-  }
+  return readEditorContent(editor.state.draft, editor.state.selected).plainPreview;
 }
 
 function labelFor(id: string, value?: string) {
@@ -1759,29 +1659,4 @@ function selectedKindLabel(type: string) {
     default:
       return "Element";
   }
-}
-
-function BrushIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 20c2-1 3-3 3-5 0-3 3-6 7-6 1 0 3 1 4 2l-8 8c-1 1-4 2-6 1Z" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M8 5.5v13l10-6.5-10-6.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function GearIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 8.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6Z" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M4.8 13.4v-2.8l2-.5.8-1.9-1-1.8 2-2 1.8 1 1.9-.8.5-2h2.8l.5 2 1.9.8 1.8-1 2 2-1 1.8.8 1.9 2 .5v2.8l-2 .5-.8 1.9 1 1.8-2 2-1.8-1-1.9.8-.5 2h-2.8l-.5-2-1.9-.8-1.8 1-2-2 1-1.8-.8-1.9-2-.5Z" stroke="currentColor" strokeWidth="1.1" />
-    </svg>
-  );
 }

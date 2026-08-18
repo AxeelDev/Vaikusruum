@@ -48,16 +48,19 @@ export function getSectionLayoutTree(section: SectionRow): SectionLayoutTree {
 }
 
 export function normalizeSectionLayout(section: SectionRow): SectionRow {
-  const tree = getSectionLayoutTree(section);
-  const ratio = tree.root.type === "columns" ? tree.root.ratio : undefined;
-  const customRatio = tree.root.type === "columns" ? tree.root.customRatio : undefined;
+  const tree = simplifyLayoutTree(getSectionLayoutTree(section));
+  const ratio = tree.root.type === "columns" ? tree.root.ratio : tree.root.preferredRatio;
+  const customRatio = tree.root.type === "columns" ? tree.root.customRatio : tree.root.preferredCustomRatio;
+  const preferred = rememberPreferredSplit(section, tree);
   return {
     ...section,
     style: {
       ...section.style,
       layoutTree: tree,
-      columnBalance: ratio && ratio !== "custom" ? ratio : section.style?.columnBalance,
-      columnRatio: ratio === "custom" ? customRatio ?? section.style?.columnRatio ?? null : null,
+      columnBalance: ratio && ratio !== "custom" ? ratio : preferred.columnBalance,
+      columnRatio: ratio === "custom" ? customRatio ?? preferred.columnRatio ?? null : preferred.columnRatio,
+      preferredColumnBalance: preferred.columnBalance,
+      preferredColumnRatio: preferred.columnRatio,
     },
   };
 }
@@ -92,7 +95,7 @@ export function moveLayoutNode(section: SectionRow, nodeId: string, target: Layo
   if (!extracted) return section;
   const inserted =
     target.placement === "left" || target.placement === "right"
-      ? insertNodeBeside(tree, extracted.node, target)
+      ? insertNodeBeside(tree, extracted.node, target, preferredSplitFrom(section))
       : insertNode(tree.root, extracted.node, target.parentId, target.index);
   if (!inserted) return section;
 
@@ -108,7 +111,7 @@ export function insertLayoutElement(section: SectionRow, addType: AddableElement
   const node = createElementNode(section, addType, field);
   let inserted =
     target.placement === "left" || target.placement === "right"
-      ? insertNodeBeside(tree, node, target)
+      ? insertNodeBeside(tree, node, target, preferredSplitFrom(section))
       : insertNode(tree.root, node, target.parentId, target.index);
   if (!inserted) {
     inserted = insertNode(tree.root, node, firstInsertableParentId(tree.root), Number.MAX_SAFE_INTEGER);
@@ -155,14 +158,14 @@ export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
   if (section.section_type === "hero") {
     return {
       version: 1,
-      root: columns(`${base}.columns`, "Hero columns", ratio, customRatio, [
-        column(`${base}.left`, "Left column", [
-          group(`${base}.textGroup`, "Hero text group", [
-            text(`${base}.title`, "Hero title", "title"),
-            text(`${base}.intro`, "Hero introduction", "intro"),
+      root: columns(`${base}.columns`, "Kaks veergu", ratio, customRatio, [
+        column(`${base}.left`, "Vasak pool", [
+          group(`${base}.textGroup`, "Hero tekst", [
+            text(`${base}.title`, "Hero pealkiri", "title"),
+            text(`${base}.intro`, "Hero sissejuhatus", "intro"),
           ], "large"),
         ]),
-        column(`${base}.right`, "Right column", [image(`${base}.image`, "Hero artwork")]),
+        column(`${base}.right`, "Parem pool", [image(`${base}.image`, "Hero kujund")]),
       ]),
     };
   }
@@ -178,11 +181,11 @@ export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
   if (section.section_key === "offerings") {
     return {
       version: 1,
-      root: columns(`${base}.columns`, "Tundide columns", ratio, customRatio, [
-        column(`${base}.left`, "Tundide tekst", [
+      root: columns(`${base}.columns`, "Kaks veergu", ratio, customRatio, [
+        column(`${base}.left`, "Vasak pool", [
           group(`${base}.offerings`, "Tundide tekst", offeringElements(section)),
         ]),
-        column(`${base}.right`, "Right column", [image(`${base}.image`, "Tundide foto")]),
+        column(`${base}.right`, "Parem pool", [image(`${base}.image`, "Tundide foto")]),
       ]),
     };
   }
@@ -190,15 +193,15 @@ export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
   if (section.section_type === "contact" || section.section_key === "contact") {
     return {
       version: 1,
-      root: columns(`${base}.columns`, "Kontakt columns", ratio, customRatio, [
-        column(`${base}.left`, "Kontakti sisu", [
+      root: columns(`${base}.columns`, "Kaks veergu", ratio, customRatio, [
+        column(`${base}.left`, "Vasak pool", [
           group(`${base}.contactContent`, "Kontakti sisu", [
             text(`${base}.heading`, "Kontakti pealkiri", "heading"),
             text(`${base}.intro`, "Kontakti sissejuhatus", "intro"),
             element(`${base}.form`, "form", "Kontaktivorm"),
           ]),
         ]),
-        column(`${base}.right`, "Right column", [image(`${base}.image`, "Kontakti foto")]),
+        column(`${base}.right`, "Parem pool", [image(`${base}.image`, "Kontakti foto")]),
       ]),
     };
   }
@@ -231,8 +234,8 @@ function splitTree(
   return {
     version: 1,
     root: columns(`${base}.columns`, label, ratio, customRatio, [
-      column(`${base}.left`, "Left column", left),
-      column(`${base}.right`, "Right column", right),
+      column(`${base}.left`, "Vasak pool", left),
+      column(`${base}.right`, "Parem pool", right),
     ]),
   };
 }
@@ -283,8 +286,8 @@ function column(id: string, label: string, children: LayoutNode[]): LayoutColumn
   return { id, type: "column", label, horizontalAlign: "center", verticalAlign: "center", children };
 }
 
-function group(id: string, label: string, children: LayoutNode[], gap: "small" | "medium" | "large" = "medium"): LayoutGroupNode {
-  return { id, type: "group", label, gap, horizontalAlign: "center", textAlign: "center", children };
+function group(id: string, label: string, children: LayoutNode[], gap: "small" | "medium" | "large" = "medium", extra: Partial<LayoutGroupNode> = {}): LayoutGroupNode {
+  return { id, type: "group", label, gap, horizontalAlign: "center", textAlign: "center", children, ...extra };
 }
 
 function text(id: string, label: string, field: string): LayoutElementNode {
@@ -471,21 +474,141 @@ function findParentWithChild(
   return null;
 }
 
-function insertNodeBeside(tree: SectionLayoutTree, node: LayoutNode, target: LayoutMoveTarget): boolean {
+function insertNodeBeside(
+  tree: SectionLayoutTree,
+  node: LayoutNode,
+  target: LayoutMoveTarget,
+  preferred: { ratio: ColumnBalance | "custom"; customRatio?: number },
+): boolean {
   const targetNodeId = target.targetNodeId;
   if (!targetNodeId || targetNodeId === node.id) return false;
   const match = findParentWithChild(tree.root, targetNodeId);
   if (!match) return false;
+  const placement = target.placement === "left" ? "left" : "right";
+
+  const reused = reuseExistingColumns(tree.root, targetNodeId, node, placement);
+  if (reused) return true;
+
+  const restored = restorePreferredColumns(match.parent, match.index, node, placement, preferred);
+  if (restored) return true;
+
   const [targetNode] = match.parent.children.splice(match.index, 1);
-  const leftChildren = target.placement === "left" ? [node] : [targetNode];
-  const rightChildren = target.placement === "left" ? [targetNode] : [node];
-  const wrapper = columns(`${targetNodeId}.columns.${crypto.randomUUID().slice(0, 8)}`, "Columns", "50-50", undefined, [
-    column(`${targetNodeId}.left.${crypto.randomUUID().slice(0, 6)}`, "Left column", leftChildren),
-    column(`${targetNodeId}.right.${crypto.randomUUID().slice(0, 6)}`, "Right column", rightChildren),
+  const leftChildren = placement === "left" ? [node] : [targetNode];
+  const rightChildren = placement === "left" ? [targetNode] : [node];
+  const wrapper = columns(`${targetNodeId}.columns.${crypto.randomUUID().slice(0, 8)}`, "Kaks veergu", preferred.ratio, preferred.customRatio, [
+    column(`${targetNodeId}.left.${crypto.randomUUID().slice(0, 6)}`, "Vasak pool", leftChildren),
+    column(`${targetNodeId}.right.${crypto.randomUUID().slice(0, 6)}`, "Parem pool", rightChildren),
   ]);
-  wrapper.mobile = { mode: "stack", order: target.placement === "left" ? "left-first" : "left-first" };
   match.parent.children.splice(match.index, 0, wrapper);
   return true;
+}
+
+function reuseExistingColumns(
+  root: LayoutNode,
+  targetNodeId: string,
+  node: LayoutNode,
+  placement: "left" | "right",
+): boolean {
+  const owner = findColumnsOwner(root, targetNodeId);
+  if (!owner) return false;
+  const [left, right] = owner.columns;
+  const inLeft = Boolean(findLayoutNode(left, targetNodeId));
+  const inRight = Boolean(findLayoutNode(right, targetNodeId));
+  if (placement === "right" && inLeft) {
+    right.children.push(node);
+    return true;
+  }
+  if (placement === "left" && inRight) {
+    left.children.push(node);
+    return true;
+  }
+  if (placement === "left" && inLeft && right.children.length === 0) {
+    const match = findParentWithChild(left, targetNodeId);
+    if (!match) return false;
+    const [targetNode] = match.parent.children.splice(match.index, 1);
+    match.parent.children.splice(match.index, 0, node);
+    right.children.push(targetNode);
+    return true;
+  }
+  if (placement === "right" && inRight && left.children.length === 0) {
+    const match = findParentWithChild(right, targetNodeId);
+    if (!match) return false;
+    const [targetNode] = match.parent.children.splice(match.index, 1);
+    match.parent.children.splice(match.index, 0, node);
+    left.children.push(targetNode);
+    return true;
+  }
+  return false;
+}
+
+function restorePreferredColumns(
+  parent: LayoutColumnNode | LayoutGroupNode,
+  index: number,
+  node: LayoutNode,
+  placement: "left" | "right",
+  preferred: { ratio: ColumnBalance | "custom"; customRatio?: number },
+): boolean {
+  if (parent.type !== "group") return false;
+  const targetNode = parent.children[index];
+  if (!targetNode) return false;
+  if (parent.preferredRatio || parent.ephemeral) {
+    const leftChildren = placement === "left" ? [node] : [targetNode];
+    const rightChildren = placement === "left" ? [targetNode] : [node];
+    parent.children.splice(index, 1, columns(
+      `${parent.id}.columns`,
+      "Kaks veergu",
+      parent.preferredRatio ?? preferred.ratio,
+      parent.preferredCustomRatio ?? preferred.customRatio,
+      [
+        column(`${parent.id}.left`, "Vasak pool", leftChildren),
+        column(`${parent.id}.right`, "Parem pool", rightChildren),
+      ],
+    ));
+    return true;
+  }
+  return false;
+}
+
+function findColumnsOwner(node: LayoutNode, childId: string): LayoutColumnsNode | null {
+  if (node.type === "columns") {
+    if (node.columns.some((columnNode) => columnNode.id === childId || findLayoutNode(columnNode, childId))) {
+      return node;
+    }
+    for (const columnNode of node.columns) {
+      const nested = findColumnsOwner(columnNode, childId);
+      if (nested) return nested;
+    }
+  }
+  if (node.type === "column" || node.type === "group") {
+    for (const child of node.children) {
+      const nested = findColumnsOwner(child, childId);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function preferredSplitFrom(section: SectionRow): { ratio: ColumnBalance | "custom"; customRatio?: number } {
+  if (typeof section.style?.preferredColumnRatio === "number") {
+    return { ratio: "custom", customRatio: clampRatio(section.style.preferredColumnRatio) };
+  }
+  if (section.style?.preferredColumnBalance) return { ratio: section.style.preferredColumnBalance };
+  if (typeof section.style?.columnRatio === "number") return { ratio: "custom", customRatio: clampRatio(section.style.columnRatio) };
+  return { ratio: section.style?.columnBalance ?? "50-50" };
+}
+
+function rememberPreferredSplit(section: SectionRow, tree: SectionLayoutTree): { columnBalance?: ColumnBalance; columnRatio: number | null } {
+  if (tree.root.type === "columns") {
+    if (tree.root.ratio === "custom") return { columnBalance: undefined, columnRatio: tree.root.customRatio ?? section.style?.preferredColumnRatio ?? 50 };
+    return { columnBalance: tree.root.ratio ?? "50-50", columnRatio: null };
+  }
+  if (tree.root.preferredRatio === "custom") {
+    return { columnBalance: undefined, columnRatio: tree.root.preferredCustomRatio ?? section.style?.preferredColumnRatio ?? 50 };
+  }
+  return {
+    columnBalance: tree.root.preferredRatio ?? section.style?.preferredColumnBalance ?? section.style?.columnBalance,
+    columnRatio: section.style?.preferredColumnRatio ?? section.style?.columnRatio ?? null,
+  };
 }
 
 function simplifyLayoutTree(tree: SectionLayoutTree): SectionLayoutTree {
@@ -494,16 +617,68 @@ function simplifyLayoutTree(tree: SectionLayoutTree): SectionLayoutTree {
 
 function simplifyNode(node: LayoutNode): LayoutNode {
   if (node.type === "columns") {
-    const left = { ...node.columns[0], children: node.columns[0].children.map(simplifyNode) };
-    const right = { ...node.columns[1], children: node.columns[1].children.map(simplifyNode) };
+    const left = { ...node.columns[0], children: flattenChildren(node.columns[0].children.map(simplifyNode)) };
+    const right = { ...node.columns[1], children: flattenChildren(node.columns[1].children.map(simplifyNode)) };
+    const promoted = flattenNestedColumns(node, left, right);
+    if (promoted) return simplifyNode(promoted);
     const nonEmpty = [left, right].filter((columnNode) => columnNode.children.length > 0);
     if (nonEmpty.length === 1) {
-      return group(`${node.id}.collapsed`, nonEmpty[0].label, nonEmpty[0].children);
+      return group(`${node.id}.collapsed`, nonEmpty[0].label, nonEmpty[0].children, "medium", {
+        ephemeral: true,
+        preferredRatio: node.ratio,
+        preferredCustomRatio: node.customRatio,
+      });
     }
     return { ...node, columns: [left, right] };
   }
   if (node.type === "column" || node.type === "group") {
-    return { ...node, children: node.children.map(simplifyNode) };
+    const children = flattenChildren(node.children.map(simplifyNode));
+    if (node.type === "group" && node.ephemeral && children.length === 1 && children[0].type === "columns") {
+      return children[0];
+    }
+    if (node.type === "group" && node.ephemeral && children.length === 1 && children[0].type === "group") {
+      return children[0];
+    }
+    return { ...node, children };
   }
   return node;
+}
+
+function flattenChildren(children: LayoutNode[]): LayoutNode[] {
+  return children.flatMap((child) => {
+    if (child.type === "group" && child.ephemeral && child.children.length === 1) {
+      const only = child.children[0];
+      if (only.type === "group" || only.type === "columns") return [only];
+    }
+    return [child];
+  });
+}
+
+function flattenNestedColumns(
+  outer: LayoutColumnsNode,
+  left: LayoutColumnNode,
+  right: LayoutColumnNode,
+): LayoutNode | null {
+  const leftOnly = left.children.length === 1 ? left.children[0] : null;
+  const rightOnly = right.children.length === 1 ? right.children[0] : null;
+  if (leftOnly?.type === "columns" && right.children.length === 0) return leftOnly;
+  if (rightOnly?.type === "columns" && left.children.length === 0) return rightOnly;
+  if (leftOnly?.type === "columns" && right.children.length === 0) return leftOnly;
+  void outer;
+  return null;
+}
+
+export function listLayoutElements(section: SectionRow): LayoutElementNode[] {
+  const found: LayoutElementNode[] = [];
+  const walk = (node: LayoutNode) => {
+    if (node.type === "element") found.push(node);
+    if (node.type === "columns") node.columns.forEach(walk);
+    if (node.type === "column" || node.type === "group") node.children.forEach(walk);
+  };
+  walk(getSectionLayoutTree(section).root);
+  return found;
+}
+
+export function parentOfNode(section: SectionRow, nodeId: string): { parent: LayoutColumnNode | LayoutGroupNode; index: number } | null {
+  return findParentWithChild(getSectionLayoutTree(section).root, nodeId);
 }
