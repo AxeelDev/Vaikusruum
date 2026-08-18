@@ -12,7 +12,6 @@ import {
 import {
   canonicalizeHex,
   clamp,
-  formatSliderValue,
   hexToHsv,
   hsvToHex,
   isHexDraftValid,
@@ -97,17 +96,29 @@ export function EditorTooltip({ label, children }: { label: string; children: Re
 export function EditorGroup({
   label,
   value,
+  inherited,
+  onReset,
   children,
 }: {
   label: string;
   value?: string;
+  inherited?: boolean;
+  onReset?: () => void;
   children: ReactNode;
 }) {
   return (
     <div className="vr-ed-group">
       <div className="vr-ed-group-head">
         <span className="vr-ed-label">{label}</span>
-        {value != null && value !== "" ? <span className="vr-ed-value">{value}</span> : null}
+        <span className="vr-ed-value-row">
+          {value != null && value !== "" ? <span className="vr-ed-value">{value}{inherited ? "" : onReset ? " •" : ""}</span> : null}
+          {inherited ? <span className="vr-ed-inherited">Inherited</span> : null}
+          {onReset && !inherited ? (
+            <button type="button" className="vr-ed-reset" aria-label="Lähtesta" onClick={onReset}>
+              ↺
+            </button>
+          ) : null}
+        </span>
       </div>
       {children}
     </div>
@@ -361,6 +372,8 @@ export function EditorSlider({
   exact,
   label,
   displayValue,
+  inherited,
+  onReset,
 }: {
   value: number;
   min: number;
@@ -372,8 +385,18 @@ export function EditorSlider({
   exact?: boolean;
   label: string;
   displayValue?: string;
+  inherited?: boolean;
+  onReset?: () => void;
 }) {
+  void exact;
   const pct = ((clamp(value, min, max) - min) / (max - min || 1)) * 100;
+  const decimals = step < 1 ? String(step).split(".")[1]?.length ?? 2 : 0;
+  const shown = Number(value.toFixed(decimals));
+  const [typed, setTyped] = useState(String(shown));
+
+  useEffect(() => {
+    setTyped(String(shown));
+  }, [shown]);
 
   function nudge(direction: -1 | 1, large: boolean) {
     const jump = large ? step * 10 : step;
@@ -386,8 +409,44 @@ export function EditorSlider({
     nudge(event.key === "ArrowRight" ? 1 : -1, event.shiftKey);
   }
 
+  function commitExact(raw: string) {
+    const next = Number(raw.replace(",", "."));
+    if (!Number.isFinite(next)) {
+      setTyped(String(shown));
+      return;
+    }
+    const clamped = clamp(Number(next.toFixed(decimals)), min, max);
+    setTyped(String(clamped));
+    onChange(clamped);
+    onCommit?.();
+  }
+
   return (
-    <EditorGroup label={label} value={displayValue ?? formatSliderValue(value, unit, exact)}>
+    <EditorGroup
+      label={label}
+      inherited={inherited}
+      onReset={onReset}
+      value={undefined}
+    >
+      <div className="vr-ed-value-row" style={{ justifyContent: "flex-end", marginBottom: 6 }}>
+        <input
+          className="vr-ed-value-input"
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={typed}
+          aria-label={`${label} täpne väärtus`}
+          onChange={(event) => setTyped(event.target.value)}
+          onBlur={(event) => commitExact(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+          }}
+        />
+        <span className="vr-ed-value">{displayValue ?? unit ?? ""}</span>
+      </div>
       <input
         className="vr-ed-slider"
         type="range"

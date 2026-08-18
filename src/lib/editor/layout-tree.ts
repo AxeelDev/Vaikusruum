@@ -106,21 +106,31 @@ export function moveLayoutNode(section: SectionRow, nodeId: string, target: Layo
   };
 }
 
-export function insertLayoutElement(section: SectionRow, addType: AddableElementType, target: LayoutMoveTarget): { section: SectionRow; node: LayoutElementNode } {
+export function insertLayoutElement(section: SectionRow, addType: AddableElementType, target: LayoutMoveTarget): { section: SectionRow; node: LayoutNode } {
   const tree = structuredClone(getSectionLayoutTree(section));
-  const field = createElementField(addType);
-  const node = createElementNode(section, addType, field);
+  const node =
+    addType === "container"
+      ? group(`${sectionNodePrefix(section)}.container.${crypto.randomUUID()}`, "Konteiner", [])
+      : createElementNode(section, addType, createElementField(addType));
   let inserted =
     target.placement === "left" || target.placement === "right"
       ? insertNodeBeside(tree, node, target, preferredSplitFrom(section))
       : insertNode(tree.root, node, target.parentId, target.index);
+  if (!inserted && target.targetNodeId) {
+    const parent = findParentWithChild(tree.root, target.targetNodeId);
+    if (parent) inserted = insertNode(tree.root, node, parent.parent.id, parent.index + (target.placement === "before" ? 0 : 1));
+  }
   if (!inserted) {
     inserted = insertNode(tree.root, node, firstInsertableParentId(tree.root), Number.MAX_SAFE_INTEGER);
   }
+  if (!inserted) {
+    throw new Error(`Could not insert ${addType} into section ${section.id}`);
+  }
+  const field = node.type === "element" ? node.field : undefined;
   const next = {
     ...section,
-    content: { ...section.content, [field]: defaultElementContent(addType) },
-    style: { ...section.style, layoutTree: inserted ? simplifyLayoutTree(tree) : tree },
+    content: field ? { ...section.content, [field]: defaultElementContent(addType) } : section.content,
+    style: { ...section.style, layoutTree: simplifyLayoutTree(tree) },
   };
   return { section: next, node };
 }
@@ -320,7 +330,7 @@ function createElementNode(section: SectionRow, addType: AddableElementType, fie
     case "links":
       return element(id, "link", "Links", { field });
     case "container":
-      return element(id, "text", "Container text", { field });
+      return element(id, "text", "Konteiner", { field });
     default:
       return element(id, addType, elementLabel(addType), { field });
   }

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createSection, duplicateSection, reorderSections } from "@/lib/editor/draft";
-import { appearanceToStyle, mergeFieldStyle } from "@/lib/editor/appearance";
 import { resolveColumnBalance, resolveHeight, resolveVerticalAlign, splitGridColumns } from "@/components/layout/primitives";
+import { appearanceToStyle, mergeFieldStyle } from "@/lib/editor/appearance";
+import { clampTextStyle, readTextStyle, writeTextStylePatch } from "@/lib/editor/text-style";
+import { insertLayoutElement } from "@/lib/editor/layout-tree";
+import { addableNodesForRole } from "@/lib/editor/node-registry";
 import { getSectionLayoutTree, ratioToLeftPercent } from "@/lib/editor/layout-tree";
 import type { SectionRow } from "@/types/content";
 
@@ -80,6 +83,19 @@ describe("text appearance", () => {
     expect(style.fontSize).toBe("56px");
     expect(style.letterSpacing).toBe("0.22em");
     expect(style.textAlign).toBe("center");
+    expect((style as Record<string, string>)["--node-font-size"]).toBe("56px");
+  });
+
+  it("treats size and fontSize as the same override", () => {
+    expect(readTextStyle({ size: 72 }).fontSize).toBe(72);
+    expect(writeTextStylePatch({ fontSize: 110 }).size).toBe(110);
+    expect(writeTextStylePatch({ fontSize: 110 }).fontSize).toBe(110);
+  });
+
+  it("allows display text up to 240px", () => {
+    expect(clampTextStyle({ fontSize: 240 }, "display").fontSize).toBe(240);
+    expect(clampTextStyle({ fontSize: 300 }, "display").fontSize).toBe(240);
+    expect(clampTextStyle({ fontSize: 80 }, "body").fontSize).toBe(64);
   });
 
   it("stores field styles on the section", () => {
@@ -92,5 +108,24 @@ describe("text appearance", () => {
     expect(saved.style.fieldStyles?.title.color).toBe("#FFFFFF");
     const cleared = mergeFieldStyle(saved, "title", { color: "#1234" });
     expect(cleared.style.fieldStyles?.title.color).toBeUndefined();
+  });
+});
+
+describe("component creation", () => {
+  it("exposes every add-menu type from the registry", () => {
+    const types = addableNodesForRole("owner").map((item) => item.type);
+    expect(types).toEqual(expect.arrayContaining([
+      "text", "list", "image", "buttons", "video", "links", "audio", "icons", "gallery",
+      "table", "timer", "divider", "slideshow", "form", "widget", "embed", "container", "control",
+    ]));
+  });
+
+  it("inserts new text into the draft layout tree", () => {
+    const hero = section({ content: { title: "VAIKUSRUUM", intro: "Tere" } });
+    const inserted = insertLayoutElement(hero, "text", { parentId: `layout.${hero.id}.hero.textGroup`, index: 99, placement: "inside" });
+    expect(inserted.node.type === "element" && inserted.node.elementType).toBe("text");
+    const field = inserted.node.type === "element" ? inserted.node.field : undefined;
+    expect(field).toMatch(/^custom\.text\./);
+    expect(inserted.section.content[field!]).toBe("Uus tekst");
   });
 });

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { parseColorToHex } from "@/lib/editor/color";
-import { fontCssById } from "@/lib/theme/theme";
+import { readTextStyle, textStyleToCss, writeTextStylePatch } from "@/lib/editor/text-style";
 import type { ImageCrop, SectionRow, TextAppearance } from "@/types/content";
 
 export function fieldStyle(section: SectionRow | undefined, field: string): TextAppearance | undefined {
@@ -8,19 +8,7 @@ export function fieldStyle(section: SectionRow | undefined, field: string): Text
 }
 
 export function appearanceToStyle(appearance?: TextAppearance): CSSProperties {
-  if (!appearance) return {};
-  const style: CSSProperties = {};
-  const color = parseColorToHex(appearance.color);
-  if (color) style.color = color;
-  const font = fontCssById(appearance.fontId);
-  if (font) style.fontFamily = font;
-  if (typeof appearance.size === "number") style.fontSize = `${appearance.size}px`;
-  if (typeof appearance.weight === "number") style.fontWeight = appearance.weight;
-  if (typeof appearance.lineHeight === "number") style.lineHeight = appearance.lineHeight;
-  if (typeof appearance.letterSpacing === "number") style.letterSpacing = `${appearance.letterSpacing}em`;
-  if (appearance.align) style.textAlign = appearance.align;
-  if (typeof appearance.width === "number") style.maxWidth = `${appearance.width}px`;
-  return style;
+  return textStyleToCss(readTextStyle(appearance));
 }
 
 export function photoClassName(crop?: ImageCrop, extra?: string): string {
@@ -39,11 +27,18 @@ export function mergeFieldStyle(
   patch: Partial<TextAppearance>,
 ): SectionRow {
   const current = fieldStyle(section, field) ?? {};
-  const next = { ...current, ...patch };
-  if (patch.color !== undefined) {
-    const color = parseColorToHex(patch.color);
+  const canonicalPatch = writeTextStylePatch(readTextStyle(patch));
+  const next: TextAppearance = { ...current, ...canonicalPatch, ...patch };
+  if (patch.color !== undefined || canonicalPatch.color !== undefined) {
+    const color = parseColorToHex(patch.color ?? canonicalPatch.color);
     if (color) next.color = color;
-    else delete next.color;
+    else {
+      delete next.color;
+    }
+  }
+  if (patch.maxWidth === null) {
+    next.maxWidth = null;
+    delete next.width;
   }
   return {
     ...section,
@@ -52,6 +47,21 @@ export function mergeFieldStyle(
       fieldStyles: {
         ...section.style?.fieldStyles,
         [field]: next,
+      },
+    },
+  };
+}
+
+export function clearFieldStyleKeys(section: SectionRow, field: string, keys: Array<keyof TextAppearance>): SectionRow {
+  const current = { ...(fieldStyle(section, field) ?? {}) };
+  for (const key of keys) delete current[key];
+  return {
+    ...section,
+    style: {
+      ...section.style,
+      fieldStyles: {
+        ...section.style?.fieldStyles,
+        [field]: current,
       },
     },
   };

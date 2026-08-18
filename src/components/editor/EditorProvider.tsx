@@ -39,6 +39,7 @@ type EditorApi = {
   closeInspector: () => void;
   goBack: () => void;
   setTab: (tab: InspectorTab) => void;
+  clearNotice: () => void;
   setBreakpoint: (breakpoint: EditorState["breakpoint"]) => void;
   setPreview: (preview: boolean) => void;
   setAdvanced: (advanced: boolean) => void;
@@ -61,7 +62,7 @@ type EditorApi = {
   cancelPendingNavigation: () => void;
   cancelPendingPage: () => void;
   addSection: (type: AddableSectionType) => void;
-  addElement: (type: AddableElementType, target?: { sectionId?: string; parentId?: string; index?: number; placement?: "before" | "after" | "left" | "right" | "inside"; targetNodeId?: string }) => void;
+  addElement: (type: AddableElementType, target?: { sectionId?: string; parentId?: string; index?: number; placement?: "before" | "after" | "left" | "right" | "inside"; targetNodeId?: string }) => boolean;
   moveSection: (sectionId: string, direction: -1 | 1) => void;
   moveSectionToIndex: (sectionId: string, targetIndex: number) => void;
   moveNode: (sectionId: string, nodeId: string, targetParentId: string, targetIndex: number, placement?: "before" | "after" | "left" | "right" | "inside", targetNodeId?: string) => void;
@@ -108,6 +109,8 @@ export function EditorProvider({
   const [inspectorContext, setInspectorContext] = useState<InspectorContext>({ kind: "none" });
   const [inspectorBack, setInspectorBack] = useState<InspectorContext>({ kind: "none" });
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("content");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [lastInsertedNodeId, setLastInsertedNodeId] = useState<string | null>(null);
   const [breakpoint, setBreakpoint] = useState<EditorState["breakpoint"]>("desktop");
   const [history, setHistory] = useState<EditorDraft[]>(() => [snapshot(initial)]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -182,6 +185,22 @@ export function EditorProvider({
     }
     deselect();
   }, [closeSiteDesign, deselect, inspectorContext.kind]);
+
+  const setTab = useCallback(
+    (tab: InspectorTab) => {
+      if (inspectorContext.kind === "site") return;
+      if (!selected) {
+        setInspectorTab(tab === "settings" ? "advanced" : tab);
+        return;
+      }
+      const content = readEditorContent(draft, selected);
+      const kind = resolveNodeKind(selected, { rich: content.format === "rich" });
+      setInspectorTab(resolveInspectorTab(kind, tab, role));
+    },
+    [draft, inspectorContext.kind, role, selected],
+  );
+
+  const clearNotice = useCallback(() => setNotice(null), []);
 
   const setPath = useCallback(
     (path: EditPath, value: unknown, record = true) => {
@@ -343,29 +362,54 @@ export function EditorProvider({
       type: AddableElementType,
       target?: { sectionId?: string; parentId?: string; index?: number; placement?: "before" | "after" | "left" | "right" | "inside"; targetNodeId?: string },
     ) => {
-      const current = pageSections(draft, pageId);
-      const sectionId = target?.sectionId ?? selected?.sectionId ?? current[0]?.id;
-      const section = sectionId ? current.find((item) => item.id === sectionId) : undefined;
-      if (!section) return;
-      const tree = section.style?.layoutTree;
-      const fallbackParentId = target?.parentId ?? tree?.root.id ?? `layout.${section.id}.content`;
-      const inserted = insertLayoutElement(section, type, {
-        parentId: fallbackParentId,
-        index: target?.index ?? Number.MAX_SAFE_INTEGER,
-        placement: target?.placement ?? "inside",
-        targetNodeId: target?.targetNodeId,
-      });
-      applyDraft(updateSection(draft, section.id, () => normalizeSectionLayout(inserted.section)), true);
-      const selectionType = inserted.node.elementType === "image" ? "image" : "text";
-      const page = draft.pages.find((item) => item.id === pageId);
-      select({
-        id: inserted.node.elementType === "image" ? `${section.id}.image` : `${page?.slug ?? "page"}.${section.section_key}.${inserted.node.field}`,
-        type: selectionType,
-        sectionId: section.id,
-        field: inserted.node.field,
-      });
+      try {
+        const current = pageSections(draft, pageId);
+        const sectionId = target?.sectionId ?? selected?.sectionId ?? current[0]?.id;
+        const section = sectionId ? current.find((item) => item.id === sectionId) : undefined;
+        if (!section) {
+          setNotice("Seda elementi ei saa siia lisada. Vali sektsioon või konteiner.");
+          return false;
+        }
+        const tree = section.style?.layoutTree;
+        const fallbackParentId = target?.parentId ?? selected?.layoutNodeId ?? tree?.root.id ?? `layout.${section.id}.content`;
+        const inserted = insertLayoutElement(section, type, {
+          parentId: fallbackParentId,
+          index: target?.index ?? Number.MAX_SAFE_INTEGER,
+          placement: target?.placement ?? (target?.targetNodeId ? "after" : "inside"),
+          targetNodeId: target?.targetNodeId ?? (selected?.sectionId === section.id ? selected.layoutNodeId : undefined),
+        });
+        applyDraft(updateSection(draft, section.id, () => normalizeSectionLayout(inserted.section)), true);
+        setLastInsertedNodeId(inserted.node.id);
+        window.setTimeout(() => setLastInsertedNodeId((currentId) => (currentId === inserted.node.id ? null : currentId)), 400);
+        const page = draft.pages.find((item) => item.id === pageId);
+        if (inserted.node.type === "group" || inserted.node.type === "column" || inserted.node.type === "columns") {
+          select({ id: inserted.node.id, type: "container", sectionId: section.id, layoutNodeId: inserted.node.id });
+        } else if (inserted.node.elementType === "image") {
+          select({
+            id: `${section.id}.${inserted.node.field ?? "image"}`,
+            type: "image",
+            sectionId: section.id,
+            field: inserted.node.field,
+            layoutNodeId: inserted.node.id,
+          });
+        } else {
+          select({
+            id: `${page?.slug ?? "page"}.${section.section_key}.${inserted.node.field ?? inserted.node.id}`,
+            type: inserted.node.elementType === "link" ? "link" : "text",
+            sectionId: section.id,
+            field: inserted.node.field,
+            layoutNodeId: inserted.node.id,
+          });
+        }
+        setNotice(null);
+        return true;
+      } catch (error) {
+        console.error("Elemendi lisamine ebaõnnestus.", error);
+        setNotice("Elemendi lisamine ebaõnnestus.");
+        return false;
+      }
     },
-    [applyDraft, draft, pageId, select, selected?.sectionId],
+    [applyDraft, draft, pageId, select, selected],
   );
 
   const duplicateSection = useCallback(
@@ -664,6 +708,8 @@ export function EditorProvider({
       saving,
       saveError,
       saveFlash,
+      notice,
+      lastInsertedNodeId,
       pendingPageId,
       pendingNavigationHref,
     }),
@@ -677,6 +723,8 @@ export function EditorProvider({
       inspectorContext,
       inspectorOpen,
       inspectorTab,
+      lastInsertedNodeId,
+      notice,
       pageId,
       pendingPageId,
       pendingNavigationHref,
@@ -695,7 +743,8 @@ export function EditorProvider({
       deselect,
       closeInspector: () => setInspectorOpen(false),
       goBack,
-      setTab: setInspectorTab,
+      setTab,
+      clearNotice,
       setBreakpoint,
       setPreview,
       setAdvanced,
@@ -735,6 +784,7 @@ export function EditorProvider({
       addElement,
       addMedia,
       cancelPendingPage,
+      clearNotice,
       closeSiteDesign,
       confirmPendingPage,
       confirmPendingNavigation,
@@ -761,6 +811,7 @@ export function EditorProvider({
       save,
       select,
       setPath,
+      setTab,
       resizeColumns,
       switchPage,
       switchPageBySlug,

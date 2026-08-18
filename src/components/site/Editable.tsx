@@ -24,6 +24,8 @@ function editProps(selection: EditorSelection, selected: boolean, preview: boole
     "data-vr-selection-media-id": selection.mediaId,
     "data-vr-selection-nav-slug": selection.navSlug,
     "data-vr-selected": selected ? "" : undefined,
+    "data-editor-node-id": selection.id,
+    "data-editor-node-type": selection.type,
   };
 }
 

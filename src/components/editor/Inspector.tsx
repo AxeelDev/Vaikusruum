@@ -21,12 +21,26 @@ import {
   EditorTooltip,
 } from "@/components/editor/ui";
 import { findSection, pageSections } from "@/lib/editor/draft";
-import { fieldStyle } from "@/lib/editor/appearance";
+import { fieldStyle, clearFieldStyleKeys } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
 import { findLayoutNode, getSectionLayoutTree, listLayoutElements, parentOfNode, ratioToLeftPercent, resolveLayoutNodeId, sectionLayoutSummary } from "@/lib/editor/layout-tree";
 import { pageLabel } from "@/lib/editor/pages";
 import { ADDABLE_SECTIONS } from "@/lib/editor/types";
 import { ALL_FONTS, BODY_FONTS, DISPLAY_FONTS } from "@/lib/theme/theme";
+import {
+  clampTextStyle,
+  effectiveTextStyle,
+  inheritedTextStyle,
+  isOverridden,
+  readTextStyle,
+  textStyleKey,
+  textStyleScale,
+  TEXT_SIZE_RANGES,
+  WIDTH_PRESETS,
+  widthPresetId,
+  writeTextStylePatch,
+  type CanonicalTextStyle,
+} from "@/lib/editor/text-style";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { compressImage } from "@/lib/utils/compress-image";
 import { mediaPublicUrl } from "@/lib/utils/urls";
@@ -104,6 +118,7 @@ export function Inspector() {
                 aria-selected={model.tab === tab}
                 aria-label={INSPECTOR_TAB_LABELS[tab]}
                 className={model.tab === tab ? "is-active" : undefined}
+                data-active={model.tab === tab ? "true" : "false"}
                 onClick={() => editor.setTab(tab)}
               >
                 <InspectorModeIcon tab={tab} />
@@ -246,6 +261,7 @@ function EditorFooterControls() {
   return (
     <div className="vr-inspector-footer">
       {state.saveError ? <p className="vr-form-error vr-editor-error">{state.saveError}</p> : null}
+      {state.notice ? <p className="vr-ed-help">{state.notice}</p> : null}
       <EditorButton
         variant="primary"
         className="vr-inspector-done"
@@ -273,12 +289,13 @@ function SelectionPanels({ tab }: { tab: InspectorTabId }) {
   const selected = editor.state.selected;
   if (!selected) return <PageOverview />;
   if (tab === "animation") return <AnimationPanel />;
-  if (tab === "advanced" || tab === ("settings" as InspectorTabId)) return <SettingsPanel />;
-  if (tab === "layout" || (tab === "content" && (selected.type === "container" || selected.type === "section"))) {
-    if (selected.type === "container") return <ContainerPanel />;
-    if (selected.type === "section") return <SectionPanel mode="content" />;
-  }
+  if (tab === "advanced") return <SettingsPanel />;
   if (tab === "appearance") return <NodeAppearanceInspector />;
+  if (tab === "layout") {
+    if (selected.type === "container") return <ContainerPanel />;
+    if (selected.type === "section") return <SectionPanel mode="layout" />;
+    return <SectionPanel mode="layout" />;
+  }
   if (selected.type === "container") return <ContainerPanel />;
   if (selected.type === "image") return <ImagePanel mode="content" />;
   if (selected.type === "section") return <SectionPanel mode="content" />;
@@ -662,7 +679,8 @@ function NodeAppearanceInspector() {
   if (selected.type === "section") return <SectionPanel mode="appearance" />;
   if (selected.type === "container") return <ContainerPanel />;
   if (selected.type === "header") return <HeaderPanel />;
-  if (!selected.sectionId || !selected.field) {
+  const styleKey = textStyleKey(selected);
+  if (!selected.sectionId || !styleKey) {
     return (
       <div className="vr-inspector-body">
         <EditorContext kicker="Välimus" title={selectedKindLabel(selected.type)} />
@@ -679,21 +697,29 @@ function NodeAppearanceInspector() {
       </div>
     );
   }
-  const appearance = fieldStyle(section, selected.field) ?? {};
+  const override = readTextStyle(fieldStyle(section, styleKey));
+  const inherited = inheritedTextStyle(selected, section, editor.state.draft.theme);
+  const effective = effectiveTextStyle(override, inherited);
+  const scale = textStyleScale(selected, section);
+  const sizeRange = TEXT_SIZE_RANGES[scale];
   const advanced = editor.state.advanced;
   const sectionId = selected.sectionId;
-  const field = selected.field;
   const swatches = themeColorSwatches(editor.state.draft.theme);
-  const inherited = !appearance.color;
+  const widthId = widthPresetId(effective.maxWidth ?? null);
 
-  function patch(next: Partial<TextAppearance>, record = false) {
-    editor.patchFieldStyle(sectionId, field, next, record);
+  function patch(next: Partial<CanonicalTextStyle>, record = false) {
+    const clamped = clampTextStyle(next, scale);
+    editor.patchFieldStyle(sectionId, styleKey!, writeTextStylePatch(clamped), record);
+  }
+
+  function reset(keys: Array<keyof TextAppearance>) {
+    editor.patchSection(sectionId, (row) => clearFieldStyleKeys(row, styleKey!, keys), true);
   }
 
   return (
     <div className="vr-inspector-body">
       <EditorSelect
-        value={appearance.role ?? (selected.field === "title" || selected.field === "heading" ? "h1" : "p")}
+        value={effective.role ?? (selected.field === "title" || selected.field === "heading" ? "h1" : "p")}
         options={[
           { value: "h1", label: "Pealkiri 1" },
           { value: "h2", label: "Pealkiri 2" },
@@ -706,50 +732,128 @@ function NodeAppearanceInspector() {
       <EditorColor
         key={`color-${selected.id}`}
         label="Värv"
-        value={appearance.color}
+        value={override.color}
         fallback={editor.state.draft.theme.text}
-        inheritedLabel={inherited ? "Tekst — põhivärv" : undefined}
+        inheritedLabel={!override.color ? "Tekst — põhivärv" : undefined}
         swatches={swatches}
         onChange={(color) => patch({ color })}
       />
       <EditorGroup label="Kirjatüüp">
         <EditorSelect
-          value={appearance.fontId ?? "cormorant"}
+          value={effective.fontId ?? "cormorant"}
           options={FONT_OPTIONS}
           previewFont
           onChange={(fontId) => patch({ fontId }, true)}
         />
       </EditorGroup>
-      <EditorSlider label="Suurus" min={14} max={96} value={appearance.size ?? 18} onChange={(size) => patch({ size })} unit="px" exact={advanced} />
+      <EditorSlider
+        label="Suurus"
+        min={sizeRange.min}
+        max={sizeRange.max}
+        value={effective.fontSize ?? inherited.fontSize ?? 18}
+        onChange={(fontSize) => patch({ fontSize })}
+        unit="px"
+        exact={advanced}
+        inherited={!isOverridden(override, "fontSize")}
+        onReset={() => reset(["fontSize", "size"])}
+      />
       <EditorSlider
         label="Paksus"
-        min={300}
-        max={700}
-        step={50}
-        value={appearance.weight ?? 400}
-        onChange={(weight) => patch({ weight })}
+        min={100}
+        max={900}
+        step={100}
+        value={effective.fontWeight ?? 400}
+        onChange={(fontWeight) => patch({ fontWeight })}
         exact={advanced}
-        displayValue={weightLabel(appearance.weight ?? 400)}
+        displayValue={weightLabel(effective.fontWeight ?? 400)}
+        inherited={!isOverridden(override, "fontWeight")}
+        onReset={() => reset(["fontWeight", "weight"])}
       />
       <hr className="vr-ed-divider" />
       <p className="vr-ed-section-label">Vahed</p>
-      <EditorSlider label="Reavahe" min={1.1} max={2.2} step={0.05} value={appearance.lineHeight ?? 1.7} onChange={(lineHeight) => patch({ lineHeight })} exact={advanced} />
-      <EditorSlider label="Tähevahe" min={0} max={0.4} step={0.01} value={appearance.letterSpacing ?? 0} onChange={(letterSpacing) => patch({ letterSpacing })} unit="em" exact={advanced} />
+      <EditorSlider
+        label="Reavahe"
+        min={0.8}
+        max={3}
+        step={0.05}
+        value={effective.lineHeight ?? 1.7}
+        onChange={(lineHeight) => patch({ lineHeight })}
+        exact={advanced}
+        inherited={!isOverridden(override, "lineHeight")}
+        onReset={() => reset(["lineHeight"])}
+      />
+      <EditorSlider
+        label="Tähevahe"
+        min={-0.1}
+        max={1}
+        step={0.01}
+        value={effective.letterSpacing ?? 0}
+        onChange={(letterSpacing) => patch({ letterSpacing })}
+        unit="em"
+        exact={advanced}
+        inherited={!isOverridden(override, "letterSpacing")}
+        onReset={() => reset(["letterSpacing"])}
+      />
+      <EditorSlider
+        label="Lõiguvahe"
+        min={0}
+        max={80}
+        value={effective.paragraphSpacing ?? editor.state.draft.theme.paragraphSpacing}
+        onChange={(paragraphSpacing) => patch({ paragraphSpacing })}
+        unit="px"
+        exact={advanced}
+        inherited={!isOverridden(override, "paragraphSpacing")}
+        onReset={() => reset(["paragraphSpacing"])}
+      />
       <EditorGroup label="Joondus">
         <EditorSegmented
-          value={appearance.align ?? "left"}
+          value={effective.textAlign ?? "left"}
           options={[
             { value: "left", label: "Vasak" },
             { value: "center", label: "Kesk" },
             { value: "right", label: "Parem" },
           ]}
-          onChange={(align) => patch({ align: align as TextAppearance["align"] }, true)}
+          onChange={(textAlign) => patch({ textAlign: textAlign as TextAppearance["textAlign"] }, true)}
         />
       </EditorGroup>
+      <EditorGroup label="Kaldkiri">
+        <EditorSegmented
+          value={effective.fontStyle ?? "normal"}
+          options={[
+            { value: "normal", label: "Tavaline" },
+            { value: "italic", label: "Kaldkiri" },
+          ]}
+          onChange={(fontStyle) => patch({ fontStyle: fontStyle as "normal" | "italic" }, true)}
+        />
+      </EditorGroup>
+      <EditorGroup
+        label="Laius"
+        inherited={!isOverridden(override, "maxWidth")}
+        onReset={() => reset(["maxWidth", "width"])}
+      >
+        <EditorSegmented
+          value={widthId === "custom" ? "custom" : widthId}
+          options={WIDTH_PRESETS.map((item) => ({ value: item.id, label: item.label }))}
+          onChange={(id) => {
+            const preset = WIDTH_PRESETS.find((item) => item.id === id);
+            patch({ maxWidth: preset?.value ?? 720 }, true);
+          }}
+        />
+      </EditorGroup>
+      {advanced || editor.role === "owner" ? (
+        <EditorSlider
+          label="Täpne laius"
+          min={160}
+          max={1600}
+          value={effective.maxWidth ?? 720}
+          onChange={(maxWidth) => patch({ maxWidth })}
+          unit="px"
+          exact
+        />
+      ) : null}
       {editor.role === "owner" ? (
         <>
           <hr className="vr-ed-divider" />
-          <EditorSlider label="Maksimaalne laius" min={240} max={900} value={appearance.width ?? 660} onChange={(width) => patch({ width })} unit="px" exact={advanced} />
           <EditorSwitch checked={editor.state.advanced} onChange={(checked) => editor.setAdvanced(checked)} label="Täpsed väärtused" />
         </>
       ) : null}
@@ -1077,9 +1181,30 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
   const [uploadError, setUploadError] = useState("");
   const selected = editor.state.selected;
   const section = selected?.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
-  const mediaId = section ? resolveSectionMediaId(section) || selected?.mediaId || "" : selected?.mediaId || "";
+  const customField = selected?.field?.startsWith("custom.") ? selected.field : undefined;
+  const customMedia = customField && section && typeof section.content[customField] === "object"
+    ? (section.content[customField] as { mediaId?: string })
+    : undefined;
+  const mediaId = customField
+    ? customMedia?.mediaId || ""
+    : section
+      ? resolveSectionMediaId(section) || selected?.mediaId || ""
+      : selected?.mediaId || "";
   const media = mediaId ? editor.state.draft.media[mediaId] : undefined;
   const image = section?.style?.image ?? {};
+
+  function assignMedia(nextId: string | null) {
+    if (!section) return;
+    if (customField) {
+      editor.setPath(
+        { kind: "section-content", sectionId: section.id, key: customField },
+        { ...(customMedia ?? {}), mediaId: nextId ?? "" },
+        true,
+      );
+      return;
+    }
+    editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: nextId } }));
+  }
 
   async function upload(fileList: FileList | null) {
     const file = fileList?.[0];
@@ -1114,7 +1239,7 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
     }
     const item = data as MediaRow;
     editor.addMedia(item);
-    editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: item.id } }));
+    assignMedia(item.id);
   }
 
   return (
@@ -1149,7 +1274,7 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
                 data-selected={item.id === mediaId ? "true" : undefined}
                 onClick={() => {
                   if (!section) return;
-                  editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: item.id } }));
+                  assignMedia(item.id);
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1190,7 +1315,7 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
                 type="button"
                 onClick={() => {
                   if (!section) return;
-                  editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: item.id } }));
+                  assignMedia(item.id);
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1267,13 +1392,7 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
       {mediaId ? (
         <EditorButton
           variant="danger"
-          onClick={() =>
-            section &&
-            editor.patchSection(section.id, (row) => ({
-              ...row,
-              style: { ...row.style, mediaId: null },
-            }))
-          }
+          onClick={() => section && assignMedia(null)}
         >
           Eemalda pilt
         </EditorButton>

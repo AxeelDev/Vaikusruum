@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { paragraphs } from "@/lib/content/rich-text";
-import { bindSelection, readEditorContent } from "@/lib/editor/content-binding";
+import { assertEditableTextBinding, bindSelection, readEditorContent } from "@/lib/editor/content-binding";
 import { resolveDropIntent, type CachedDropTarget } from "@/lib/editor/drop-intent";
 import { moveLayoutNode, normalizeSectionLayout, removeLayoutNode } from "@/lib/editor/layout-tree";
 import { resolveInspectorTab, resolveNodeKind, tabsForKind } from "@/lib/editor/node-registry";
@@ -79,6 +79,10 @@ describe("inspector tabs", () => {
     expect(resolveInspectorTab("container", "layout")).toBe("content");
   });
 
+  it("keeps layout when the selected node supports it", () => {
+    expect(resolveInspectorTab("buttons", "layout")).toBe("layout");
+  });
+
   it("never maps a text selection to site design", () => {
     expect(resolveNodeKind({ id: "avaleht.hero.title", type: "text", sectionId: "s1", field: "title" })).toBe("text");
   });
@@ -105,6 +109,14 @@ describe("text content adapters", () => {
     });
     expect(content.format).toBe("plain");
     expect(content.format === "plain" && content.value).toBe("VAIKUSRUUM");
+    expect(
+      assertEditableTextBinding(draft(section()), {
+        id: "avaleht.hero.title",
+        type: "text",
+        sectionId: "s1",
+        field: "title",
+      }).plainPreview,
+    ).toBe("VAIKUSRUUM");
   });
 
   it("fills missing hero title from the site name", () => {

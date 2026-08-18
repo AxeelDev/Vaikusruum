@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { TiptapNode } from "@/types/content";
 import { isTiptapDoc } from "@/lib/content/rich-text";
 
@@ -44,10 +45,10 @@ function NodeView({ node }: { node: TiptapNode }) {
   }
 }
 
-export function RichText({ value, className }: { value: unknown; className?: string }) {
+export function RichText({ value, className, style }: { value: unknown; className?: string; style?: CSSProperties }) {
   if (typeof value === "string") {
     return (
-      <div className={className ?? "vr-rich"}>
+      <div className={className ?? "vr-rich"} style={style}>
         {value.split("\n").map((line, i) => (
           <p key={i}>{line || "\u00a0"}</p>
         ))}
@@ -56,7 +57,7 @@ export function RichText({ value, className }: { value: unknown; className?: str
   }
   if (!isTiptapDoc(value)) return null;
   return (
-    <div className={className ?? "vr-rich"}>
+    <div className={className ?? "vr-rich"} style={style}>
       <NodeView node={value} />
     </div>
   );

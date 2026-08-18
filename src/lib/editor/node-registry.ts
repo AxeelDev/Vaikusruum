@@ -1,4 +1,5 @@
 import type { AddableElementType, EditorSelection, InspectorTabId } from "@/lib/editor/types";
+import { ADDABLE_ELEMENTS } from "@/lib/editor/types";
 import type { AdminRole, LayoutElementNode } from "@/types/content";
 
 export type EditorNodeKind =
@@ -155,7 +156,7 @@ export function resolveInspectorTab(
   role: AdminRole = "editor",
 ): InspectorTabId {
   const tabs = tabsForKind(kind, role);
-  const requested = current === "settings" ? "advanced" : current === "layout" ? "content" : current;
+  const requested = current === "settings" ? "advanced" : current;
   if (requested && tabs.includes(requested as InspectorTabId)) return requested as InspectorTabId;
   return tabs[0] ?? "content";
 }
@@ -166,4 +167,12 @@ export function nodeKindLabel(kind: EditorNodeKind): string {
 
 export function canPlaceBeside(kind: EditorNodeKind): boolean {
   return nodeRegistry[kind].canPlaceBeside;
+}
+
+export function addableNodesForRole(role: AdminRole) {
+  return ADDABLE_ELEMENTS.filter((item) => role === "owner" || !item.ownerOnly).map((item) => ({
+    type: item.type,
+    label: nodeRegistry[kindFromAddable(item.type)].label,
+    ownerOnly: item.ownerOnly,
+  }));
 }

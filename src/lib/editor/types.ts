@@ -69,6 +69,8 @@ export type EditorState = {
   inspectorOpen: boolean;
   inspectorContext: InspectorContext;
   inspectorTab: InspectorTab;
+  notice: string | null;
+  lastInsertedNodeId: string | null;
   breakpoint: EditorBreakpoint;
   draft: EditorDraft;
   dirty: boolean;

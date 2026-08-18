@@ -1,50 +1,53 @@
 .vr-wordmark {
-  font-family: var(--vr-font-wordmark);
-  font-weight: 400;
-  font-size: var(--vr-wordmark-size);
-  letter-spacing: var(--vr-wordmark-tracking);
+  font-family: var(--node-font-family, var(--vr-font-wordmark));
+  font-weight: var(--node-font-weight, 400);
+  font-size: var(--node-font-size, var(--vr-wordmark-size));
+  letter-spacing: var(--node-letter-spacing, var(--vr-wordmark-tracking));
   text-transform: uppercase;
-  line-height: 1.1;
-  color: var(--vr-text);
+  line-height: var(--node-line-height, 1.1);
+  color: var(--node-color, var(--vr-text));
 }
 
 .vr-wordmark--header {
-  font-size: clamp(20px, 1.2vw, 22px);
-  letter-spacing: 0.2em;
+  font-size: var(--node-font-size, clamp(20px, 1.2vw, 22px));
+  letter-spacing: var(--node-letter-spacing, 0.2em);
 }
 
 .vr-wordmark--hero {
-  font-size: clamp(40px, 3.4vw, 56px);
-  letter-spacing: 0.12em;
-  line-height: 1;
+  font-size: var(--node-font-size, clamp(40px, 3.4vw, 56px));
+  letter-spacing: var(--node-letter-spacing, 0.12em);
+  line-height: var(--node-line-height, 1);
   margin: 0;
-  max-width: 100%;
+  max-width: var(--node-max-width, 100%);
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 760px) {
   .vr-wordmark--hero {
-    font-size: clamp(36px, 12vw, 50px);
-    letter-spacing: clamp(0.08em, 3vw, 0.14em);
+    font-size: var(--node-font-size, clamp(36px, 12vw, 50px));
+    letter-spacing: var(--node-letter-spacing, clamp(0.08em, 3vw, 0.14em));
   }
 }
 
 .vr-page-title {
-  font-family: var(--vr-font-display);
-  font-weight: 400;
-  font-size: clamp(2rem, 4.5vw, calc(var(--vr-page-title-size) * var(--vr-heading-scale)));
-  letter-spacing: var(--vr-heading-tracking);
-  line-height: 1.15;
+  font-family: var(--node-font-family, var(--vr-font-display));
+  font-weight: var(--node-font-weight, 400);
+  font-size: var(--node-font-size, clamp(2rem, 4.5vw, calc(var(--vr-page-title-size) * var(--vr-heading-scale))));
+  letter-spacing: var(--node-letter-spacing, var(--vr-heading-tracking));
+  line-height: var(--node-line-height, 1.15);
   margin: 0 0 var(--vr-space-5);
+  overflow-wrap: anywhere;
 }
 
 .vr-heading {
-  font-family: var(--vr-font-display);
-  font-weight: 500;
-  font-size: calc(1.55rem * var(--vr-heading-scale));
-  letter-spacing: 0.02em;
-  line-height: 1.25;
+  font-family: var(--node-font-family, var(--vr-font-display));
+  font-weight: var(--node-font-weight, 500);
+  font-size: var(--node-font-size, calc(1.55rem * var(--vr-heading-scale)));
+  letter-spacing: var(--node-letter-spacing, 0.02em);
+  line-height: var(--node-line-height, 1.25);
   margin: 0 0 var(--vr-space-4);
+  overflow-wrap: anywhere;
 }
 
 .vr-heading-sm {
@@ -56,7 +59,7 @@
 
 .vr-body p,
 .vr-rich p {
-  margin: 0 0 var(--vr-paragraph-spacing);
+  margin: 0 0 var(--node-paragraph-spacing, var(--vr-paragraph-spacing));
 }
 
 .vr-body p + p,

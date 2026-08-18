@@ -131,16 +131,24 @@ html.vr-editor-lock body {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--ed-muted);
+  color: var(--ed-text-secondary);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: inset 0 -2px 0 transparent;
 }
 
 .vr-inspector-modes button:hover {
   color: var(--ed-text);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.vr-inspector-modes button.is-active,
+.vr-inspector-modes button[data-active="true"] {
+  color: var(--ed-text);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 -2px 0 var(--ed-accent);
 }
 
 .vr-inspector-modes .vr-ed-tooltip {
@@ -761,6 +769,21 @@ html.vr-editor-lock body {
     opacity 120ms ease-out;
 }
 
+.vr-layout-child[data-vr-just-added] {
+  animation: vr-insert 320ms ease;
+}
+
+@keyframes vr-insert {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .vr-column-resize {
   position: absolute;
   top: 0;
@@ -1032,6 +1055,50 @@ html.vr-editor-lock body {
   font-size: 13px;
   color: var(--ed-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.vr-ed-value-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vr-ed-value-input {
+  width: 4.2rem;
+  height: 22px;
+  border: 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ed-text) 8%, transparent);
+  color: var(--ed-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: right;
+  padding: 0 6px;
+}
+
+.vr-ed-value-input:focus {
+  outline: 1px solid var(--ed-accent);
+}
+
+.vr-ed-reset {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: transparent;
+  color: var(--ed-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+}
+
+.vr-ed-reset:hover {
+  color: var(--ed-text);
+}
+
+.vr-ed-inherited {
+  font-size: 11px;
+  color: var(--ed-muted);
 }
 
 .vr-ed-section-label {

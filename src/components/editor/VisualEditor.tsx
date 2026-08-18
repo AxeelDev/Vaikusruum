@@ -5,8 +5,8 @@ import { Inspector } from "@/components/editor/Inspector";
 import { useDragRuntime, useEditor } from "@/components/editor/EditorProvider";
 import { EditorButton } from "@/components/editor/ui";
 import { SiteView } from "@/components/site/SiteView";
-import { BREAKPOINT_WIDTH } from "@/lib/editor/types";
-import { ADDABLE_ELEMENTS, type AddableElementType, type EditorSelection } from "@/lib/editor/types";
+import { BREAKPOINT_WIDTH, type AddableElementType, type EditorSelection } from "@/lib/editor/types";
+import { addableNodesForRole } from "@/lib/editor/node-registry";
 import { pageSections } from "@/lib/editor/draft";
 import { hrefToSlug } from "@/lib/editor/pages";
 import {
@@ -918,7 +918,7 @@ function EditorTopBar({
           </button>
           {menuOpen ? (
             <div className="vr-editor-add-menu" role="menu">
-              {ADDABLE_ELEMENTS.filter((item) => editor.role === "owner" || !item.ownerOnly).map((item) => (
+              {addableNodesForRole(editor.role).map((item) => (
                 <button
                   key={item.type}
                   type="button"

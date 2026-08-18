@@ -171,6 +171,20 @@ function warnMissingTextBinding(selection: EditorSelection) {
   console.error(`Editable text node ${selection.id} has no content binding.`);
 }
 
+export function getEditableText(draft: EditorDraft, selection: EditorSelection): BoundEditorContent {
+  return readEditorContent(draft, selection);
+}
+
+export function assertEditableTextBinding(draft: EditorDraft, selection: EditorSelection): BoundEditorContent {
+  const bound = bindSelection(draft, selection);
+  if (!bound?.path) {
+    const message = `Text binding missing: ${selection.id}`;
+    if (process.env.NODE_ENV !== "production") console.error(message);
+    throw new Error(message);
+  }
+  return bound;
+}
+
 export function isRichEditorContent(content: BoundEditorContent): content is BoundEditorContent & { format: "rich" } {
   return content.format === "rich";
 }

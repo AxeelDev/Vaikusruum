@@ -127,12 +127,21 @@ export type TextAppearance = {
   role?: TextRole;
   color?: string;
   fontId?: string;
+  fontFamily?: string;
+  fontSize?: number;
   size?: number;
+  fontWeight?: number;
   weight?: number;
   lineHeight?: number;
   letterSpacing?: number;
+  paragraphSpacing?: number;
+  textAlign?: TextAlign;
   align?: TextAlign;
+  textTransform?: "none" | "uppercase" | "lowercase";
+  maxWidth?: number | null;
   width?: number;
+  fontStyle?: "normal" | "italic";
+  textDecoration?: "none" | "underline";
 };
 
 export type ImageAppearance = {

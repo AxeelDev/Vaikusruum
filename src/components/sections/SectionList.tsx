@@ -13,10 +13,22 @@ import { EditableRichText } from "@/components/site/EditableRichText";
 import { MediaFrame, ScreenSection, SectionInner, SplitLayout } from "@/components/layout/primitives";
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
 import { fieldStyle, photoClassName } from "@/lib/editor/appearance";
+import { textStyleKey } from "@/lib/editor/text-style";
 import { getSectionLayoutTree, ratioToLeftPercent } from "@/lib/editor/layout-tree";
 import { pageHref } from "@/lib/utils/urls";
 import { docHasText } from "@/lib/content/rich-text";
 import type { EventRow, LayoutColumnNode, LayoutElementNode, LayoutGroupNode, LayoutNode, MediaRow, OfferingRow, SectionRow, SiteSettings } from "@/types/content";
+
+function resolveNodeMediaId(section: SectionRow, node: { field?: string }, fallback?: string): string | undefined {
+  if (node.field && node.field.startsWith("custom.")) {
+    const raw = section.content[node.field];
+    if (raw && typeof raw === "object" && typeof (raw as { mediaId?: unknown }).mediaId === "string") {
+      return (raw as { mediaId: string }).mediaId || undefined;
+    }
+    return undefined;
+  }
+  return fallback;
+}
 
 function resolveSectionMediaId(section: SectionRow): string | undefined {
   if (Object.prototype.hasOwnProperty.call(section.style ?? {}, "mediaId")) {
@@ -319,7 +331,7 @@ function SectionView({
     }
     if (node.type === "group") {
       const children = renderContainerChildren(node);
-      if (children.length === 0) return null;
+      if (children.length === 0 && (!editor || editor.state.preview)) return null;
       return (
         <LayoutContainer
           section={section}
@@ -355,7 +367,7 @@ function SectionView({
           data-vr-section-id={editor && !editor.state.preview ? section.id : undefined}
           data-vr-drag-label={editor && !editor.state.preview ? child.label : undefined}
           data-vr-draggable-node={editor && !editor.state.preview ? "" : undefined}
-          data-vr-node-kind={editor && !editor.state.preview ? child.type : undefined}
+          data-vr-just-added={editor?.state.lastInsertedNodeId === child.id ? "" : undefined}
           data-vr-selection-id={editor && !editor.state.preview ? selection.id : undefined}
           data-vr-selection-type={editor && !editor.state.preview ? selection.type : undefined}
           data-vr-selection-section-id={editor && !editor.state.preview ? section.id : undefined}
@@ -373,7 +385,7 @@ function SectionView({
     if (node.type === "column" || node.type === "group" || node.type === "columns") {
       return { id: node.id, type: "container" };
     }
-    if (node.elementType === "image") return { id: `${section.id}.image`, type: "image", field: node.field ?? "image", mediaId };
+    if (node.elementType === "image") return { id: `${section.id}.${node.field ?? "image"}`, type: "image", field: node.field ?? "image", mediaId: resolveNodeMediaId(section, node, mediaId) };
     if (node.elementType === "text" && node.field) {
       return { id: node.field === "body" ? `${prefix}.body` : `${prefix}.${node.field}`, type: "text", field: node.field };
     }
@@ -384,7 +396,9 @@ function SectionView({
 
   function renderLayoutElement(node: LayoutElementNode): ReactNode {
     if (node.elementType === "image") {
-      if (section.section_type === "hero" && !image) {
+      const nodeMediaId = resolveNodeMediaId(section, node, image?.id);
+      const nodeImage = nodeMediaId ? media[nodeMediaId] : node.field?.startsWith("custom.") ? undefined : image;
+      if (section.section_type === "hero" && !nodeImage && !node.field?.startsWith("custom.")) {
         if (section.content.showEmblem === false) return null;
         return (
           <div className="vr-layout-element vr-layout-element--hero-art">
@@ -392,19 +406,19 @@ function SectionView({
           </div>
         );
       }
-      if (!image) {
+      if (!nodeImage) {
         if (!editor || editor.state.preview) return null;
         return (
           <div className="vr-layout-element vr-layout-element--media">
-            <EditableNode selection={{ id: `${section.id}.image`, type: "image", sectionId: section.id, field: node.field ?? "image" }} className="vr-editorial-placeholder vr-editorial-placeholder--image" as="div">
-              Choose image
+            <EditableNode selection={{ id: `${section.id}.${node.field ?? "image"}`, type: "image", sectionId: section.id, field: node.field ?? "image", layoutNodeId: node.id }} className="vr-editorial-placeholder vr-editorial-placeholder--image" as="div">
+              Vali pilt
             </EditableNode>
           </div>
         );
       }
       return (
-        <div className={["vr-layout-element vr-layout-element--media", section.section_type === "hero" ? "vr-layout-element--hero-art" : ""].filter(Boolean).join(" ")}>
-          <SectionImage section={section} image={image} className={section.section_type === "hero" ? "vr-hero-artwork" : undefined} />
+        <div className={["vr-layout-element vr-layout-element--media", section.section_type === "hero" && !node.field?.startsWith("custom.") ? "vr-layout-element--hero-art" : ""].filter(Boolean).join(" ")}>
+          <SectionImage section={section} image={nodeImage} className={section.section_type === "hero" && !node.field?.startsWith("custom.") ? "vr-hero-artwork" : undefined} />
         </div>
       );
     }
@@ -599,11 +613,7 @@ function SectionView({
             selection={selection}
             path={{ kind: "section-content", sectionId: section.id, key: field }}
             value={typeof section.content.title === "string" && section.content.title ? section.content.title : String(settings.site_name || "VAIKUSRUUM")}
-            appearance={
-              section.section_type === "hero"
-                ? { ...titleAppearance, width: undefined, size: undefined, letterSpacing: undefined }
-                : titleAppearance
-            }
+            appearance={titleAppearance}
           />
         </div>
       );
@@ -649,6 +659,41 @@ function SectionView({
             className="vr-rich"
             selection={selection}
             value={body}
+            appearance={fieldStyle(section, field)}
+          />
+        </div>
+      );
+    }
+    const raw = section.content[field];
+    if (typeof raw === "string") {
+      return (
+        <div className="vr-layout-element vr-layout-element--text">
+          <EditableText
+            as="div"
+            className="vr-body"
+            selection={selection}
+            path={{ kind: "section-content", sectionId: section.id, key: field }}
+            value={raw}
+            appearance={fieldStyle(section, field)}
+            multiline
+          />
+        </div>
+      );
+    }
+    if (raw && typeof raw === "object") {
+      return renderMediaPlaceholder({ id: `${prefix}.${field}`, type: "element", elementType: "text", label: "Komponent", field }, "Komponent");
+    }
+    if (editor && !editor.state.preview) {
+      return (
+        <div className="vr-layout-element vr-layout-element--text">
+          <EditableText
+            as="div"
+            className="vr-body"
+            selection={selection}
+            path={{ kind: "section-content", sectionId: section.id, key: field }}
+            value=""
+            appearance={fieldStyle(section, field)}
+            multiline
           />
         </div>
       );
@@ -672,7 +717,7 @@ function SectionView({
           }}
           path={{ kind: "offering", offeringId: offering.id, key: "short_title" }}
           value={offering.short_title || offering.title}
-          appearance={fieldStyle(section, `${offering.id}.title`)}
+          appearance={fieldStyle(section, textStyleKey({ field: "short_title", offeringId: offering.id }) ?? `${offering.id}.short_title`)}
         />
         {offering.schedule_summary ? (
           <EditableText
@@ -860,7 +905,7 @@ function SectionView({
                 }}
                 path={{ kind: "offering", offeringId: offering.id, key: "short_title" }}
                 value={offering.short_title || offering.title}
-                appearance={fieldStyle(section, `${offering.id}.title`)}
+                appearance={fieldStyle(section, textStyleKey({ field: "short_title", offeringId: offering.id }) ?? `${offering.id}.short_title`)}
               />
               {offering.schedule_summary ? (
                 <EditableText
