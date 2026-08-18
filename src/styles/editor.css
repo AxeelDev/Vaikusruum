@@ -228,7 +228,7 @@ html.vr-editor-lock body {
 
 .vr-inspector-footer-row {
   display: grid;
-  grid-template-columns: 38px 38px minmax(0, 1fr);
+  grid-template-columns: 38px 38px 38px minmax(0, 1fr);
   gap: 8px;
   align-items: center;
 }
@@ -873,6 +873,14 @@ html.vr-editor-lock body {
 .vr-ed-iconbtn:disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+.vr-ed-iconbtn--danger {
+  color: var(--editor-danger);
+}
+
+.vr-ed-iconbtn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--editor-danger) 12%, var(--editor-panel));
 }
 
 .vr-ed-iconbtn.is-active {

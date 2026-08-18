@@ -33,7 +33,7 @@ import { mediaPublicUrl } from "@/lib/utils/urls";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
 import { readEditorContent } from "@/lib/editor/content-binding";
 import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
-import type { InspectorTabId } from "@/lib/editor/types";
+import type { EditorSelection, InspectorTabId } from "@/lib/editor/types";
 import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
 import type { TiptapNode } from "@/types/content";
 
@@ -235,6 +235,14 @@ function EditorFooterControls() {
         </EditorIconButton>
         <EditorIconButton ariaLabel="Tee uuesti" disabled={!canRedo} onClick={() => editor.redo()}>
           ↷
+        </EditorIconButton>
+        <EditorIconButton
+          ariaLabel="Kustuta"
+          className="vr-ed-iconbtn--danger"
+          disabled={!canDeleteSelection(state.selected, state.inspectorContext.kind)}
+          onClick={() => editor.removeSelected()}
+        >
+          <TrashBagIcon />
         </EditorIconButton>
         <EditorButton variant="secondary" onClick={() => editor.setPreview(!state.preview)}>
           {state.preview ? "Tagasi muutma" : "Eelvaade"}
@@ -1659,4 +1667,21 @@ function selectedKindLabel(type: string) {
     default:
       return "Element";
   }
+}
+
+function canDeleteSelection(selected: EditorSelection | null, contextKind: string) {
+  if (contextKind === "site" || contextKind === "none" || !selected) return false;
+  if (selected.type === "header" || selected.type === "nav" || selected.type === "page" || selected.type === "theme") return false;
+  if (selected.id === "header.wordmark" || selected.id === "footer.text") return false;
+  return Boolean(selected.sectionId || selected.type === "section" || selected.type === "container" || selected.type === "image" || selected.type === "text" || selected.type === "link");
+}
+
+function TrashBagIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8.5 8.5c0-3.4 7-3.4 7 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M7 8.5h10l-1.15 11.2a1.6 1.6 0 0 1-1.59 1.4H9.74a1.6 1.6 0 0 1-1.59-1.4L7 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M10.2 12.2v5.2M13.8 12.2v5.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
 }

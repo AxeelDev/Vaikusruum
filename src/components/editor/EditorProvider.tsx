@@ -11,7 +11,7 @@ import {
 } from "react";
 import { saveEditorDraftAction, type EditorSavePayload } from "@/lib/actions/admin";
 import { cloneDraft, createSection, duplicateSection as cloneSectionRow, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
-import { insertLayoutElement, moveLayoutNode, normalizeSectionLayout, resizeLayoutColumns } from "@/lib/editor/layout-tree";
+import { insertLayoutElement, moveLayoutNode, normalizeSectionLayout, removeLayoutNode, resizeLayoutColumns, resolveLayoutNodeId } from "@/lib/editor/layout-tree";
 import { mergeFieldStyle } from "@/lib/editor/appearance";
 import { resolveInspectorTab, resolveNodeKind } from "@/lib/editor/node-registry";
 import { readEditorContent } from "@/lib/editor/content-binding";
@@ -68,6 +68,7 @@ type EditorApi = {
   resizeColumns: (sectionId: string, leftPercent: number, record?: boolean) => void;
   duplicateSection: (sectionId: string) => void;
   removeSection: (sectionId: string) => void;
+  removeSelected: () => void;
   undo: () => void;
   redo: () => void;
   save: () => Promise<boolean>;
@@ -455,6 +456,63 @@ export function EditorProvider({
     [applyDraft, draft, pageId],
   );
 
+  const clearSelection = useCallback(() => {
+    setSelected(null);
+    setInspectorContext({ kind: "none" });
+    setInspectorTab("content");
+  }, []);
+
+  const removeSelected = useCallback(() => {
+    const current = selected;
+    if (!current) return;
+    if (current.type === "header" || current.type === "nav" || current.type === "page" || current.type === "theme") return;
+    if (current.id === "header.wordmark" || current.id === "footer.text") return;
+
+    if (current.type === "section" && current.sectionId) {
+      removeSection(current.sectionId);
+      return;
+    }
+
+    if (current.sectionId && current.field && /^[qa]\.\d+$/.test(current.field)) {
+      const index = Number(current.field.slice(2));
+      applyDraft(
+        updateSection(draft, current.sectionId, (section) => {
+          const items = Array.isArray(section.content.items) ? [...(section.content.items as unknown[])] : [];
+          if (index < 0 || index >= items.length) return section;
+          items.splice(index, 1);
+          return { ...section, content: { ...section.content, items } };
+        }),
+        true,
+      );
+      clearSelection();
+      return;
+    }
+
+    if (current.sectionId && current.field && /^(item|quote|name)\.\d+$/.test(current.field)) {
+      const isItem = current.field.startsWith("item.");
+      const index = Number(current.field.slice(isItem ? 5 : current.field.startsWith("quote.") ? 6 : 5));
+      applyDraft(
+        updateSection(draft, current.sectionId, (section) => {
+          const items = Array.isArray(section.content.items) ? [...(section.content.items as unknown[])] : [];
+          if (index < 0 || index >= items.length) return section;
+          items.splice(index, 1);
+          return { ...section, content: { ...section.content, items } };
+        }),
+        true,
+      );
+      clearSelection();
+      return;
+    }
+
+    if (!current.sectionId) return;
+    const section = findSection(draft, current.sectionId);
+    if (!section) return;
+    const nodeId = resolveLayoutNodeId(section, current);
+    if (!nodeId) return;
+    applyDraft(updateSection(draft, section.id, (row) => removeLayoutNode(row, nodeId)), true);
+    clearSelection();
+  }, [applyDraft, clearSelection, draft, removeSection, selected]);
+
   const undo = useCallback(() => {
     if (historyRef.current.index <= 0) return;
     const index = historyRef.current.index - 1;
@@ -667,6 +725,7 @@ export function EditorProvider({
       resizeColumns,
       duplicateSection,
       removeSection,
+      removeSelected,
       undo,
       redo,
       save,
@@ -694,6 +753,7 @@ export function EditorProvider({
       patchTheme,
       redo,
       removeSection,
+      removeSelected,
       requestSwitchPage,
       requestSwitchPageBySlug,
       requestNavigation,

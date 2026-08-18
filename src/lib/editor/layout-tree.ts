@@ -682,3 +682,42 @@ export function listLayoutElements(section: SectionRow): LayoutElementNode[] {
 export function parentOfNode(section: SectionRow, nodeId: string): { parent: LayoutColumnNode | LayoutGroupNode; index: number } | null {
   return findParentWithChild(getSectionLayoutTree(section).root, nodeId);
 }
+
+export function resolveLayoutNodeId(section: SectionRow, selection: { id: string; type?: string; field?: string; layoutNodeId?: string }): string | null {
+  const tree = getSectionLayoutTree(section);
+  if (selection.layoutNodeId && findLayoutNode(tree.root, selection.layoutNodeId)) return selection.layoutNodeId;
+  if (selection.id && findLayoutNode(tree.root, selection.id)) return selection.id;
+  const elements = listLayoutElements(section);
+  if (selection.field) {
+    const byField = elements.find((node) => node.field === selection.field);
+    if (byField) return byField.id;
+  }
+  if (selection.type === "image") {
+    const image = elements.find((node) => node.elementType === "image");
+    if (image) return image.id;
+  }
+  return null;
+}
+
+export function removeLayoutNode(section: SectionRow, nodeId: string): SectionRow {
+  const tree = structuredClone(getSectionLayoutTree(section));
+  if (tree.root.id === nodeId) return section;
+  const extracted = removeNode(tree.root, nodeId);
+  if (!extracted) return section;
+  const field = extracted.node.type === "element" ? extracted.node.field : undefined;
+  const nextContent = { ...section.content };
+  const nextFieldStyles = { ...section.style?.fieldStyles };
+  if (field?.startsWith("custom.")) {
+    delete nextContent[field];
+    delete nextFieldStyles[field];
+  }
+  return normalizeSectionLayout({
+    ...section,
+    content: nextContent,
+    style: {
+      ...section.style,
+      fieldStyles: nextFieldStyles,
+      layoutTree: simplifyLayoutTree(tree),
+    },
+  });
+}

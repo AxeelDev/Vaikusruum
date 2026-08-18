@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { paragraphs } from "@/lib/content/rich-text";
 import { bindSelection, readEditorContent } from "@/lib/editor/content-binding";
 import { resolveDropIntent, type CachedDropTarget } from "@/lib/editor/drop-intent";
-import { moveLayoutNode, normalizeSectionLayout } from "@/lib/editor/layout-tree";
+import { moveLayoutNode, normalizeSectionLayout, removeLayoutNode } from "@/lib/editor/layout-tree";
 import { resolveInspectorTab, resolveNodeKind, tabsForKind } from "@/lib/editor/node-registry";
 import type { EditorDraft, EditorSelection } from "@/lib/editor/types";
 import type { SectionRow } from "@/types/content";
@@ -220,6 +220,15 @@ describe("side-by-side layout transactions", () => {
     const next = normalizeSectionLayout(columns);
     expect(next.style.layoutTree?.root.type).toBe("group");
     expect(next.style.preferredColumnBalance).toBe("50-50");
+  });
+
+  it("removes a selected layout element from the tree", () => {
+    const next = removeLayoutNode(stacked(), "image");
+    const root = next.style.layoutTree?.root;
+    expect(root?.type).toBe("group");
+    if (root?.type !== "group") return;
+    expect(root.children.some((child) => child.id === "image")).toBe(false);
+    expect(root.children.some((child) => child.id === "text")).toBe(true);
   });
 });
 
