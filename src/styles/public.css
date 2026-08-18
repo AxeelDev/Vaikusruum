@@ -9,7 +9,7 @@
 .vr-header {
   position: sticky;
   top: 0;
-  z-index: var(--z-public-header, 20);
+  z-index: var(--z-public-header, 30);
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--vr-bg-main) 96%, var(--vr-bg-warm)),
@@ -163,6 +163,10 @@
   margin-inline: auto;
 }
 
+.vr-section-inner--wide {
+  width: min(calc(100% - (var(--vr-page-gutter) * 2)), 1280px);
+}
+
 .vr-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -189,6 +193,10 @@
 
 .vr-split--60-40 {
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+}
+
+.vr-split--custom {
+  grid-template-columns: minmax(0, var(--vr-left-column, 50%)) minmax(0, var(--vr-right-column, 50%));
 }
 
 .vr-split--start {
@@ -228,6 +236,54 @@
   width: min(100%, 620px);
   margin-inline: auto;
   text-align: center;
+}
+
+.vr-layout-columns {
+  position: relative;
+}
+
+.vr-layout-column {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vr-layout-group {
+  width: min(100%, 620px);
+  margin-inline: auto;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.vr-layout-group--small {
+  gap: var(--vr-space-2);
+}
+
+.vr-layout-group--medium {
+  gap: var(--vr-space-4);
+}
+
+.vr-layout-group--large {
+  gap: clamp(56px, 4.5vw, 72px);
+}
+
+.vr-layout-child,
+.vr-layout-element {
+  width: 100%;
+  min-width: 0;
+  position: relative;
+  text-align: inherit;
+}
+
+.vr-layout-element > .vr-wordmark--hero,
+.vr-layout-element > .vr-heading,
+.vr-layout-element > .vr-page-title {
+  display: block;
+  width: 100%;
+  text-align: inherit;
+  margin-bottom: 0;
 }
 
 .vr-hero-copy .vr-body,
@@ -318,7 +374,7 @@
 }
 
 .vr-hero-layout {
-  column-gap: clamp(80px, 8vw, 150px);
+  column-gap: clamp(80px, 6vw, 120px);
 }
 
 .vr-hero-layout .vr-split-text,
@@ -327,7 +383,7 @@
 }
 
 .vr-hero-media .vr-media-frame {
-  max-width: min(100%, 620px);
+  max-width: min(100%, 640px);
 }
 
 .vr-cta {
@@ -675,7 +731,8 @@
   .vr-split--45-55,
   .vr-split--50-50,
   .vr-split--55-45,
-  .vr-split--60-40 {
+  .vr-split--60-40,
+  .vr-split--custom {
     grid-template-columns: 1fr;
     gap: clamp(42px, 12vw, 72px);
   }

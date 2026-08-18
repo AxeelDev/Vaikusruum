@@ -23,13 +23,14 @@ import {
 import { findSection, pageSections } from "@/lib/editor/draft";
 import { fieldStyle } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
+import { findLayoutNode, getSectionLayoutTree, ratioToLeftPercent, sectionLayoutSummary } from "@/lib/editor/layout-tree";
 import { pageLabel } from "@/lib/editor/pages";
 import { ADDABLE_SECTIONS } from "@/lib/editor/types";
 import { ALL_FONTS, BODY_FONTS, DISPLAY_FONTS } from "@/lib/theme/theme";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { compressImage } from "@/lib/utils/compress-image";
 import { mediaPublicUrl } from "@/lib/utils/urls";
-import type { AnimationAppearance, HeightPreset, MediaRow, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
+import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
 
 const FONT_OPTIONS = ALL_FONTS.map((font) => ({
   value: font.id,
@@ -261,6 +262,7 @@ function SelectionPanels() {
     if (tab === "settings") return <PageOverview mode="settings" />;
     return <PageOverview />;
   }
+  if (selected.type === "container") return <ContainerPanel />;
   if (selected.type === "image") return <ImagePanel />;
   if (tab === "appearance") return <AppearancePanel />;
   if (tab === "animation") return <AnimationPanel />;
@@ -332,10 +334,29 @@ function EditorElementTree() {
   const sections = pageSections(editor.state.draft, page.id);
   return (
     <div className="vr-element-tree">
-      {sections.map((section) => (
+      {sections.map((section, sectionIndex) => (
         <details key={section.id} className="vr-element-group" open>
           <summary
             data-selected={editor.state.selected?.id === `section.${section.id}` ? "true" : undefined}
+            draggable
+            onDragStart={(event) => {
+              editor.setDraggedNode(`section.${section.id}`);
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("application/x-vr-section", JSON.stringify({ sectionId: section.id }));
+              event.dataTransfer.setData("text/plain", semanticSectionName(section, page.slug));
+            }}
+            onDragEnd={() => editor.setDraggedNode(null)}
+            onDragOver={(event) => {
+              if (!editor.state.draggedNodeId?.startsWith("section.")) return;
+              event.preventDefault();
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              const raw = event.dataTransfer.getData("application/x-vr-section");
+              if (!raw) return;
+              const dragged = JSON.parse(raw) as { sectionId: string };
+              editor.moveSectionToIndex(dragged.sectionId, sectionIndex);
+            }}
             onClick={(event) => {
               event.preventDefault();
               editor.select({ id: `section.${section.id}`, type: "section", sectionId: section.id });
@@ -344,24 +365,11 @@ function EditorElementTree() {
             <span className="vr-element-icon">▣</span>
             <span>
               <strong>{semanticSectionName(section, page.slug)}</strong>
-              <small>{sectionChildRows(section, editor.state.draft, page.slug).length} elementi</small>
+              <small>{sectionLayoutSummary(section)}</small>
             </span>
           </summary>
           <div className="vr-element-children">
-            {sectionChildRows(section, editor.state.draft, page.slug).map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                data-selected={editor.state.selected?.id === row.id ? "true" : undefined}
-                onClick={() => editor.select(row.selection)}
-              >
-                <span className="vr-element-icon">{row.icon}</span>
-                <span>
-                  <strong>{row.label}</strong>
-                  {row.preview ? <small>{row.preview}</small> : null}
-                </span>
-              </button>
-            ))}
+            <LayoutTreeNode section={section} node={getSectionLayoutTree(section).root} slug={page.slug} />
           </div>
         </details>
       ))}
@@ -369,103 +377,162 @@ function EditorElementTree() {
   );
 }
 
-function sectionChildRows(section: SectionRow, draft: ReturnType<typeof useEditor>["state"]["draft"], slug: string) {
-  const rows: Array<{
-    id: string;
-    icon: string;
-    label: string;
-    preview?: string;
-    selection: Parameters<ReturnType<typeof useEditor>["select"]>[0];
-  }> = [];
+function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: LayoutNode; slug: string }) {
+  const editor = useEditor();
+  const selected = editor.state.selected?.id === node.id;
+
+  if (node.type === "columns") {
+    return (
+      <details className="vr-element-node" open>
+        <summary
+          data-selected={selected ? "true" : undefined}
+          onClick={(event) => {
+            event.preventDefault();
+            editor.select({ id: node.id, type: "container", sectionId: section.id });
+          }}
+        >
+          <span className="vr-element-icon">▥</span>
+          <span>
+            <strong>{node.label}</strong>
+            <small>{sectionLayoutSummary(section)}</small>
+          </span>
+        </summary>
+        <div className="vr-element-children">
+          {node.columns.map((column) => (
+            <LayoutTreeNode key={column.id} section={section} node={column} slug={slug} />
+          ))}
+        </div>
+      </details>
+    );
+  }
+
+  if (node.type === "column" || node.type === "group") {
+    return (
+      <details className="vr-element-node" open>
+        <summary
+          data-selected={selected ? "true" : undefined}
+          onClick={(event) => {
+            event.preventDefault();
+            editor.select({ id: node.id, type: "container", sectionId: section.id });
+          }}
+          onDragOver={(event) => {
+            if (!editor.state.draggedNodeId || editor.state.draggedNodeId.startsWith("section.")) return;
+            event.preventDefault();
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const raw = event.dataTransfer.getData("application/x-vr-node");
+            if (!raw) return;
+            const dragged = JSON.parse(raw) as { sectionId: string; nodeId: string };
+            if (dragged.sectionId !== section.id) return;
+            editor.moveNode(section.id, dragged.nodeId, node.id, node.children.length);
+          }}
+        >
+          <span className="vr-element-icon">{node.type === "column" ? "▤" : "▧"}</span>
+          <span>
+            <strong>{node.label}</strong>
+            <small>{node.children.length} elementi</small>
+          </span>
+        </summary>
+        <div className="vr-element-children">
+          {node.children.map((child, index) => (
+            <LayoutTreeNodeWithDrop key={child.id} section={section} parentId={node.id} index={index} node={child} slug={slug} />
+          ))}
+        </div>
+      </details>
+    );
+  }
+
+  const row = layoutElementRow(section, node, slug);
+  return (
+    <button
+      type="button"
+      className="vr-element-leaf"
+      data-selected={editor.state.selected?.id === row.selection.id ? "true" : undefined}
+      draggable
+      onDragStart={(event) => {
+        editor.setDraggedNode(node.id);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("application/x-vr-node", JSON.stringify({ sectionId: section.id, nodeId: node.id, label: node.label }));
+        event.dataTransfer.setData("text/plain", node.label);
+      }}
+      onDragEnd={() => editor.setDraggedNode(null)}
+      onClick={() => editor.select(row.selection)}
+    >
+      <span className="vr-element-icon">{row.icon}</span>
+      <span>
+        <strong>{row.label}</strong>
+        {row.preview ? <small>{row.preview}</small> : null}
+      </span>
+    </button>
+  );
+}
+
+function LayoutTreeNodeWithDrop({
+  section,
+  parentId,
+  index,
+  node,
+  slug,
+}: {
+  section: SectionRow;
+  parentId: string;
+  index: number;
+  node: LayoutNode;
+  slug: string;
+}) {
+  const editor = useEditor();
+  return (
+    <div
+      onDragOver={(event) => {
+        if (!editor.state.draggedNodeId || editor.state.draggedNodeId.startsWith("section.")) return;
+        event.preventDefault();
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        const raw = event.dataTransfer.getData("application/x-vr-node");
+        if (!raw) return;
+        const dragged = JSON.parse(raw) as { sectionId: string; nodeId: string };
+        if (dragged.sectionId !== section.id) return;
+        editor.moveNode(section.id, dragged.nodeId, parentId, index);
+      }}
+    >
+      <LayoutTreeNode section={section} node={node} slug={slug} />
+    </div>
+  );
+}
+
+function layoutElementRow(section: SectionRow, node: Extract<LayoutNode, { type: "element" }>, slug: string) {
   const prefix = `${slug}.${section.section_key}`;
-  function text(field: string, label: string) {
-    const value = section.content[field];
-    if (typeof value !== "string" || !value.trim()) return;
-    rows.push({
-      id: `${prefix}.${field}`,
-      icon: "A",
-      label,
-      preview: `“${value.trim().slice(0, 42)}${value.trim().length > 42 ? "…" : ""}”`,
-      selection: { id: `${prefix}.${field}`, type: "text", sectionId: section.id, field },
-    });
-  }
-  const labels = fieldLabels(section, slug);
-  text("title", labels.title ?? "Pealkiri");
-  text("heading", labels.heading ?? "Pealkiri");
-  text("intro", labels.intro ?? "Sissejuhatus");
-  text("plain", labels.plain ?? "Tekst");
-  text("label", labels.label ?? "Tekst");
-  text("actionLabel", labels.actionLabel ?? "Nupp");
-  text("moreInfoLabel", labels.moreInfoLabel ?? "Rohkem infot");
-  if (section.section_type === "rich_text" && section.content.body) {
-    rows.push({
-      id: `${prefix}.body`,
-      icon: "A",
-      label: labels.body ?? "Põhitekst",
-      preview: "Rikastekst",
-      selection: { id: `${prefix}.body`, type: "text", sectionId: section.id, field: "body" },
-    });
-  }
-  if (section.section_type === "offering_overview") {
-    const ids = Array.isArray(section.content.offeringIds) ? (section.content.offeringIds as string[]) : [];
-    ids.forEach((id) => {
-      const offering = draft.offerings[id];
-      if (!offering) return;
-      const label = offering.slug.includes("kundalini")
-        ? "Kundalini jooga info"
-        : offering.slug.includes("gong")
-          ? "Gongi info"
-          : `${offering.short_title || offering.title} info`;
-      rows.push({
-        id: `${prefix}.${offering.id}.title`,
-        icon: "A",
-        label,
-        preview: offering.short_title || offering.title,
-        selection: {
-          id: `${prefix}.${offering.id}.title`,
-          type: "text",
-          sectionId: section.id,
-          offeringId: offering.id,
-          field: "short_title",
-        },
-      });
-    });
-  }
-  const mediaId = resolveSectionMediaId(section);
-  if (mediaId) {
-    const media = draft.media[mediaId];
-    rows.push({
-      id: `${section.id}.image`,
+  if (node.elementType === "image") {
+    const mediaId = resolveSectionMediaId(section);
+    return {
       icon: "◫",
-      label: imageLabel(section, slug),
-      preview: media?.storage_path?.split("/").pop() ?? "Pilt",
-      selection: { id: `${section.id}.image`, type: "image", sectionId: section.id, mediaId, field: "image" },
-    });
+      label: node.label,
+      preview: mediaId ? "Pilt" : section.section_type === "hero" ? "emblem-source.svg" : undefined,
+      selection: { id: `${section.id}.image`, type: "image" as const, sectionId: section.id, mediaId, field: "image" },
+    };
   }
-  if (section.section_type === "hero" && section.content.showEmblem !== false && !mediaId) {
-    rows.push({
-      id: `${section.id}.image`,
-      icon: "◫",
-      label: "Hero kujund",
-      preview: "emblem-source.svg",
-      selection: { id: `${section.id}.image`, type: "image", sectionId: section.id, field: "image" },
-    });
+  if (node.elementType === "offering") {
+    return {
+      icon: "A",
+      label: node.label,
+      preview: "Tunni info",
+      selection: {
+        id: `${prefix}.${node.offeringId}.title`,
+        type: "text" as const,
+        sectionId: section.id,
+        offeringId: node.offeringId,
+        field: "short_title",
+      },
+    };
   }
-  if (Array.isArray(section.content.items)) {
-    section.content.items.slice(0, 8).forEach((item, index) => {
-      const question = typeof item === "object" && item ? String((item as Record<string, unknown>).question ?? "") : "";
-      if (question) {
-        rows.push({
-          id: `${section.id}.q.${index}`,
-          icon: "A",
-          label: question.slice(0, 32),
-          preview: "KKK küsimus",
-          selection: { id: `faq.${section.id}.q.${index}`, type: "text", sectionId: section.id, field: `q.${index}` },
-        });
-      }
-    });
-  }
-  return rows;
+  return {
+    icon: node.elementType === "link" ? "↗" : "A",
+    label: node.label,
+    preview: node.field && typeof section.content[node.field] === "string" ? String(section.content[node.field]).slice(0, 42) : undefined,
+    selection: { id: `${prefix}.${node.field ?? node.id}`, type: "text" as const, sectionId: section.id, field: node.field },
+  };
 }
 
 function resolveSectionMediaId(section: SectionRow): string | undefined {
@@ -502,28 +569,6 @@ function semanticSectionName(section: SectionRow, slug = "") {
     default:
       return sectionTitle(section.section_type);
   }
-}
-
-function fieldLabels(section: SectionRow, slug: string): Record<string, string> {
-  if (section.section_key === "hero") {
-    return { title: "Hero pealkiri", intro: "Hero sissejuhatus" };
-  }
-  if (section.section_key === "miina") {
-    return { plain: "Tutvustuse tekst", body: "Tutvustuse tekst", heading: "Tutvustuse pealkiri" };
-  }
-  if (section.section_key === "yoga") {
-    return { body: "Jooga tekst", plain: "Jooga tekst", heading: "Jooga pealkiri" };
-  }
-  if (section.section_key === "offerings") {
-    return { moreInfoLabel: "Rohkem infot" };
-  }
-  if (section.section_key === "contact") {
-    return { heading: "Kontakti pealkiri", intro: "Kontakti sissejuhatus" };
-  }
-  if (slug === "minust" && section.section_key === "bio") {
-    return { body: "Põhitekst", heading: "Pealkiri" };
-  }
-  return {};
 }
 
 function imageLabel(section: SectionRow, slug = "") {
@@ -809,6 +854,125 @@ function SectionPanel() {
           Kustuta
         </EditorButton>
       </div>
+    </div>
+  );
+}
+
+function ContainerPanel() {
+  const editor = useEditor();
+  const sectionId = editor.state.selected?.sectionId;
+  const nodeId = editor.state.selected?.id;
+  const section = sectionId ? findSection(editor.state.draft, sectionId) : undefined;
+  const tree = section ? getSectionLayoutTree(section) : undefined;
+  const node = tree && nodeId ? findLayoutNode(tree.root, nodeId) : null;
+  if (!section || !tree || !node) return <SectionPanel />;
+  const selectedSection = section;
+
+  const root = tree.root.type === "columns" ? tree.root : null;
+  const currentRatio = root ? ratioToLeftPercent(root.ratio, root.customRatio ?? selectedSection.style?.columnRatio) : 50;
+  const style = selectedSection.style ?? {};
+
+  function patchStyle(next: Partial<SectionStyle>, record = true) {
+    const selectedSectionId = selectedSection.id;
+    editor.patchSection(selectedSectionId, (row) => ({ ...row, style: { ...row.style, ...next } }), record);
+  }
+
+  return (
+    <div className="vr-inspector-body">
+      <EditorContext kicker={node.type === "column" ? "Veerg" : node.type === "columns" ? "Container" : "Grupp"} title={node.label} />
+      {root ? (
+        <>
+          <EditorGroup label="Layout">
+            <EditorSelect
+              value="columns"
+              options={[
+                { value: "columns", label: "Columns" },
+                { value: "single", label: "Single column" },
+              ]}
+              onChange={() => undefined}
+            />
+          </EditorGroup>
+          <EditorGroup label="Veergude suhe">
+            <EditorSelect
+              value={style.columnRatio ? "custom" : style.columnBalance ?? "50-50"}
+              options={[
+                { value: "40-60", label: "40 / 60" },
+                { value: "45-55", label: "45 / 55" },
+                { value: "50-50", label: "50 / 50" },
+                { value: "55-45", label: "55 / 45" },
+                { value: "60-40", label: "60 / 40" },
+                { value: "custom", label: `Custom (${currentRatio} / ${100 - currentRatio})` },
+              ]}
+              onChange={(value) => {
+                if (value === "custom") {
+                  editor.resizeColumns(section.id, currentRatio, true);
+                  return;
+                }
+                const left = Number(String(value).slice(0, 2));
+                editor.resizeColumns(section.id, left, true);
+              }}
+            />
+          </EditorGroup>
+          <EditorSlider
+            label="Täpne suhe"
+            min={30}
+            max={70}
+            value={currentRatio}
+            onChange={(left) => editor.resizeColumns(section.id, left, false)}
+            unit="%"
+            exact
+          />
+          <EditorSlider
+            label="Veergude vahe"
+            min={24}
+            max={180}
+            value={style.splitGap ?? editor.state.draft.theme.splitGap}
+            onChange={(splitGap) => patchStyle({ splitGap }, false)}
+            unit="px"
+            exact={editor.state.advanced}
+          />
+          <EditorGroup label="Vertikaalne joondus">
+            <EditorSelect
+              value={style.verticalAlign ?? "center"}
+              options={[
+                { value: "start", label: "Üleval" },
+                { value: "center", label: "Keskel" },
+                { value: "end", label: "All" },
+              ]}
+              onChange={(verticalAlign) => patchStyle({ verticalAlign: verticalAlign as VerticalAlign })}
+            />
+          </EditorGroup>
+          <EditorGroup label="Mobiil">
+            <EditorSelect
+              value={style.mobileOrder ?? "image-first"}
+              options={[
+                { value: "image-first", label: "Stack, pilt ees" },
+                { value: "text-first", label: "Stack, tekst ees" },
+              ]}
+              onChange={(mobileOrder) => patchStyle({ mobileOrder: mobileOrder as SectionStyle["mobileOrder"] })}
+            />
+          </EditorGroup>
+        </>
+      ) : null}
+      <EditorSlider
+        label="Sisu laius"
+        min={720}
+        max={1500}
+        value={style.contentWidth ?? editor.state.draft.theme.contentMaxWidth}
+        onChange={(contentWidth) => patchStyle({ contentWidth }, false)}
+        unit="px"
+        exact={editor.state.advanced}
+      />
+      <EditorGroup label="Liiguta valikut">
+        <div className="vr-inspector-row">
+          <EditorButton variant="ghost" onClick={() => editor.moveSection(section.id, -1)}>
+            Sektsioon üles
+          </EditorButton>
+          <EditorButton variant="ghost" onClick={() => editor.moveSection(section.id, 1)}>
+            Sektsioon alla
+          </EditorButton>
+        </div>
+      </EditorGroup>
     </div>
   );
 }

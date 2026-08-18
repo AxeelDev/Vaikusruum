@@ -205,6 +205,83 @@ html.vr-editor-lock body {
   background: var(--editor-shell);
 }
 
+.vr-editor-topstrip {
+  flex: 0 0 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  background: var(--editor-shell);
+  border-bottom: 1px solid var(--editor-border-soft);
+  z-index: var(--z-editor-popover);
+}
+
+.vr-editor-topbar {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--editor-border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--editor-panel) 88%, #22252d);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.vr-editor-topbar button {
+  height: 28px;
+  min-width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--editor-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.vr-editor-topbar button:hover,
+.vr-editor-topbar button[data-active="true"] {
+  background: var(--editor-panel-hover);
+  color: var(--editor-text);
+}
+
+.vr-editor-topbar button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.vr-editor-device {
+  display: inline-flex;
+  gap: 2px;
+  padding-inline: 4px;
+  border-inline: 1px solid var(--editor-border-soft);
+}
+
+.vr-editor-status {
+  padding-inline: 8px;
+}
+
+.vr-editor-status-dot[data-dirty="true"] {
+  background: var(--editor-accent);
+}
+
+.vr-editor-save-top {
+  padding-inline: 10px !important;
+}
+
+.vr-editor-more {
+  position: relative;
+}
+
+.vr-editor-top-menu {
+  right: 0;
+  left: auto;
+}
+
 .vr-editor-menu,
 .vr-ed-popover {
   position: absolute;
@@ -221,6 +298,10 @@ html.vr-editor-lock body {
 .vr-editor-menu {
   display: grid;
   padding: 4px;
+}
+
+.vr-editor-menu form {
+  display: contents;
 }
 
 .vr-editor-menu button {
@@ -371,7 +452,6 @@ html.vr-editor-lock body {
 [data-vr-edit-mode="true"] [data-vr-selected] {
   outline: 1px solid rgba(53, 183, 184, 0.9);
   outline-offset: 2px;
-  z-index: var(--z-editor-selection);
 }
 
 .vr-section-move {
@@ -381,6 +461,113 @@ html.vr-editor-lock body {
   display: flex;
   gap: 0.15rem;
   z-index: var(--z-editor-selection);
+}
+
+.vr-drag-handle {
+  position: absolute;
+  top: -24px;
+  left: -18px;
+  z-index: var(--z-editor-selection);
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--editor-border);
+  border-radius: 4px;
+  background: var(--editor-panel);
+  color: var(--editor-text-secondary);
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 12px;
+  line-height: 1;
+}
+
+[data-vr-edit-mode="true"] [data-vr-editable]:hover > .vr-drag-handle,
+[data-vr-edit-mode="true"] [data-vr-selected] > .vr-drag-handle,
+[data-vr-edit-mode="true"] .vr-layout-element:hover > .vr-drag-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vr-drag-handle:active {
+  cursor: grabbing;
+}
+
+.vr-drop-zone,
+.vr-section-drop-zone {
+  display: none;
+  width: 100%;
+  min-height: 8px;
+}
+
+.vr-drop-zone[data-active="true"] {
+  display: block;
+  position: relative;
+  margin-block: 5px;
+}
+
+.vr-drop-zone[data-active="true"]::before,
+.vr-section-drop-zone[data-active="true"]::before {
+  content: "";
+  display: block;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--editor-accent);
+  box-shadow: 0 0 0 3px var(--editor-accent-soft);
+}
+
+.vr-section-drop-zone[data-active="true"] {
+  display: block;
+  height: 10px;
+  background: var(--editor-shell);
+}
+
+.vr-layout-node[data-vr-selected] {
+  outline-style: dashed;
+}
+
+.vr-column-resize {
+  position: absolute;
+  top: 50%;
+  left: var(--vr-left-column, 50%);
+  transform: translate(-50%, -50%);
+  z-index: var(--z-editor-selection);
+  width: 28px;
+  min-height: 76px;
+  border: 1px solid color-mix(in srgb, var(--editor-accent) 55%, var(--editor-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--editor-panel) 90%, transparent);
+  color: var(--editor-text);
+  cursor: col-resize;
+  opacity: 0;
+}
+
+[data-vr-edit-mode="true"] .vr-layout-columns:hover > .vr-column-resize,
+[data-vr-edit-mode="true"] .vr-layout-columns:has([data-vr-selected]) > .vr-column-resize {
+  opacity: 1;
+}
+
+.vr-column-resize span {
+  writing-mode: vertical-rl;
+  font-size: 11px;
+}
+
+.vr-column-ratio {
+  position: absolute;
+  top: calc(50% + 48px);
+  left: var(--vr-left-column, 50%);
+  transform: translateX(-50%);
+  z-index: var(--z-editor-selection);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--editor-panel);
+  color: var(--editor-text-secondary);
+  font-size: 11px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+[data-vr-edit-mode="true"] .vr-layout-columns:hover > .vr-column-ratio {
+  opacity: 1;
 }
 
 .vr-section-move button,

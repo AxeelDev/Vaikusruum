@@ -48,6 +48,59 @@ export type TextAlign = "left" | "center" | "right";
 export type ColumnBalance = "40-60" | "45-55" | "50-50" | "55-45" | "60-40";
 export type ImageCrop = "original" | "landscape" | "portrait" | "square";
 export type TextRole = "h1" | "h2" | "h3" | "p";
+export type HorizontalAlign = "left" | "center" | "right";
+
+export type LayoutElementNode = {
+  id: string;
+  type: "element";
+  elementType: "text" | "image" | "link" | "offering" | "form";
+  label: string;
+  field?: string;
+  offeringId?: string;
+};
+
+export type LayoutGroupNode = {
+  id: string;
+  type: "group";
+  label: string;
+  gap?: "small" | "medium" | "large";
+  horizontalAlign?: HorizontalAlign;
+  textAlign?: TextAlign;
+  children: LayoutNode[];
+};
+
+export type LayoutColumnNode = {
+  id: string;
+  type: "column";
+  label: string;
+  horizontalAlign?: HorizontalAlign;
+  verticalAlign?: "top" | "center" | "bottom";
+  children: LayoutNode[];
+};
+
+export type LayoutColumnsNode = {
+  id: string;
+  type: "columns";
+  label: string;
+  ratio?: ColumnBalance | "custom";
+  customRatio?: number;
+  gap?: "small" | "medium" | "large" | "custom";
+  gapPx?: number;
+  verticalAlign?: "top" | "center" | "bottom";
+  horizontalAlign?: HorizontalAlign;
+  mobile?: {
+    mode?: "stack" | "columns";
+    order?: "left-first" | "right-first";
+  };
+  columns: [LayoutColumnNode, LayoutColumnNode];
+};
+
+export type LayoutNode = LayoutColumnsNode | LayoutColumnNode | LayoutGroupNode | LayoutElementNode;
+
+export type SectionLayoutTree = {
+  version: 1;
+  root: LayoutColumnsNode | LayoutGroupNode;
+};
 
 export type TextAppearance = {
   role?: TextRole;
@@ -91,6 +144,8 @@ export type SectionStyle = {
   contentWidth?: number | null;
   splitGap?: number | null;
   columnBalance?: ColumnBalance;
+  columnRatio?: number | null;
+  layoutTree?: SectionLayoutTree;
   fieldStyles?: Record<string, TextAppearance>;
   image?: ImageAppearance;
   animation?: AnimationAppearance;

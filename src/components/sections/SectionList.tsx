@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Emblem } from "@/components/public/Emblem";
 import { SiteImage } from "@/components/public/SiteImage";
@@ -12,9 +13,10 @@ import { EditableRichText } from "@/components/site/EditableRichText";
 import { MediaFrame, ScreenSection, SectionInner, SplitLayout } from "@/components/layout/primitives";
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
 import { fieldStyle, photoClassName } from "@/lib/editor/appearance";
+import { getSectionLayoutTree, ratioToLeftPercent } from "@/lib/editor/layout-tree";
 import { pageHref } from "@/lib/utils/urls";
 import { docHasText } from "@/lib/content/rich-text";
-import type { EventRow, MediaRow, OfferingRow, SectionRow, SiteSettings } from "@/types/content";
+import type { EventRow, LayoutColumnNode, LayoutElementNode, LayoutGroupNode, LayoutNode, MediaRow, OfferingRow, SectionRow, SiteSettings } from "@/types/content";
 
 function resolveSectionMediaId(section: SectionRow): string | undefined {
   if (Object.prototype.hasOwnProperty.call(section.style ?? {}, "mediaId")) {
@@ -39,6 +41,8 @@ function SectionShell({
   const disabled = editor && !section.enabled;
 
   return (
+    <>
+    <SectionDropZone sectionId={section.id} index={section.sort_order - 1} />
     <ScreenSection
       section={section}
       className={disabled ? "vr-section--disabled" : undefined}
@@ -62,6 +66,23 @@ function SectionShell({
         <div className="vr-section-move">
           <button
             type="button"
+            className="vr-section-grip"
+            aria-label="Liiguta sektsiooni"
+            draggable
+            onClick={(event) => event.stopPropagation()}
+            onDragStart={(event) => {
+              event.stopPropagation();
+              editor?.setDraggedNode(`section.${section.id}`);
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("application/x-vr-section", JSON.stringify({ sectionId: section.id }));
+              event.dataTransfer.setData("text/plain", section.section_key);
+            }}
+            onDragEnd={() => editor?.setDraggedNode(null)}
+          >
+            ⋮⋮
+          </button>
+          <button
+            type="button"
             aria-label="Liiguta üles"
             onClick={(event) => {
               event.stopPropagation();
@@ -83,6 +104,7 @@ function SectionShell({
         </div>
       ) : null}
     </ScreenSection>
+    </>
   );
 }
 
@@ -128,6 +150,161 @@ function SectionImage({
     <EditableNode selection={selection} className={["vr-split-media", className].filter(Boolean).join(" ")}>
       {frame}
     </EditableNode>
+  );
+}
+
+function EditorDragHandle({ sectionId, nodeId, label }: { sectionId: string; nodeId: string; label: string }) {
+  const editor = useOptionalEditor();
+  if (!editor || editor.state.preview) return null;
+  return (
+    <button
+      type="button"
+      className="vr-drag-handle"
+      aria-label="Liiguta elementi"
+      draggable
+      onClick={(event) => event.stopPropagation()}
+      onDragStart={(event) => {
+        event.stopPropagation();
+        editor.setDraggedNode(nodeId);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("application/x-vr-node", JSON.stringify({ sectionId, nodeId, label }));
+        event.dataTransfer.setData("text/plain", label);
+      }}
+      onDragEnd={() => editor.setDraggedNode(null)}
+    >
+      ⋮⋮
+    </button>
+  );
+}
+
+function DropZone({
+  sectionId,
+  parentId,
+  index,
+}: {
+  sectionId: string;
+  parentId: string;
+  index: number;
+}) {
+  const editor = useOptionalEditor();
+  if (!editor || editor.state.preview) return null;
+  return (
+    <div
+      className="vr-drop-zone"
+      data-active={editor.state.draggedNodeId ? "true" : undefined}
+      onDragOver={(event) => {
+        if (!editor.state.draggedNodeId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const raw = event.dataTransfer.getData("application/x-vr-node");
+        if (!raw) return;
+        const dragged = JSON.parse(raw) as { sectionId: string; nodeId: string };
+        if (dragged.sectionId !== sectionId) return;
+        editor.moveNode(sectionId, dragged.nodeId, parentId, index);
+      }}
+    />
+  );
+}
+
+function SectionDropZone({ sectionId, index }: { sectionId: string; index: number }) {
+  const editor = useOptionalEditor();
+  if (!editor || editor.state.preview) return null;
+  return (
+    <div
+      className="vr-section-drop-zone"
+      data-active={editor.state.draggedNodeId?.startsWith("section.") ? "true" : undefined}
+      onDragOver={(event) => {
+        const raw = event.dataTransfer.getData("text/plain");
+        if (!raw && !editor.state.draggedNodeId?.startsWith("section.")) return;
+        event.preventDefault();
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        const raw = event.dataTransfer.getData("application/x-vr-section");
+        if (!raw) return;
+        const dragged = JSON.parse(raw) as { sectionId: string };
+        if (dragged.sectionId === sectionId) return;
+        editor.moveSectionToIndex(dragged.sectionId, index);
+      }}
+    />
+  );
+}
+
+function LayoutContainer({
+  section,
+  node,
+  className,
+  children,
+}: {
+  section: SectionRow;
+  node: LayoutColumnNode | LayoutGroupNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  const editor = useOptionalEditor();
+  const selected = editor?.state.selected?.id === node.id && !editor.state.preview;
+  return (
+    <div
+      className={["vr-layout-node", className].filter(Boolean).join(" ")}
+      data-vr-edit-id={editor && !editor.state.preview ? node.id : undefined}
+      data-vr-editable={editor && !editor.state.preview ? "" : undefined}
+      data-vr-selected={selected ? "" : undefined}
+      onClick={(event) => {
+        if (!editor || editor.state.preview) return;
+        if (event.target !== event.currentTarget) return;
+        event.stopPropagation();
+        editor.select({ id: node.id, type: "container", sectionId: section.id });
+      }}
+    >
+      <EditorDragHandle sectionId={section.id} nodeId={node.id} label={node.label} />
+      {children}
+    </div>
+  );
+}
+
+function ColumnResizeHandle({ section }: { section: SectionRow }) {
+  const editor = useOptionalEditor();
+  const [live, setLive] = useState<number | null>(null);
+  if (!editor || editor.state.preview) return null;
+
+  return (
+    <button
+      type="button"
+      className="vr-column-resize"
+      aria-label="Muuda veergude suhet"
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const grid = (event.currentTarget.parentElement as HTMLElement | null);
+        const rect = grid?.getBoundingClientRect();
+        if (!rect) return;
+        const pointerId = event.pointerId;
+        event.currentTarget.setPointerCapture(pointerId);
+        const move = (moveEvent: PointerEvent) => {
+          const left = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+          const clamped = Math.min(70, Math.max(30, Math.round(left)));
+          setLive(clamped);
+          editor.resizeColumns(section.id, clamped, false);
+        };
+        const up = (upEvent: PointerEvent) => {
+          const left = ((upEvent.clientX - rect.left) / rect.width) * 100;
+          const clamped = Math.min(70, Math.max(30, Math.round(left)));
+          setLive(null);
+          editor.resizeColumns(section.id, clamped, true);
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+      }}
+    >
+      <span>{live ? `${live} / ${100 - live}` : "↔"}</span>
+    </button>
   );
 }
 
@@ -193,54 +370,266 @@ function SectionView({
   const layout = section.style?.layout;
   const align = section.style?.textAlign;
   const prefix = `${slug}.${section.section_key}`;
+  const tree = getSectionLayoutTree(section);
+
+  function renderLayoutNode(node: LayoutNode): ReactNode {
+    if (node.type === "columns") {
+      const left = ratioToLeftPercent(node.ratio, node.customRatio ?? section.style?.columnRatio);
+      return (
+        <SplitLayout section={section} hasMedia className={section.section_type === "hero" ? "vr-hero-layout vr-layout-columns" : "vr-layout-columns"}>
+          {node.columns.map((columnNode) => (
+            <LayoutContainer key={columnNode.id} section={section} node={columnNode} className="vr-layout-column">
+              <DropZone sectionId={section.id} parentId={columnNode.id} index={0} />
+              {columnNode.children.map((child, childIndex) => (
+                <div key={child.id} className="vr-layout-child">
+                  {renderLayoutNode(child)}
+                  <DropZone sectionId={section.id} parentId={columnNode.id} index={childIndex + 1} />
+                </div>
+              ))}
+            </LayoutContainer>
+          ))}
+          <ColumnResizeHandle section={section} />
+          <span className="vr-column-ratio" aria-hidden>
+            {left} / {100 - left}
+          </span>
+        </SplitLayout>
+      );
+    }
+    if (node.type === "group") {
+      return (
+        <LayoutContainer section={section} node={node} className={`vr-layout-group vr-layout-group--${node.gap ?? "medium"}`}>
+          <DropZone sectionId={section.id} parentId={node.id} index={0} />
+          {node.children.map((child, childIndex) => (
+            <div key={child.id} className="vr-layout-child">
+              {renderLayoutNode(child)}
+              <DropZone sectionId={section.id} parentId={node.id} index={childIndex + 1} />
+            </div>
+          ))}
+        </LayoutContainer>
+      );
+    }
+    if (node.type === "column") {
+      return (
+        <LayoutContainer section={section} node={node} className="vr-layout-column">
+          <DropZone sectionId={section.id} parentId={node.id} index={0} />
+          {node.children.map((child, childIndex) => (
+            <div key={child.id} className="vr-layout-child">
+              {renderLayoutNode(child)}
+              <DropZone sectionId={section.id} parentId={node.id} index={childIndex + 1} />
+            </div>
+          ))}
+        </LayoutContainer>
+      );
+    }
+    return renderLayoutElement(node);
+  }
+
+  function renderLayoutElement(node: LayoutElementNode): ReactNode {
+    if (node.elementType === "image") {
+      if (section.section_type === "hero" && !image) {
+        if (section.content.showEmblem === false) return null;
+        return (
+          <div className="vr-layout-element">
+            <EditorDragHandle sectionId={section.id} nodeId={node.id} label={node.label} />
+            <SectionImage section={section} fallback={<Emblem />} className="vr-hero-media" />
+          </div>
+        );
+      }
+      if (!image) return null;
+      return (
+        <div className="vr-layout-element">
+          <EditorDragHandle sectionId={section.id} nodeId={node.id} label={node.label} />
+          <SectionImage section={section} image={image} className={section.section_type === "hero" ? "vr-hero-media" : undefined} />
+        </div>
+      );
+    }
+    if (node.elementType === "offering") {
+      const offering = node.offeringId ? offerings[node.offeringId] : undefined;
+      if (!offering) return null;
+      return renderOfferingCard(offering);
+    }
+    if (node.elementType === "form" && section.section_type === "contact") {
+      return (
+        <ContactForm
+          kind={section.content.defaultKind === "private_lesson" ? "private_lesson" : "contact"}
+          email={settings.contact_email}
+          social={settings.social}
+        />
+      );
+    }
+    if (!node.field) return null;
+    return renderTextField(node.field, node.id, node.label);
+  }
+
+  function renderTextField(field: string, nodeId: string, label: string): ReactNode {
+    const selection = { id: field === "body" ? `${prefix}.body` : `${prefix}.${field}`, type: "text" as const, sectionId: section.id, field };
+    const drag = <EditorDragHandle sectionId={section.id} nodeId={nodeId} label={label} />;
+    if (field === "title") {
+      const titleAppearance = fieldStyle(section, field);
+      return (
+        <div className="vr-layout-element">
+          {drag}
+          <EditableText
+            as={section.section_type === "hero" ? "h1" : "h2"}
+            className={section.section_type === "hero" ? "vr-wordmark vr-wordmark--hero" : "vr-heading"}
+            selection={selection}
+            path={{ kind: "section-content", sectionId: section.id, key: field }}
+            value={String(section.content.title ?? "VAIKUSRUUM")}
+            appearance={section.section_type === "hero" ? { ...titleAppearance, width: undefined } : titleAppearance}
+          />
+        </div>
+      );
+    }
+    if (field === "heading") {
+      const value = typeof section.content.heading === "string" ? section.content.heading : "";
+      if (!value) return null;
+      return (
+        <div className="vr-layout-element">
+          {drag}
+          <EditableText
+            as={section.section_type === "contact" ? "h1" : "h2"}
+            className={section.section_type === "contact" ? "vr-page-title" : "vr-heading"}
+            selection={selection}
+            path={{ kind: "section-content", sectionId: section.id, key: field }}
+            value={value}
+            appearance={fieldStyle(section, field)}
+          />
+        </div>
+      );
+    }
+    if (field === "intro" || field === "plain") {
+      const value = typeof section.content[field] === "string" ? section.content[field] : "";
+      if (!value) return null;
+      return (
+        <div className="vr-layout-element">
+          {drag}
+          <EditableText
+            as="div"
+            className="vr-body"
+            selection={selection}
+            path={{ kind: "section-content", sectionId: section.id, key: field }}
+            value={value}
+            appearance={fieldStyle(section, field)}
+            multiline
+          />
+        </div>
+      );
+    }
+    if (field === "body") {
+      const body = section.content.body ?? section.content.text;
+      return (
+        <div className="vr-layout-element vr-body">
+          {drag}
+          <EditableRichText
+            className="vr-rich"
+            selection={selection}
+            value={body}
+          />
+        </div>
+      );
+    }
+    return null;
+  }
+
+  function renderOfferingCard(offering: OfferingRow): ReactNode {
+    const label = String(section.content.moreInfoLabel ?? "rohkem infot");
+    return (
+      <article key={offering.id} className="vr-offering">
+        <EditableText
+          as="h2"
+          className="vr-heading"
+          selection={{
+            id: `${prefix}.${offering.id}.title`,
+            type: "text",
+            sectionId: section.id,
+            offeringId: offering.id,
+            field: "short_title",
+          }}
+          path={{ kind: "offering", offeringId: offering.id, key: "short_title" }}
+          value={offering.short_title || offering.title}
+          appearance={fieldStyle(section, `${offering.id}.title`)}
+        />
+        {offering.schedule_summary ? (
+          <EditableText
+            selection={{
+              id: `${prefix}.${offering.id}.schedule`,
+              type: "text",
+              offeringId: offering.id,
+              field: "schedule_summary",
+            }}
+            path={{ kind: "offering", offeringId: offering.id, key: "schedule_summary" }}
+            value={offering.schedule_summary}
+          />
+        ) : null}
+        {offering.location_name ? (
+          <EditableText
+            selection={{
+              id: `${prefix}.${offering.id}.location`,
+              type: "text",
+              offeringId: offering.id,
+              field: "location_name",
+            }}
+            path={{ kind: "offering", offeringId: offering.id, key: "location_name" }}
+            value={offering.location_name}
+          />
+        ) : null}
+        {offering.address ? (
+          <EditableText
+            selection={{
+              id: `${prefix}.${offering.id}.address`,
+              type: "text",
+              offeringId: offering.id,
+              field: "address",
+            }}
+            path={{ kind: "offering", offeringId: offering.id, key: "address" }}
+            value={offering.address}
+          />
+        ) : null}
+        <p>
+          <Link className="vr-text-link" href={pageHref(offering.slug)}>
+            <EditableText
+              as="span"
+              className="vr-text-link"
+              selection={{
+                id: `${prefix}.moreInfo`,
+                type: "link",
+                sectionId: section.id,
+                field: "moreInfoLabel",
+              }}
+              path={{ kind: "section-content", sectionId: section.id, key: "moreInfoLabel" }}
+              value={label}
+              clickMode="defer"
+            />
+          </Link>
+        </p>
+      </article>
+    );
+  }
 
   if (section.section_type === "spacer") {
     return <SectionShell section={section} specksOn={false} themeDensity={themeDensity}>{null}</SectionShell>;
   }
 
   if (section.section_type === "hero") {
-    const intro = String(section.content.intro ?? "");
-    const showEmblem = section.content.showEmblem !== false;
-    const wordmark = String(section.content.title ?? "VAIKUSRUUM");
     return (
       <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
-        <SectionInner>
-          <SplitLayout section={section} hasMedia={showEmblem || Boolean(image)} className="vr-hero-layout">
-            <div className="vr-split-text">
-              <div className="vr-hero-copy" style={{ textAlign: align ?? "center" }}>
-                <EditableText
-                  as="h1"
-                  className="vr-wordmark vr-wordmark--hero"
-                  selection={{ id: `${prefix}.title`, type: "text", sectionId: section.id, field: "title" }}
-                  path={{ kind: "section-content", sectionId: section.id, key: "title" }}
-                  value={wordmark}
-                  appearance={fieldStyle(section, "title")}
-                />
-                <EditableText
-                  as="div"
-                  className="vr-body"
-                  selection={{ id: `${prefix}.intro`, type: "text", sectionId: section.id, field: "intro" }}
-                  path={{ kind: "section-content", sectionId: section.id, key: "intro" }}
-                  value={intro}
-                  appearance={fieldStyle(section, "intro")}
-                  multiline
-                />
-              </div>
-            </div>
-            {showEmblem || image ? (
-              image ? (
-                <SectionImage section={section} image={image} className="vr-hero-media" />
-              ) : (
-                <SectionImage section={section} fallback={<Emblem />} className="vr-hero-media" />
-              )
-            ) : null}
-          </SplitLayout>
+        <SectionInner className="vr-section-inner--wide">
+          {renderLayoutNode(tree.root)}
         </SectionInner>
       </SectionShell>
     );
   }
 
   if (section.section_type === "split_media_text" || section.section_type === "rich_text") {
+    if (tree.root.type === "columns" && (slug === "avaleht" || section.section_type === "split_media_text")) {
+      return (
+        <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+          <SectionInner>
+            {renderLayoutNode(tree.root)}
+          </SectionInner>
+        </SectionShell>
+      );
+    }
     const heading = typeof section.content.heading === "string" ? section.content.heading : "";
     const body = section.content.body ?? section.content.text;
     const textOnly = layout === "text-only" || layout === "centered" || (!image && layout !== "image-only");
@@ -316,6 +705,15 @@ function SectionView({
   }
 
   if (section.section_type === "offering_overview") {
+    if (tree.root.type === "columns") {
+      return (
+        <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+          <SectionInner>
+            {renderLayoutNode(tree.root)}
+          </SectionInner>
+        </SectionShell>
+      );
+    }
     const ids = Array.isArray(section.content.offeringIds) ? (section.content.offeringIds as string[]) : [];
     const label = String(section.content.moreInfoLabel ?? "rohkem infot");
     const listed = ids.map((id) => offerings[id]).filter(Boolean);
@@ -444,6 +842,15 @@ function SectionView({
   }
 
   if (section.section_type === "contact") {
+    if (slug === "avaleht" && tree.root.type === "columns") {
+      return (
+        <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+          <SectionInner>
+            {renderLayoutNode(tree.root)}
+          </SectionInner>
+        </SectionShell>
+      );
+    }
     const heading = String(section.content.heading ?? "VÕTA KONTAKTI");
     const intro = typeof section.content.intro === "string" ? section.content.intro : "";
     const hasMedia = Boolean(image);

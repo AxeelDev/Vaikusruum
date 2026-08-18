@@ -1,4 +1,5 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
+import { getSectionLayoutTree, ratioToLeftPercent } from "@/lib/editor/layout-tree";
 import type { ColumnBalance, HeightPreset, SectionRow, VerticalAlign } from "@/types/content";
 
 const SCREEN_KEYS = new Set(["hero", "miina", "yoga", "offerings", "contact"]);
@@ -20,6 +21,8 @@ export function resolveVerticalAlign(section: SectionRow): VerticalAlign {
 }
 
 export function resolveColumnBalance(section: SectionRow): ColumnBalance {
+  const tree = getSectionLayoutTree(section);
+  if (tree.root.type === "columns" && tree.root.ratio && tree.root.ratio !== "custom") return tree.root.ratio;
   const value = section.style?.columnBalance;
   if (value === "40-60" || value === "45-55" || value === "50-50" || value === "55-45" || value === "60-40") return value;
   return "50-50";
@@ -40,7 +43,9 @@ export function sectionClassName(section: SectionRow, extra = ""): string {
 export function splitClassName(section: SectionRow, hasMedia: boolean): string {
   const layout = section.style?.layout;
   const mobile = section.style?.mobileOrder;
-  const parts = ["vr-split", `vr-split--${resolveColumnBalance(section)}`];
+  const tree = getSectionLayoutTree(section);
+  const custom = tree.root.type === "columns" && tree.root.ratio === "custom";
+  const parts = ["vr-split", custom ? "vr-split--custom" : `vr-split--${resolveColumnBalance(section)}`];
   const align = resolveVerticalAlign(section);
   if (align === "start") parts.push("vr-split--start");
   if (align === "end") parts.push("vr-split--end");
@@ -109,8 +114,14 @@ export function SplitLayout({
   children: ReactNode;
   className?: string;
 }) {
-  const style: CSSProperties | undefined =
-    typeof section.style?.splitGap === "number" ? { gap: `${section.style.splitGap}px` } : undefined;
+  const tree = getSectionLayoutTree(section);
+  const style: CSSProperties = {};
+  if (typeof section.style?.splitGap === "number") style.gap = `${section.style.splitGap}px`;
+  if (tree.root.type === "columns") {
+    const left = ratioToLeftPercent(tree.root.ratio, tree.root.customRatio ?? section.style?.columnRatio);
+    (style as Record<string, string>)["--vr-left-column"] = `${left}%`;
+    (style as Record<string, string>)["--vr-right-column"] = `${100 - left}%`;
+  }
   return (
     <div className={[splitClassName(section, hasMedia), className].filter(Boolean).join(" ")} style={style}>
       {children}

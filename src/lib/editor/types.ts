@@ -14,6 +14,7 @@ export type InspectorTab = "content" | "appearance" | "animation" | "settings";
 export type SelectedType =
   | "page"
   | "section"
+  | "container"
   | "text"
   | "image"
   | "link"
@@ -55,6 +56,8 @@ export type EditorState = {
   history: EditorDraft[];
   historyIndex: number;
   inlineEditingId: string | null;
+  draggedNodeId: string | null;
+  hoveredNodeId: string | null;
   preview: boolean;
   advanced: boolean;
   saving: boolean;

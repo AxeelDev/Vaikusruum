@@ -8,6 +8,7 @@ import { SiteView } from "@/components/site/SiteView";
 import { BREAKPOINT_WIDTH } from "@/lib/editor/types";
 import { pageSections } from "@/lib/editor/draft";
 import { hrefToSlug } from "@/lib/editor/pages";
+import { logoutAction } from "@/lib/actions/admin";
 import { sanitizeCustomCss, themeToCssVars } from "@/lib/theme/theme";
 import { pageHref } from "@/lib/utils/urls";
 
@@ -132,6 +133,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
       >
         <Inspector />
         <main className="vr-editor-workspace">
+          <EditorTopBar />
           <div
             ref={canvasRef}
             className={`vr-editor-canvas vr-editor-canvas--${state.breakpoint}${state.preview ? " is-preview" : ""}`}
@@ -262,6 +264,78 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
           inspectorOpen={state.inspectorOpen}
         />
       ) : null}
+    </div>
+  );
+}
+
+function EditorTopBar() {
+  const editor = useEditor();
+  const { state } = editor;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const page = state.draft.pages.find((item) => item.id === state.pageId);
+  const canUndo = state.historyIndex > 0;
+  const canRedo = state.historyIndex < state.history.length - 1;
+  const saveText = state.saving ? "Salvestan…" : state.saveFlash && !state.dirty ? "Salvestatud" : "Salvesta";
+
+  return (
+    <div className="vr-editor-topstrip">
+      <div className="vr-editor-topbar" role="toolbar" aria-label="Redaktori tööriistariba">
+        <button type="button" aria-label="Lisa sektsioon" onClick={() => editor.addSection("rich_text")}>
+          +
+        </button>
+        <button type="button" aria-label="Võta tagasi" disabled={!canUndo} onClick={() => editor.undo()}>
+          ↶
+        </button>
+        <button type="button" aria-label="Tee uuesti" disabled={!canRedo} onClick={() => editor.redo()}>
+          ↷
+        </button>
+        <button type="button" aria-label="Eelvaade" data-active={state.preview ? "true" : undefined} onClick={() => editor.setPreview(!state.preview)}>
+          ▶
+        </button>
+        <div className="vr-editor-device" aria-label="Seade">
+          {(["desktop", "tablet", "mobile"] as const).map((breakpoint) => (
+            <button
+              key={breakpoint}
+              type="button"
+              data-active={state.breakpoint === breakpoint ? "true" : undefined}
+              onClick={() => editor.setBreakpoint(breakpoint)}
+            >
+              {breakpoint === "desktop" ? "Desktop" : breakpoint === "tablet" ? "Tahvel" : "Mobiil"}
+            </button>
+          ))}
+        </div>
+        <span className="vr-editor-status">
+          <span className="vr-editor-status-dot" data-dirty={state.dirty ? "true" : undefined} />
+          {page?.title ?? "Leht"}
+        </span>
+        <button type="button" className="vr-editor-save-top" disabled={state.saving || !state.dirty} onClick={() => void editor.save()}>
+          {saveText}
+        </button>
+        <div className="vr-editor-more">
+          <button type="button" aria-label="Menüü" onClick={() => setMenuOpen((open) => !open)}>
+            ⋮
+          </button>
+          {menuOpen ? (
+            <div className="vr-editor-menu vr-editor-top-menu">
+              <button type="button" onClick={() => editor.requestNavigation("/admin")}>
+                Haldus
+              </button>
+              <button type="button" onClick={() => editor.requestNavigation("/")}>
+                Vaata lehte
+              </button>
+              <button type="button" onClick={() => editor.requestNavigation("/admin/media")}>
+                Pildid
+              </button>
+              <button type="button" onClick={() => editor.requestNavigation("/admin/settings")}>
+                Seaded
+              </button>
+              <form action={logoutAction}>
+                <button type="submit">Logi välja</button>
+              </form>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

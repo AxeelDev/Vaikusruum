@@ -11,6 +11,7 @@ import {
 } from "react";
 import { saveEditorDraftAction, type EditorSavePayload } from "@/lib/actions/admin";
 import { cloneDraft, createSection, duplicateSection as cloneSectionRow, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
+import { moveLayoutNode, normalizeSectionLayout, resizeLayoutColumns } from "@/lib/editor/layout-tree";
 import { mergeFieldStyle } from "@/lib/editor/appearance";
 import type { AddableSectionType, EditorDraft, EditorSelection, EditorState, InspectorTab } from "@/lib/editor/types";
 import type { AdminRole, MediaRow, OfferingRow, SectionRow, TextAppearance } from "@/types/content";
@@ -47,6 +48,8 @@ type EditorApi = {
   setPreview: (preview: boolean) => void;
   setAdvanced: (advanced: boolean) => void;
   setThemePanel: (open: boolean) => void;
+  setDraggedNode: (id: string | null) => void;
+  setHoveredNode: (id: string | null) => void;
   startInlineEdit: (id: string) => void;
   stopInlineEdit: () => void;
   setPath: (path: EditPath, value: unknown, record?: boolean) => void;
@@ -67,6 +70,9 @@ type EditorApi = {
   cancelPendingPage: () => void;
   addSection: (type: AddableSectionType) => void;
   moveSection: (sectionId: string, direction: -1 | 1) => void;
+  moveSectionToIndex: (sectionId: string, targetIndex: number) => void;
+  moveNode: (sectionId: string, nodeId: string, targetParentId: string, targetIndex: number) => void;
+  resizeColumns: (sectionId: string, leftPercent: number, record?: boolean) => void;
   duplicateSection: (sectionId: string) => void;
   removeSection: (sectionId: string) => void;
   undo: () => void;
@@ -105,6 +111,8 @@ export function EditorProvider({
   const [history, setHistory] = useState<EditorDraft[]>(() => [snapshot(initial)]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [themePanel, setThemePanel] = useState(false);
@@ -328,6 +336,47 @@ export function EditorProvider({
     [applyDraft, draft, pageId],
   );
 
+  const moveSectionToIndex = useCallback(
+    (sectionId: string, targetIndex: number) => {
+      const current = pageSections(draft, pageId);
+      const from = current.findIndex((section) => section.id === sectionId);
+      if (from < 0) return;
+      const copy = [...current];
+      const [moved] = copy.splice(from, 1);
+      copy.splice(Math.min(Math.max(targetIndex, 0), copy.length), 0, moved);
+      const next = cloneDraft(draft);
+      next.sectionsByPage[pageId] = copy.map((section, index) => ({ ...section, sort_order: index + 1 }));
+      applyDraft(next, true);
+      setDraggedNodeId(null);
+      setHoveredNodeId(null);
+    },
+    [applyDraft, draft, pageId],
+  );
+
+  const moveNode = useCallback(
+    (sectionId: string, nodeId: string, targetParentId: string, targetIndex: number) => {
+      applyDraft(
+        updateSection(draft, sectionId, (section) =>
+          normalizeSectionLayout(moveLayoutNode(section, nodeId, { parentId: targetParentId, index: targetIndex })),
+        ),
+        true,
+      );
+      setDraggedNodeId(null);
+      setHoveredNodeId(null);
+    },
+    [applyDraft, draft],
+  );
+
+  const resizeColumns = useCallback(
+    (sectionId: string, leftPercent: number, record = false) => {
+      applyDraft(
+        updateSection(draft, sectionId, (section) => normalizeSectionLayout(resizeLayoutColumns(section, leftPercent))),
+        record,
+      );
+    },
+    [applyDraft, draft],
+  );
+
   const removeSection = useCallback(
     (sectionId: string) => {
       const next = cloneDraft(draft);
@@ -477,6 +526,8 @@ export function EditorProvider({
       history,
       historyIndex,
       inlineEditingId,
+      draggedNodeId,
+      hoveredNodeId,
       preview,
       advanced,
       saving,
@@ -493,6 +544,8 @@ export function EditorProvider({
       draft,
       history,
       historyIndex,
+      draggedNodeId,
+      hoveredNodeId,
       inlineEditingId,
       inspectorOpen,
       inspectorTab,
@@ -525,6 +578,8 @@ export function EditorProvider({
           setInspectorTab("appearance");
         }
       },
+      setDraggedNode: setDraggedNodeId,
+      setHoveredNode: setHoveredNodeId,
       startInlineEdit: (id) => {
         setInlineEditingId(id);
         setInspectorOpen(true);
@@ -548,6 +603,9 @@ export function EditorProvider({
       cancelPendingPage,
       addSection,
       moveSection,
+      moveSectionToIndex,
+      moveNode,
+      resizeColumns,
       duplicateSection,
       removeSection,
       undo,
@@ -563,7 +621,9 @@ export function EditorProvider({
       cancelPendingNavigation,
       deselect,
       duplicateSection,
+      moveNode,
       moveSection,
+      moveSectionToIndex,
       patchFieldStyle,
       patchMedia,
       patchPage,
@@ -578,6 +638,7 @@ export function EditorProvider({
       save,
       select,
       setPath,
+      resizeColumns,
       switchPage,
       switchPageBySlug,
       undo,
