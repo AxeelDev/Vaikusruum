@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createSection, duplicateSection, reorderSections } from "@/lib/editor/draft";
 import { appearanceToStyle, mergeFieldStyle } from "@/lib/editor/appearance";
-import { resolveHeight, resolveVerticalAlign } from "@/components/layout/primitives";
+import { resolveColumnBalance, resolveHeight, resolveVerticalAlign } from "@/components/layout/primitives";
+import { getSectionLayoutTree, ratioToLeftPercent } from "@/lib/editor/layout-tree";
 import type { SectionRow } from "@/types/content";
 
 function section(partial: Partial<SectionRow>): SectionRow {
@@ -29,6 +30,15 @@ describe("section layout primitives", () => {
   it("honors explicit height presets", () => {
     expect(resolveHeight(section({ style: { height: "large" } }))).toBe("large");
     expect(resolveVerticalAlign(section({}))).toBe("center");
+  });
+
+  it("defaults the hero split to 46 / 54", () => {
+    const hero = section({ section_type: "hero", section_key: "hero" });
+    expect(resolveColumnBalance(hero)).toBe("46-54");
+    const tree = getSectionLayoutTree(hero);
+    expect(tree.root.type).toBe("columns");
+    if (tree.root.type !== "columns") return;
+    expect(ratioToLeftPercent(tree.root.ratio, tree.root.customRatio)).toBe(46);
   });
 });
 

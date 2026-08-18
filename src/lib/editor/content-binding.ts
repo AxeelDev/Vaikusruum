@@ -91,26 +91,26 @@ export function bindSelection(draft: EditorDraft, selection: EditorSelection): B
         format: "rich",
         value: raw,
         path: { kind: "section-content", sectionId: section.id, key: field },
-        label: fieldLabel(field),
+        label: fieldLabel(field, section.section_type),
         plainPreview: richPreview(raw),
       };
     }
     if (typeof raw === "string") {
-      return plain(raw, { kind: "section-content", sectionId: section.id, key: field }, fieldLabel(field));
+      return plain(raw, { kind: "section-content", sectionId: section.id, key: field }, fieldLabel(field, section.section_type));
     }
     if (raw && typeof raw === "object") {
       return {
         format: "structured",
         value: raw,
         path: { kind: "section-content", sectionId: section.id, key: field },
-        label: fieldLabel(field),
+        label: fieldLabel(field, section.section_type),
         plainPreview: "",
       };
     }
     if (field === "title" && section.section_type === "hero") {
       return plain(draft.settings.site_name || "VAIKUSRUUM", { kind: "section-content", sectionId: section.id, key: "title" }, "Hero pealkiri");
     }
-    return plain("", { kind: "section-content", sectionId: section.id, key: field }, fieldLabel(field));
+    return plain("", { kind: "section-content", sectionId: section.id, key: field }, fieldLabel(field, section.section_type));
   }
   if (selection.field === "title" || selection.type === "page") {
     const page = draft.pages.find((item) => item.id === draftPageId(draft, selection) ) ?? draft.pages[0];
@@ -145,9 +145,9 @@ function plain(value: string, path: EditPath, label: string): BoundEditorContent
   return { format: "plain", value, path, label, plainPreview: value };
 }
 
-function fieldLabel(field: string) {
-  if (field === "title") return "Pealkiri";
-  if (field === "intro") return "Sissejuhatus";
+function fieldLabel(field: string, sectionType?: string) {
+  if (field === "title") return sectionType === "hero" ? "Hero pealkiri" : "Pealkiri";
+  if (field === "intro") return sectionType === "hero" ? "Hero sissejuhatus" : "Sissejuhatus";
   if (field === "heading") return "Pealkiri";
   if (field === "plain" || field === "body") return "Tekst";
   if (field === "label") return "Silt";

@@ -127,10 +127,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
 
   function updateSelectionOverlay() {
     const selected = state.selected;
-    const label = selected && (selected.type === "section" || selected.type === "container" || selected.type === "image")
-      ? selected.type
-      : undefined;
-    setSelectedBox(selected ? boxForElement(elementForEditId(selected.id), label) : null);
+    setSelectedBox(selected ? boxForElement(elementForEditId(selected.id)) : null);
   }
 
   function updateHoverOverlay(id: string | null) {

@@ -56,8 +56,8 @@ const TABS = {
   text: ["content", "appearance", "animation"] as InspectorTabId[],
   media: ["content", "appearance", "animation"] as InspectorTabId[],
   structured: ["content", "appearance", "animation"] as InspectorTabId[],
-  layout: ["appearance", "layout", "animation"] as InspectorTabId[],
-  container: ["appearance", "layout"] as InspectorTabId[],
+  layout: ["content", "appearance", "animation"] as InspectorTabId[],
+  container: ["content", "appearance"] as InspectorTabId[],
 };
 
 export const nodeRegistry: Record<EditorNodeKind, EditorNodeDefinition> = {
@@ -155,7 +155,7 @@ export function resolveInspectorTab(
   role: AdminRole = "editor",
 ): InspectorTabId {
   const tabs = tabsForKind(kind, role);
-  const requested = current === "settings" ? "advanced" : current;
+  const requested = current === "settings" ? "advanced" : current === "layout" ? "content" : current;
   if (requested && tabs.includes(requested as InspectorTabId)) return requested as InspectorTabId;
   return tabs[0] ?? "content";
 }

@@ -74,7 +74,7 @@ export function buildInspectorModel(options: {
   const kind = resolveNodeKind(selection, { rich: content.format === "rich" });
   const tabs = tabsForKind(kind, role);
   const resolvedTab = resolveInspectorTab(kind, tab, role);
-  const title = inspectorTitle(draft, selection, kind, content.plainPreview);
+  const title = inspectorTitle(draft, selection, kind, content.label);
   return {
     context,
     kind,
@@ -82,7 +82,7 @@ export function buildInspectorModel(options: {
     tab: resolvedTab,
     title,
     kicker: nodeKindLabel(kind),
-    breadcrumb: `${nodeKindLabel(kind)} / ${title}`,
+    breadcrumb: nodeKindLabel(kind),
   };
 }
 
@@ -90,7 +90,7 @@ export function inspectorTitle(
   draft: EditorDraft,
   selection: EditorSelection,
   kind: EditorNodeKind,
-  preview?: string,
+  fallback?: string,
 ): string {
   if (selection.type === "header") return "Päis";
   if (selection.id === "header.wordmark") return "Vaikusruum";
@@ -108,11 +108,17 @@ export function inspectorTitle(
     const section = findSection(draft, selection.sectionId);
     if (section) return clientLayoutLabel(section, { type: "element", id: selection.id, elementType: "image", label: "Pilt" });
   }
-  if (preview?.trim()) return preview.trim().slice(0, 42);
-  if (selection.field === "title" || selection.id.includes("title")) return "Pealkiri";
-  if (selection.field === "intro" || selection.id.includes("intro")) return "Sissejuhatus";
+  if (selection.field === "title" || selection.id.includes(".title")) {
+    const section = selection.sectionId ? findSection(draft, selection.sectionId) : undefined;
+    return section?.section_type === "hero" ? "Hero pealkiri" : "Pealkiri";
+  }
+  if (selection.field === "intro" || selection.id.includes(".intro")) {
+    const section = selection.sectionId ? findSection(draft, selection.sectionId) : undefined;
+    return section?.section_type === "hero" ? "Hero sissejuhatus" : "Sissejuhatus";
+  }
   if (selection.field === "heading") return "Pealkiri";
   if (selection.field === "plain" || selection.field === "body") return "Tekst";
+  if (fallback && fallback !== nodeKindLabel(kind)) return fallback;
   return nodeKindLabel(kind);
 }
 

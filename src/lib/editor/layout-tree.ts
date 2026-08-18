@@ -20,6 +20,7 @@ export type LayoutMoveTarget = {
 export const COLUMN_BALANCE_OPTIONS: Array<{ value: ColumnBalance; label: string; left: number }> = [
   { value: "40-60", label: "40 / 60", left: 40 },
   { value: "45-55", label: "45 / 55", left: 45 },
+  { value: "46-54", label: "46 / 54", left: 46 },
   { value: "50-50", label: "50 / 50", left: 50 },
   { value: "55-45", label: "55 / 45", left: 55 },
   { value: "60-40", label: "60 / 40", left: 60 },
@@ -151,8 +152,9 @@ export function sectionLayoutSummary(section: SectionRow): string {
 
 export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
   const base = sectionNodePrefix(section);
+  const fallbackRatio: ColumnBalance = section.section_type === "hero" ? "46-54" : "50-50";
   const ratio: ColumnBalance | "custom" =
-    typeof section.style?.columnRatio === "number" ? "custom" : section.style?.columnBalance ?? "50-50";
+    typeof section.style?.columnRatio === "number" ? "custom" : section.style?.columnBalance ?? fallbackRatio;
   const customRatio = typeof section.style?.columnRatio === "number" ? clampRatio(section.style.columnRatio) : undefined;
 
   if (section.section_type === "hero") {
@@ -594,7 +596,7 @@ function preferredSplitFrom(section: SectionRow): { ratio: ColumnBalance | "cust
   }
   if (section.style?.preferredColumnBalance) return { ratio: section.style.preferredColumnBalance };
   if (typeof section.style?.columnRatio === "number") return { ratio: "custom", customRatio: clampRatio(section.style.columnRatio) };
-  return { ratio: section.style?.columnBalance ?? "50-50" };
+  return { ratio: section.style?.columnBalance ?? (section.section_type === "hero" ? "46-54" : "50-50") };
 }
 
 function rememberPreferredSplit(section: SectionRow, tree: SectionLayoutTree): { columnBalance?: ColumnBalance; columnRatio: number | null } {

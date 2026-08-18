@@ -20,12 +20,14 @@ export function resolveVerticalAlign(section: SectionRow): VerticalAlign {
   return "center";
 }
 
+const COLUMN_BALANCES: ColumnBalance[] = ["40-60", "45-55", "46-54", "50-50", "55-45", "60-40"];
+
 export function resolveColumnBalance(section: SectionRow): ColumnBalance {
   const tree = getSectionLayoutTree(section);
   if (tree.root.type === "columns" && tree.root.ratio && tree.root.ratio !== "custom") return tree.root.ratio;
   const value = section.style?.columnBalance;
-  if (value === "40-60" || value === "45-55" || value === "50-50" || value === "55-45" || value === "60-40") return value;
-  return "50-50";
+  if (value && COLUMN_BALANCES.includes(value)) return value;
+  return section.section_type === "hero" ? "46-54" : "50-50";
 }
 
 export function sectionClassName(section: SectionRow, extra = ""): string {
@@ -108,22 +110,26 @@ export function SplitLayout({
   hasMedia,
   children,
   className,
+  ...rest
 }: {
   section: SectionRow;
   hasMedia: boolean;
   children: ReactNode;
   className?: string;
-}) {
+} & HTMLAttributes<HTMLDivElement>) {
   const tree = getSectionLayoutTree(section);
   const style: CSSProperties = {};
   if (typeof section.style?.splitGap === "number") style.gap = `${section.style.splitGap}px`;
   if (tree.root.type === "columns") {
     const left = ratioToLeftPercent(tree.root.ratio, tree.root.customRatio ?? section.style?.columnRatio);
-    (style as Record<string, string>)["--vr-left-column"] = `${left}%`;
-    (style as Record<string, string>)["--vr-right-column"] = `${100 - left}%`;
+    const vars = style as Record<string, string>;
+    vars["--vr-left-column"] = `${left}%`;
+    vars["--vr-right-column"] = `${100 - left}%`;
+    vars["--vr-left-ratio"] = `${left / 100}fr`;
+    vars["--vr-right-ratio"] = `${(100 - left) / 100}fr`;
   }
   return (
-    <div className={[splitClassName(section, hasMedia), className].filter(Boolean).join(" ")} style={style}>
+    <div className={[splitClassName(section, hasMedia), className].filter(Boolean).join(" ")} style={style} {...rest}>
       {children}
     </div>
   );

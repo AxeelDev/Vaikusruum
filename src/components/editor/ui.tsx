@@ -309,13 +309,20 @@ export function EditorSelect({
     <div className="vr-ed-select-wrap">
       <button
         type="button"
-        className="vr-ed-select"
+        className={cx("vr-ed-select", previewFont && "vr-ed-select--font")}
         style={style}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((next) => !next)}
       >
-        <span>{current?.label ?? value}</span>
+        {previewFont && current?.fontFamily ? (
+          <span className="vr-ed-font-lines">
+            <strong style={{ fontFamily: current.fontFamily }}>{current.label.toUpperCase()}</strong>
+            <span>{current.label}</span>
+          </span>
+        ) : (
+          <span>{current?.label ?? value}</span>
+        )}
         <Chevron />
       </button>
       <EditorPopover open={open} onClose={() => setOpen(false)} className="vr-ed-select-menu">
@@ -353,6 +360,7 @@ export function EditorSlider({
   unit,
   exact,
   label,
+  displayValue,
 }: {
   value: number;
   min: number;
@@ -363,6 +371,7 @@ export function EditorSlider({
   unit?: string;
   exact?: boolean;
   label: string;
+  displayValue?: string;
 }) {
   const pct = ((clamp(value, min, max) - min) / (max - min || 1)) * 100;
 
@@ -378,7 +387,7 @@ export function EditorSlider({
   }
 
   return (
-    <EditorGroup label={label} value={formatSliderValue(value, unit, exact)}>
+    <EditorGroup label={label} value={displayValue ?? formatSliderValue(value, unit, exact)}>
       <input
         className="vr-ed-slider"
         type="range"

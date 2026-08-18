@@ -76,7 +76,7 @@ function SectionImage({
   className?: string;
 }) {
   const editor = useOptionalEditor();
-  const crop = section.style?.image?.crop ?? (section.section_type === "hero" ? "square" : "landscape");
+  const crop = section.style?.image?.crop ?? (section.section_type === "hero" ? "original" : "landscape");
   const selection = {
     id: `${section.id}.image`,
     type: "image" as const,
@@ -147,16 +147,22 @@ function LayoutContainer({
 function ColumnResizeHandle({ section, columnsId }: { section: SectionRow; columnsId: string }) {
   const editor = useOptionalEditor();
   const [live, setLive] = useState<number | null>(null);
+  const [hovered, setHovered] = useState(false);
   if (!editor || editor.state.preview) return null;
-  const active = editor.state.selected?.id === columnsId || live !== null;
-  if (!active) return null;
+  const selected = editor.state.selected?.id === columnsId;
+  const active = selected || live !== null;
 
   return (
     <button
       type="button"
       className="vr-column-resize"
       data-vr-column-resize=""
+      data-active={active || hovered ? "" : undefined}
       aria-label="Muuda veergude suhet"
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => {
+        if (live === null) setHovered(false);
+      }}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => {
         event.preventDefault();
@@ -184,7 +190,7 @@ function ColumnResizeHandle({ section, columnsId }: { section: SectionRow; colum
         window.addEventListener("pointerup", up);
       }}
     >
-      <span>{live ? `${live} / ${100 - live}` : "↔"}</span>
+      <span>{live != null ? `${live} / ${100 - live}` : ""}</span>
     </button>
   );
 }
@@ -274,17 +280,42 @@ function SectionView({
         );
       }
 
+      const columnsSelected = editor?.state.selected?.id === node.id && !editor.state.preview;
       return (
-        <SplitLayout section={section} hasMedia className={section.section_type === "hero" ? "vr-hero-layout vr-layout-columns" : "vr-layout-columns"}>
+        <SplitLayout
+          section={section}
+          hasMedia
+          className={[
+            "vr-layout-columns",
+            section.section_type === "hero" ? "vr-hero-layout" : "",
+            columnsSelected ? "is-split-selected" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          data-vr-edit-id={editor && !editor.state.preview ? node.id : undefined}
+          data-vr-editable={editor && !editor.state.preview ? "" : undefined}
+          data-vr-selected={columnsSelected ? "" : undefined}
+          data-vr-node-id={editor && !editor.state.preview ? node.id : undefined}
+          data-vr-section-id={editor && !editor.state.preview ? section.id : undefined}
+          data-vr-node-kind={editor && !editor.state.preview ? "columns" : undefined}
+          onClick={(event) => {
+            if (!editor || editor.state.preview) return;
+            if (event.target !== event.currentTarget) return;
+            event.stopPropagation();
+            editor.select({ id: node.id, type: "container", sectionId: section.id, layoutNodeId: node.id });
+          }}
+        >
           {renderedColumns.map(({ node: columnNode, children }) => (
             <LayoutContainer key={columnNode.id} section={section} node={columnNode} className="vr-layout-column">
               {children}
             </LayoutContainer>
           ))}
           <ColumnResizeHandle section={section} columnsId={node.id} />
-          <span className="vr-column-ratio" aria-hidden>
-            {left} / {100 - left}
-          </span>
+          {columnsSelected ? (
+            <span className="vr-column-ratio" aria-hidden>
+              {left} / {100 - left}
+            </span>
+          ) : null}
         </SplitLayout>
       );
     }
@@ -358,8 +389,8 @@ function SectionView({
       if (section.section_type === "hero" && !image) {
         if (section.content.showEmblem === false) return null;
         return (
-          <div className="vr-layout-element">
-            <SectionImage section={section} fallback={<Emblem />} className="vr-hero-media" />
+          <div className="vr-layout-element vr-layout-element--hero-art">
+            <SectionImage section={section} fallback={<Emblem className="vr-emblem" />} className="vr-hero-artwork" />
           </div>
         );
       }
@@ -374,8 +405,8 @@ function SectionView({
         );
       }
       return (
-        <div className="vr-layout-element vr-layout-element--media">
-          <SectionImage section={section} image={image} className={section.section_type === "hero" ? "vr-hero-media" : undefined} />
+        <div className={["vr-layout-element vr-layout-element--media", section.section_type === "hero" ? "vr-layout-element--hero-art" : ""].filter(Boolean).join(" ")}>
+          <SectionImage section={section} image={image} className={section.section_type === "hero" ? "vr-hero-artwork" : undefined} />
         </div>
       );
     }
@@ -705,7 +736,7 @@ function SectionView({
   if (section.section_type === "hero") {
     return (
       <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
-        <SectionInner className="vr-section-inner--wide">
+        <SectionInner className="vr-section-inner--hero">
           {renderLayoutNode(tree.root)}
         </SectionInner>
       </SectionShell>

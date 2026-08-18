@@ -222,7 +222,7 @@ async function main() {
       sort_order: 1,
       enabled: true,
       content: { intro: HERO_INTRO, showEmblem: true, title: "VAIKUSRUUM" },
-      style: { background: "warm", height: "screen", verticalAlign: "center", specks: true },
+      style: { background: "warm", height: "screen", verticalAlign: "center", specks: true, columnBalance: "46-54" },
     },
     {
       page_id: P.avaleht,

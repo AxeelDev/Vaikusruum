@@ -4,6 +4,7 @@ import { bindSelection, readEditorContent } from "@/lib/editor/content-binding";
 import { resolveDropIntent, type CachedDropTarget } from "@/lib/editor/drop-intent";
 import { moveLayoutNode, normalizeSectionLayout, removeLayoutNode } from "@/lib/editor/layout-tree";
 import { resolveInspectorTab, resolveNodeKind, tabsForKind } from "@/lib/editor/node-registry";
+import { inspectorTitle } from "@/lib/editor/inspector";
 import type { EditorDraft, EditorSelection } from "@/lib/editor/types";
 import type { SectionRow } from "@/types/content";
 import { DEFAULT_THEME } from "@/lib/theme/theme";
@@ -70,12 +71,27 @@ describe("inspector tabs", () => {
     expect(resolveInspectorTab("text", "layout")).toBe("content");
   });
 
-  it("does not offer a content tab for containers", () => {
-    expect(tabsForKind("container")).toEqual(["appearance", "layout"]);
+  it("offers content and appearance tabs for containers", () => {
+    expect(tabsForKind("container")).toEqual(["content", "appearance"]);
+  });
+
+  it("maps the old layout tab to content", () => {
+    expect(resolveInspectorTab("container", "layout")).toBe("content");
   });
 
   it("never maps a text selection to site design", () => {
     expect(resolveNodeKind({ id: "avaleht.hero.title", type: "text", sectionId: "s1", field: "title" })).toBe("text");
+  });
+
+  it("names the hero title semantically instead of using its content", () => {
+    expect(
+      inspectorTitle(
+        draft(section()),
+        { id: "avaleht.hero.title", type: "text", sectionId: "s1", field: "title" },
+        "text",
+        "VAIKUSRUUM",
+      ),
+    ).toBe("Hero pealkiri");
   });
 });
 

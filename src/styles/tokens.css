@@ -23,7 +23,8 @@
   --vr-heading-tracking: 0.08em;
   --vr-paragraph-max-width: 38rem;
   --vr-content-width: 1480px;
-  --vr-page-gutter: clamp(50px, 6vw, 90px);
+  --vr-hero-max-width: 1480px;
+  --vr-page-gutter: clamp(48px, 5vw, 90px);
   --vr-gutter-desktop: var(--vr-page-gutter);
   --vr-gutter-tablet: 36px;
   --vr-gutter-mobile: 22px;
@@ -31,8 +32,11 @@
   --vr-section-space-desktop: 120px;
   --vr-section-space-tablet: 88px;
   --vr-section-space-mobile: 64px;
-  --vr-split-gap: clamp(70px, 8vw, 145px);
-  --vr-header-height: 72px;
+  --vr-split-gap: clamp(90px, 8vw, 150px);
+  --vr-header-height: 70px;
+  --vr-hero-intro-width: 560px;
+  --vr-hero-artwork-size: 620px;
+  --vr-hero-text-gap: 68px;
   --vr-paragraph-spacing: 20px;
   --vr-image-radius: 0px;
   --vr-button-radius: 999px;

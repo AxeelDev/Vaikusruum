@@ -15,15 +15,15 @@ import {
   EditorSegmented,
   EditorSelect,
   EditorSlider,
-  EditorSpinner,
   EditorSwitch,
   EditorTextInput,
   EditorTextarea,
+  EditorTooltip,
 } from "@/components/editor/ui";
 import { findSection, pageSections } from "@/lib/editor/draft";
 import { fieldStyle } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
-import { findLayoutNode, getSectionLayoutTree, listLayoutElements, parentOfNode, ratioToLeftPercent, sectionLayoutSummary } from "@/lib/editor/layout-tree";
+import { findLayoutNode, getSectionLayoutTree, listLayoutElements, parentOfNode, ratioToLeftPercent, resolveLayoutNodeId, sectionLayoutSummary } from "@/lib/editor/layout-tree";
 import { pageLabel } from "@/lib/editor/pages";
 import { ADDABLE_SECTIONS } from "@/lib/editor/types";
 import { ALL_FONTS, BODY_FONTS, DISPLAY_FONTS } from "@/lib/theme/theme";
@@ -64,10 +64,11 @@ export function Inspector() {
   );
   const hasContext = model.context.kind !== "none";
   const [width, setWidth] = useState(() => {
-    if (typeof window === "undefined") return 320;
+    if (typeof window === "undefined") return 316;
     const stored = Number(window.localStorage.getItem("vr.editor.inspectorWidth"));
-    return Number.isFinite(stored) ? clampInspectorWidth(stored) : 320;
+    return Number.isFinite(stored) ? clampInspectorWidth(stored) : 316;
   });
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--editor-sidebar-width", `${width}px`);
@@ -93,11 +94,48 @@ export function Inspector() {
 
   return (
     <aside className="vr-inspector" aria-label="Redaktor" style={{ width }}>
+      {model.tabs.length ? (
+        <div className="vr-inspector-modes" role="tablist" aria-label="Inspektori vaated">
+          {model.tabs.map((tab) => (
+            <EditorTooltip key={tab} label={INSPECTOR_TAB_LABELS[tab]}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={model.tab === tab}
+                aria-label={INSPECTOR_TAB_LABELS[tab]}
+                className={model.tab === tab ? "is-active" : undefined}
+                onClick={() => editor.setTab(tab)}
+              >
+                <InspectorModeIcon tab={tab} />
+              </button>
+            </EditorTooltip>
+          ))}
+        </div>
+      ) : null}
       <div className="vr-inspector-contextbar">
         <EditorIconButton ariaLabel="Tagasi" disabled={!hasContext} onClick={() => editor.goBack()}>
-          ‹
+          ←
         </EditorIconButton>
-        <span>{model.breadcrumb}</span>
+        <span>{hasContext ? model.kicker : ""}</span>
+        {canMoveSelected(state.selected) ? (
+          <div className="vr-inspector-more">
+            <EditorIconButton ariaLabel="Rohkem" active={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
+              ⋯
+            </EditorIconButton>
+            {moreOpen ? (
+              <div className="vr-editor-menu">
+                <MoveActions asMenu />
+                {canDeleteSelection(state.selected, state.inspectorContext.kind) ? (
+                  <button type="button" className="vr-ed-danger" onClick={() => editor.removeSelected()}>
+                    Kustuta
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <span />
+        )}
         <EditorIconButton
           ariaLabel="Sulge"
           onClick={() => {
@@ -108,23 +146,13 @@ export function Inspector() {
           ×
         </EditorIconButton>
       </div>
-      {model.tabs.length ? (
-        <div className="vr-inspector-top">
-          <div className="vr-inspector-tabs" data-mode="labels" style={{ gridTemplateColumns: `repeat(${model.tabs.length}, 1fr)` }}>
-            {model.tabs.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                className={model.tab === tab ? "is-active" : undefined}
-                onClick={() => editor.setTab(tab)}
-              >
-                {INSPECTOR_TAB_LABELS[tab]}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
       <div className="vr-inspector-scroll">
+        {hasContext ? (
+          <div className="vr-inspector-heading">
+            <p className="vr-ed-context-label">{model.kicker}</p>
+            <p className="vr-ed-context-title">{model.title}</p>
+          </div>
+        ) : null}
         {model.context.kind === "site" ? <SiteDesignInspector /> : <SelectionPanels tab={model.tab} />}
       </div>
       <EditorFooterControls />
@@ -134,8 +162,8 @@ export function Inspector() {
         aria-label="Muuda paneeli laiust"
         onPointerDown={onResizePointerDown}
         onDoubleClick={() => {
-          setWidth(320);
-          window.localStorage.setItem("vr.editor.inspectorWidth", "320");
+          setWidth(316);
+          window.localStorage.setItem("vr.editor.inspectorWidth", "316");
         }}
       />
     </aside>
@@ -143,7 +171,7 @@ export function Inspector() {
 }
 
 function clampInspectorWidth(value: number) {
-  return Math.min(460, Math.max(270, Math.round(value)));
+  return Math.min(450, Math.max(310, Math.round(value)));
 }
 
 function EditorGlobalBrowser() {
@@ -214,49 +242,19 @@ function EditorGlobalBrowser() {
 function EditorFooterControls() {
   const editor = useEditor();
   const { state } = editor;
-  const canUndo = state.historyIndex > 0;
-  const canRedo = state.historyIndex < state.history.length - 1;
-  const saveText = state.saving ? "Salvestan…" : state.saveFlash && !state.dirty ? "Salvestatud" : "Salvesta";
 
   return (
     <div className="vr-inspector-footer">
-      <EditorSegmented
-        value={state.breakpoint}
-        options={[
-          { value: "desktop", label: "Desktop" },
-          { value: "tablet", label: "Tahvel" },
-          { value: "mobile", label: "Mobiil" },
-        ]}
-        onChange={(value) => editor.setBreakpoint(value)}
-      />
-      <div className="vr-inspector-footer-row">
-        <EditorIconButton ariaLabel="Võta tagasi" disabled={!canUndo} onClick={() => editor.undo()}>
-          ↶
-        </EditorIconButton>
-        <EditorIconButton ariaLabel="Tee uuesti" disabled={!canRedo} onClick={() => editor.redo()}>
-          ↷
-        </EditorIconButton>
-        <EditorIconButton
-          ariaLabel="Kustuta"
-          className="vr-ed-iconbtn--danger"
-          disabled={!canDeleteSelection(state.selected, state.inspectorContext.kind)}
-          onClick={() => editor.removeSelected()}
-        >
-          <TrashBagIcon />
-        </EditorIconButton>
-        <EditorButton variant="secondary" onClick={() => editor.setPreview(!state.preview)}>
-          {state.preview ? "Tagasi muutma" : "Eelvaade"}
-        </EditorButton>
-      </div>
       {state.saveError ? <p className="vr-form-error vr-editor-error">{state.saveError}</p> : null}
       <EditorButton
         variant="primary"
-        className="vr-inspector-save"
-        disabled={state.saving || !state.dirty}
-        onClick={() => void editor.save()}
+        className="vr-inspector-done"
+        onClick={() => {
+          if (state.selected || state.inspectorContext.kind !== "none") editor.deselect();
+          else editor.closeInspector();
+        }}
       >
-        {state.saving ? <EditorSpinner /> : null}
-        {saveText}
+        Valmis
       </EditorButton>
       <div className="vr-inspector-exits">
         <button type="button" onClick={() => editor.requestNavigation("/admin")}>
@@ -276,10 +274,9 @@ function SelectionPanels({ tab }: { tab: InspectorTabId }) {
   if (!selected) return <PageOverview />;
   if (tab === "animation") return <AnimationPanel />;
   if (tab === "advanced" || tab === ("settings" as InspectorTabId)) return <SettingsPanel />;
-  if (tab === "layout") {
+  if (tab === "layout" || (tab === "content" && (selected.type === "container" || selected.type === "section"))) {
     if (selected.type === "container") return <ContainerPanel />;
-    if (selected.type === "section") return <SectionPanel mode="layout" />;
-    return <ContainerPanel />;
+    if (selected.type === "section") return <SectionPanel mode="content" />;
   }
   if (tab === "appearance") return <NodeAppearanceInspector />;
   if (selected.type === "container") return <ContainerPanel />;
@@ -619,7 +616,6 @@ function NodeContentInspector() {
   const editor = useEditor();
   const selected = editor.state.selected!;
   const content = readEditorContent(editor.state.draft, selected);
-  const kicker = content.label;
 
   function writePlain(next: string, record: boolean) {
     if (!content.path) return;
@@ -633,13 +629,11 @@ function NodeContentInspector() {
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker={kicker} title={content.plainPreview || kicker} />
       {content.format === "rich" ? (
         <>
           <EditorGroup label="Tekst">
             <RichEditor value={content.value} onChange={(next) => writeRich(next, false)} onCommit={(next) => writeRich(next, true)} />
           </EditorGroup>
-          <p className="vr-ed-help">Lõuend renderdab tulemust. Sisu salvestub andmebaasi tavalise Salvesta nupuga.</p>
         </>
       ) : content.format === "structured" ? (
         <StructuredContentPanel />
@@ -647,7 +641,7 @@ function NodeContentInspector() {
         <EditorGroup label="Tekst">
           <EditorTextarea
             key={selected.id}
-            rows={content.value.includes("\n") ? 8 : 3}
+            rows={Math.max(4, content.value.split("\n").length + 1)}
             value={content.value}
             onChange={(next) => writePlain(next, false)}
             onCommit={(next) => writePlain(next, true)}
@@ -656,10 +650,6 @@ function NodeContentInspector() {
       )}
       {selected.type === "nav" ? <NavTarget /> : null}
       {selected.field?.startsWith("q.") || selected.field?.startsWith("a.") ? <FaqItemControls /> : null}
-      <MoveActions />
-      <EditorButton variant="primary" onClick={() => editor.deselect()}>
-        Valmis
-      </EditorButton>
     </div>
   );
 }
@@ -695,7 +685,6 @@ function NodeAppearanceInspector() {
   const field = selected.field;
   const swatches = themeColorSwatches(editor.state.draft.theme);
   const inherited = !appearance.color;
-  const content = readEditorContent(editor.state.draft, selected);
 
   function patch(next: Partial<TextAppearance>, record = false) {
     editor.patchFieldStyle(sectionId, field, next, record);
@@ -703,19 +692,17 @@ function NodeAppearanceInspector() {
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Välimus" title={content.plainPreview || content.label} />
-      <EditorGroup label="Tüüp">
-        <EditorSelect
-          value={appearance.role ?? "p"}
-          options={[
-            { value: "h1", label: "Pealkiri 1" },
-            { value: "h2", label: "Pealkiri 2" },
-            { value: "h3", label: "Pealkiri 3" },
-            { value: "p", label: "Lõik" },
-          ]}
-          onChange={(role) => patch({ role: role as TextAppearance["role"] }, true)}
-        />
-      </EditorGroup>
+      <EditorSelect
+        value={appearance.role ?? (selected.field === "title" || selected.field === "heading" ? "h1" : "p")}
+        options={[
+          { value: "h1", label: "Pealkiri 1" },
+          { value: "h2", label: "Pealkiri 2" },
+          { value: "h3", label: "Pealkiri 3" },
+          { value: "p", label: "Lõik" },
+        ]}
+        onChange={(role) => patch({ role: role as TextAppearance["role"] }, true)}
+      />
+      <p className="vr-ed-section-label">Kiri</p>
       <EditorColor
         key={`color-${selected.id}`}
         label="Värv"
@@ -734,7 +721,18 @@ function NodeAppearanceInspector() {
         />
       </EditorGroup>
       <EditorSlider label="Suurus" min={14} max={96} value={appearance.size ?? 18} onChange={(size) => patch({ size })} unit="px" exact={advanced} />
-      <EditorSlider label="Paksus" min={300} max={700} step={50} value={appearance.weight ?? 400} onChange={(weight) => patch({ weight })} exact={advanced} />
+      <EditorSlider
+        label="Paksus"
+        min={300}
+        max={700}
+        step={50}
+        value={appearance.weight ?? 400}
+        onChange={(weight) => patch({ weight })}
+        exact={advanced}
+        displayValue={weightLabel(appearance.weight ?? 400)}
+      />
+      <hr className="vr-ed-divider" />
+      <p className="vr-ed-section-label">Vahed</p>
       <EditorSlider label="Reavahe" min={1.1} max={2.2} step={0.05} value={appearance.lineHeight ?? 1.7} onChange={(lineHeight) => patch({ lineHeight })} exact={advanced} />
       <EditorSlider label="Tähevahe" min={0} max={0.4} step={0.01} value={appearance.letterSpacing ?? 0} onChange={(letterSpacing) => patch({ letterSpacing })} unit="em" exact={advanced} />
       <EditorGroup label="Joondus">
@@ -748,9 +746,12 @@ function NodeAppearanceInspector() {
           onChange={(align) => patch({ align: align as TextAppearance["align"] }, true)}
         />
       </EditorGroup>
-      <EditorSlider label="Maksimaalne laius" min={240} max={900} value={appearance.width ?? 660} onChange={(width) => patch({ width })} unit="px" exact={advanced} />
       {editor.role === "owner" ? (
-        <EditorSwitch checked={editor.state.advanced} onChange={(checked) => editor.setAdvanced(checked)} label="Täpsed väärtused" />
+        <>
+          <hr className="vr-ed-divider" />
+          <EditorSlider label="Maksimaalne laius" min={240} max={900} value={appearance.width ?? 660} onChange={(width) => patch({ width })} unit="px" exact={advanced} />
+          <EditorSwitch checked={editor.state.advanced} onChange={(checked) => editor.setAdvanced(checked)} label="Täpsed väärtused" />
+        </>
       ) : null}
     </div>
   );
@@ -810,7 +811,7 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
           </EditorGroup>
         </>
       ) : null}
-      {mode === "layout" ? (
+      {mode === "layout" || mode === "content" ? (
         <>
           <EditorGroup label="Paigutus">
             <EditorSelect
@@ -828,10 +829,11 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
           </EditorGroup>
           <EditorGroup label="Veergude suhe">
             <EditorSelect
-              value={style.columnBalance ?? "50-50"}
+              value={style.columnBalance ?? (section.section_type === "hero" ? "46-54" : "50-50")}
               options={[
                 { value: "40-60", label: "40 / 60" },
                 { value: "45-55", label: "45 / 55" },
+                { value: "46-54", label: "46 / 54" },
                 { value: "50-50", label: "50 / 50" },
                 { value: "55-45", label: "55 / 45" },
                 { value: "60-40", label: "60 / 40" },
@@ -925,10 +927,10 @@ function ContainerPanel() {
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Paigutus" title={clientLayoutLabel(section, node)} />
       {root ? (
         <>
-          <EditorGroup label="Paigutus">
+          <p className="vr-ed-section-label">Paigutus</p>
+          <EditorGroup label="Tüüp">
             <EditorSelect
               value="columns"
               options={[
@@ -940,37 +942,28 @@ function ContainerPanel() {
           </EditorGroup>
           <EditorGroup label="Veergude suhe">
             <EditorSelect
-              value={style.columnRatio ? "custom" : style.columnBalance ?? "50-50"}
+              value={style.columnRatio ? "custom" : style.columnBalance ?? (selectedSection.section_type === "hero" ? "46-54" : "50-50")}
               options={[
                 { value: "40-60", label: "40 / 60" },
                 { value: "45-55", label: "45 / 55" },
+                { value: "46-54", label: "46 / 54" },
                 { value: "50-50", label: "50 / 50" },
                 { value: "55-45", label: "55 / 45" },
                 { value: "60-40", label: "60 / 40" },
-                { value: "custom", label: `Custom (${currentRatio} / ${100 - currentRatio})` },
+                { value: "custom", label: `${currentRatio} / ${100 - currentRatio}` },
               ]}
               onChange={(value) => {
                 if (value === "custom") {
                   editor.resizeColumns(section.id, currentRatio, true);
                   return;
                 }
-                const left = Number(String(value).slice(0, 2));
+                const left = Number(String(value).split("-")[0]);
                 editor.resizeColumns(section.id, left, true);
               }}
             />
           </EditorGroup>
-          <p className="vr-ed-help">Vasak {currentRatio}% · Parem {100 - currentRatio}% · Mobiilis üksteise all</p>
           <EditorSlider
-            label="Täpne suhe"
-            min={30}
-            max={70}
-            value={currentRatio}
-            onChange={(left) => editor.resizeColumns(section.id, left, false)}
-            unit="%"
-            exact
-          />
-          <EditorSlider
-            label="Veergude vahe"
+            label="Vahe"
             min={24}
             max={180}
             value={style.splitGap ?? editor.state.draft.theme.splitGap}
@@ -989,37 +982,36 @@ function ContainerPanel() {
               onChange={(verticalAlign) => patchStyle({ verticalAlign: verticalAlign as VerticalAlign })}
             />
           </EditorGroup>
-          <EditorGroup label="Mobiil">
+          <EditorGroup label="Sisu joondus">
+            <EditorSelect
+              value={style.textAlign ?? "center"}
+              options={[
+                { value: "left", label: "Vasakul" },
+                { value: "center", label: "Keskel" },
+                { value: "right", label: "Paremal" },
+              ]}
+              onChange={(textAlign) => patchStyle({ textAlign: textAlign as SectionStyle["textAlign"] })}
+            />
+          </EditorGroup>
+          <EditorGroup label="Mobiilis">
+            <EditorSelect
+              value="stack"
+              options={[{ value: "stack", label: "Üksteise all" }]}
+              onChange={() => undefined}
+            />
+          </EditorGroup>
+          <EditorGroup label="Mobiili järjekord">
             <EditorSelect
               value={style.mobileOrder ?? "image-first"}
               options={[
-                { value: "image-first", label: "Stack, pilt ees" },
-                { value: "text-first", label: "Stack, tekst ees" },
+                { value: "image-first", label: "Vasak enne" },
+                { value: "text-first", label: "Parem enne" },
               ]}
               onChange={(mobileOrder) => patchStyle({ mobileOrder: mobileOrder as SectionStyle["mobileOrder"] })}
             />
           </EditorGroup>
         </>
       ) : null}
-      <EditorSlider
-        label="Sisu laius"
-        min={720}
-        max={1500}
-        value={style.contentWidth ?? editor.state.draft.theme.contentMaxWidth}
-        onChange={(contentWidth) => patchStyle({ contentWidth }, false)}
-        unit="px"
-        exact={editor.state.advanced}
-      />
-      <EditorGroup label="Liiguta valikut">
-        <div className="vr-inspector-row">
-          <EditorButton variant="ghost" onClick={() => editor.moveSection(section.id, -1)}>
-            Sektsioon üles
-          </EditorButton>
-          <EditorButton variant="ghost" onClick={() => editor.moveSection(section.id, 1)}>
-            Sektsioon alla
-          </EditorButton>
-        </div>
-      </EditorGroup>
     </div>
   );
 }
@@ -1288,40 +1280,38 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
       ) : null}
         </>
       ) : null}
-      {mode === "content" ? <MoveActions /> : null}
     </div>
   );
 }
 
-function MoveActions() {
+function MoveActions({ asMenu = false }: { asMenu?: boolean }) {
   const editor = useEditor();
   const selected = editor.state.selected;
   const [picking, setPicking] = useState<"left" | "right" | null>(null);
   if (!selected?.sectionId) return null;
   const section = findSection(editor.state.draft, selected.sectionId);
   if (!section) return null;
-  const nodeId = selected.layoutNodeId;
+  const nodeId = selected.layoutNodeId ?? resolveLayoutNodeId(section, selected);
   if (!nodeId) return null;
-  const parent = parentOfNode(section, nodeId);
-  const elements = listLayoutElements(section).filter((item) => item.id !== nodeId);
+  const layoutId = nodeId;
+  const parent = parentOfNode(section, layoutId);
+  if (!parent) return null;
+  const owner = parent;
+  const sectionId = section.id;
+  const elements = listLayoutElements(section).filter((item) => item.id !== layoutId);
 
   function move(placement: "before" | "after" | "left" | "right", targetNodeId?: string) {
-    if (!parent) return;
-    const target = targetNodeId ?? parent.parent.children[placement === "before" || placement === "left" ? Math.max(0, parent.index - 1) : parent.index]?.id;
-    editor.moveNode(section!.id, nodeId!, parent.parent.id, placement === "before" || placement === "left" ? parent.index : parent.index + 1, placement, target);
+    const target = targetNodeId ?? owner.parent.children[placement === "before" || placement === "left" ? Math.max(0, owner.index - 1) : owner.index]?.id;
+    editor.moveNode(sectionId, layoutId, owner.parent.id, placement === "before" || placement === "left" ? owner.index : owner.index + 1, placement, target);
     setPicking(null);
   }
 
-  return (
-    <EditorGroup label="Liiguta">
-      <div className="vr-inspector-row">
-        <EditorButton variant="ghost" onClick={() => setPicking("left")}>Kõrvale vasakule…</EditorButton>
-        <EditorButton variant="ghost" onClick={() => setPicking("right")}>Kõrvale paremale…</EditorButton>
-      </div>
-      <div className="vr-inspector-row">
-        <EditorButton variant="ghost" onClick={() => move("before")}>Üles</EditorButton>
-        <EditorButton variant="ghost" onClick={() => move("after")}>Alla</EditorButton>
-      </div>
+  const actions = (
+    <>
+      <button type="button" onClick={() => setPicking("left")}>Kõrvale vasakule…</button>
+      <button type="button" onClick={() => setPicking("right")}>Kõrvale paremale…</button>
+      <button type="button" onClick={() => move("before")}>Üles</button>
+      <button type="button" onClick={() => move("after")}>Alla</button>
       {picking ? (
         <div className="vr-ed-pages">
           <p className="vr-ed-help">Vali element, millest {picking === "left" ? "vasakule" : "paremale"} asetada.</p>
@@ -1332,8 +1322,11 @@ function MoveActions() {
           ))}
         </div>
       ) : null}
-    </EditorGroup>
+    </>
   );
+
+  if (asMenu) return actions;
+  return <EditorGroup label="Paigutus">{actions}</EditorGroup>;
 }
 
 function AnimationPanel() {
@@ -1343,13 +1336,6 @@ function AnimationPanel() {
   if (!section) {
     return (
       <div className="vr-inspector-body">
-        <EditorContext kicker="Animatsioon" title={selected ? selectedKindLabel(selected.type) : "Element"} />
-        <EditorGroup label="Tüüp">
-          <EditorSelect value="none" options={[{ value: "none", label: "Puudub" }]} onChange={() => undefined} />
-        </EditorGroup>
-        <EditorGroup label="Kestus">
-          <EditorTextInput value="" placeholder="Vali animatsioon" onChange={() => undefined} />
-        </EditorGroup>
         <p className="vr-ed-help">Selle elemendi animatsioon pärineb sektsioonilt.</p>
       </div>
     );
@@ -1367,38 +1353,31 @@ function AnimationPanel() {
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Animatsioon" title={labelFor(selected?.id ?? section.id, readText(editor)) || sectionTitle(section.section_type)} />
-      <EditorGroup label="Tüüp">
-        <div className="vr-ed-inline">
-          <EditorSelect
-            value={animation.preset ?? "none"}
-            options={[
-              { value: "none", label: "Puudub" },
-              { value: "fade-in", label: "Fade in" },
-              { value: "fade-up", label: "Fade up" },
-              { value: "fade-down", label: "Fade down" },
-              { value: "fade-left", label: "Fade left" },
-              { value: "fade-right", label: "Fade right" },
-              { value: "scale-in", label: "Scale in" },
-            ]}
-            onChange={(preset) => patch({ preset: preset as AnimationAppearance["preset"] })}
-          />
-          <EditorButton variant="secondary" disabled={!active} onClick={() => undefined}>Replay</EditorButton>
-        </div>
+      <EditorGroup label="Nähtavaks saades">
+        <EditorSelect
+          value={animation.preset ?? "none"}
+          options={[
+            { value: "none", label: "Puudub" },
+            { value: "fade-in", label: "Hajub sisse" },
+            { value: "fade-up", label: "Hajub alt" },
+            { value: "fade-down", label: "Hajub ülevalt" },
+            { value: "fade-left", label: "Hajub vasakult" },
+            { value: "fade-right", label: "Hajub paremalt" },
+            { value: "scale-in", label: "Suureneb sisse" },
+          ]}
+          onChange={(preset) => patch({ preset: preset as AnimationAppearance["preset"] })}
+        />
       </EditorGroup>
       {active ? (
         <>
-          <EditorSlider label="Kestus" min={0.2} max={3} step={0.1} value={animation.duration ?? 1} onChange={(duration) => patch({ duration }, false)} unit="s" exact />
-          <EditorSlider label="Viivitus" min={0} max={2} step={0.1} value={animation.delay ?? 0} onChange={(delay) => patch({ delay }, false)} unit="s" exact />
-          <EditorSlider label="Künnis" min={0} max={1} step={0.05} value={animation.threshold ?? 0.35} onChange={(threshold) => patch({ threshold }, false)} exact />
+          <EditorSlider label="Kestus" min={0.2} max={3} step={0.1} value={animation.duration ?? 0.8} onChange={(duration) => patch({ duration }, false)} unit="s" exact displayValue={`${(animation.duration ?? 0.8).toFixed(1)}s`} />
+          <EditorSlider label="Viivitus" min={0} max={2} step={0.1} value={animation.delay ?? 0} onChange={(delay) => patch({ delay }, false)} unit="s" exact displayValue={`${(animation.delay ?? 0).toFixed(1)}s`} />
+          <EditorSlider label="Künnis" min={0} max={1} step={0.05} value={animation.threshold ?? 0.35} onChange={(threshold) => patch({ threshold }, false)} displayValue="Tavaline" />
           <EditorCheck checked={Boolean(animation.replayable)} onChange={(replayable) => patch({ replayable })}>
             Korda
           </EditorCheck>
         </>
-      ) : (
-        <p className="vr-ed-help">Vali animatsioon, et kestust ja viivitust muuta.</p>
-      )}
-      <p className="vr-ed-help">Avalik leht austab `prefers-reduced-motion` eelistust.</p>
+      ) : null}
     </div>
   );
 }
@@ -1418,37 +1397,26 @@ function SettingsPanel() {
   const section = selected.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Settings" title={selectedKindLabel(selected.type)} />
-      <div className="vr-ed-tabs-line">
-        <span className="is-active">Element</span>
-        <span>Styles</span>
-      </div>
       <EditorGroup label="ID">
         <EditorTextInput value={selected.id} onChange={() => undefined} />
       </EditorGroup>
       {section ? (
         <>
-          <EditorGroup label="Section key">
+          <EditorGroup label="Sektsiooni võti">
             <EditorTextInput value={section.section_key} onChange={() => undefined} />
           </EditorGroup>
-          <EditorGroup label="Type">
+          <EditorGroup label="Tüüp">
             <EditorTextInput value={section.section_type} onChange={() => undefined} />
           </EditorGroup>
         </>
       ) : null}
-      <EditorGroup label="Classes">
-        <EditorButton variant="ghost" disabled>+ Add class</EditorButton>
+      <EditorGroup label="Klassid">
+        <EditorButton variant="ghost" disabled>+ Lisa klass</EditorButton>
       </EditorGroup>
-      <EditorGroup label="Attributes">
-        <EditorButton variant="ghost" disabled>+ Add attribute</EditorButton>
+      <EditorGroup label="Atribuudid">
+        <EditorButton variant="ghost" disabled>+ Lisa atribuut</EditorButton>
       </EditorGroup>
-      <EditorGroup label="Tag">
-        <EditorSelect
-          value="default"
-          options={[{ value: "default", label: "Default" }]}
-          onChange={() => undefined}
-        />
-      </EditorGroup>
+      <MoveActions />
     </div>
   );
 }
@@ -1621,35 +1589,6 @@ function FaqSectionContent({ sectionId }: { sectionId: string }) {
   );
 }
 
-function readText(editor: ReturnType<typeof useEditor>): string {
-  return readEditorContent(editor.state.draft, editor.state.selected).plainPreview;
-}
-
-function labelFor(id: string, value?: string) {
-  if (value && value.trim()) return value.trim().slice(0, 42);
-  if (id.includes("title")) return "Pealkiri";
-  if (id.includes("intro")) return "Sissejuhatus";
-  if (id.includes("wordmark")) return "Vaikusruum";
-  return "Sisu";
-}
-
-function sectionTitle(type: string) {
-  switch (type) {
-    case "hero":
-      return "Avalehe avasektsioon";
-    case "split_media_text":
-      return "Pilt + tekst";
-    case "rich_text":
-      return "Tekst";
-    case "faq":
-      return "KKK";
-    case "contact":
-      return "Kontakt";
-    default:
-      return "Sektsioon";
-  }
-}
-
 function selectedKindLabel(type: string) {
   switch (type) {
     case "section":
@@ -1669,19 +1608,53 @@ function selectedKindLabel(type: string) {
   }
 }
 
+function canMoveSelected(selected: EditorSelection | null) {
+  if (!selected) return false;
+  if (selected.type === "header" || selected.type === "nav" || selected.type === "page" || selected.type === "theme") return false;
+  return Boolean(selected.sectionId || selected.type === "text" || selected.type === "image" || selected.type === "container");
+}
+
+function weightLabel(weight: number) {
+  if (weight <= 300) return "Peenike";
+  if (weight <= 400) return "Tavaline";
+  if (weight <= 500) return "Keskmine";
+  if (weight <= 600) return "Poolpaks";
+  return "Paks";
+}
+
+function InspectorModeIcon({ tab }: { tab: InspectorTabId }) {
+  if (tab === "content") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 6.5h9M5 12h14M5 17.5h7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (tab === "appearance") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 16.5 14.2 6.3a2.2 2.2 0 0 1 3.1 0l.4.4a2.2 2.2 0 0 1 0 3.1L7.5 19.5H4v-3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (tab === "animation") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M8 6.5v11l10-5.5L8 6.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 4.5v2.2M12 17.3v2.2M4.5 12h2.2M17.3 12h2.2M6.7 6.7l1.6 1.6M15.7 15.7l1.6 1.6M17.3 6.7l-1.6 1.6M8.3 15.7l-1.6 1.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function canDeleteSelection(selected: EditorSelection | null, contextKind: string) {
   if (contextKind === "site" || contextKind === "none" || !selected) return false;
   if (selected.type === "header" || selected.type === "nav" || selected.type === "page" || selected.type === "theme") return false;
   if (selected.id === "header.wordmark" || selected.id === "footer.text") return false;
   return Boolean(selected.sectionId || selected.type === "section" || selected.type === "container" || selected.type === "image" || selected.type === "text" || selected.type === "link");
-}
-
-function TrashBagIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M8.5 8.5c0-3.4 7-3.4 7 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M7 8.5h10l-1.15 11.2a1.6 1.6 0 0 1-1.59 1.4H9.74a1.6 1.6 0 0 1-1.59-1.4L7 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M10.2 12.2v5.2M13.8 12.2v5.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
 }
