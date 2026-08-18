@@ -53,7 +53,25 @@ export type HorizontalAlign = "left" | "center" | "right";
 export type LayoutElementNode = {
   id: string;
   type: "element";
-  elementType: "text" | "image" | "link" | "offering" | "form";
+  elementType:
+    | "text"
+    | "image"
+    | "link"
+    | "offering"
+    | "form"
+    | "list"
+    | "buttons"
+    | "video"
+    | "audio"
+    | "icons"
+    | "gallery"
+    | "table"
+    | "timer"
+    | "divider"
+    | "slideshow"
+    | "widget"
+    | "embed"
+    | "control";
   label: string;
   field?: string;
   offeringId?: string;

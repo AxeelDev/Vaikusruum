@@ -72,6 +72,47 @@ export type AddableSectionType = Extract<
   "rich_text" | "split_media_text" | "offering_overview" | "faq" | "contact" | "private_lessons" | "testimonials" | "spacer"
 >;
 
+export type AddableElementType =
+  | "text"
+  | "list"
+  | "image"
+  | "buttons"
+  | "video"
+  | "links"
+  | "audio"
+  | "icons"
+  | "gallery"
+  | "table"
+  | "timer"
+  | "divider"
+  | "slideshow"
+  | "form"
+  | "widget"
+  | "embed"
+  | "container"
+  | "control";
+
+export const ADDABLE_ELEMENTS: Array<{ type: AddableElementType; label: string; ownerOnly?: boolean }> = [
+  { type: "text", label: "Text" },
+  { type: "list", label: "List" },
+  { type: "image", label: "Image" },
+  { type: "buttons", label: "Buttons" },
+  { type: "video", label: "Video" },
+  { type: "links", label: "Links" },
+  { type: "audio", label: "Audio" },
+  { type: "icons", label: "Icons" },
+  { type: "gallery", label: "Gallery" },
+  { type: "table", label: "Table" },
+  { type: "timer", label: "Timer" },
+  { type: "divider", label: "Divider" },
+  { type: "slideshow", label: "Slideshow" },
+  { type: "form", label: "Form" },
+  { type: "widget", label: "Widget" },
+  { type: "embed", label: "Embed", ownerOnly: true },
+  { type: "container", label: "Container" },
+  { type: "control", label: "Control", ownerOnly: true },
+];
+
 export const ADDABLE_SECTIONS: Array<{ type: AddableSectionType; label: string }> = [
   { type: "rich_text", label: "Tekst" },
   { type: "split_media_text", label: "Pilt + tekst" },

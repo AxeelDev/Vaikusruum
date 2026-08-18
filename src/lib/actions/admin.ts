@@ -50,7 +50,16 @@ export async function saveSectionAction(id: string, content: Record<string, unkn
 
 export async function savePageMetaAction(
   id: string,
-  fields: { title: string; nav_label: string; seo_title: string; seo_description: string; show_in_nav: boolean; is_published: boolean; nav_order: number },
+  fields: {
+    title: string;
+    nav_label: string;
+    seo_title: string;
+    seo_description: string;
+    show_in_nav: boolean;
+    is_published: boolean;
+    nav_order: number;
+    slug?: string;
+  },
 ) {
   await requireAdmin();
   const supabase = await createServerSupabase();

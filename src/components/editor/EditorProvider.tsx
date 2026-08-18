@@ -11,9 +11,9 @@ import {
 } from "react";
 import { saveEditorDraftAction, type EditorSavePayload } from "@/lib/actions/admin";
 import { cloneDraft, createSection, duplicateSection as cloneSectionRow, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
-import { moveLayoutNode, normalizeSectionLayout, resizeLayoutColumns } from "@/lib/editor/layout-tree";
+import { insertLayoutElement, moveLayoutNode, normalizeSectionLayout, resizeLayoutColumns } from "@/lib/editor/layout-tree";
 import { mergeFieldStyle } from "@/lib/editor/appearance";
-import type { AddableSectionType, EditorDraft, EditorSelection, EditorState, InspectorTab } from "@/lib/editor/types";
+import type { AddableElementType, AddableSectionType, EditorDraft, EditorSelection, EditorState, InspectorTab } from "@/lib/editor/types";
 import type { AdminRole, MediaRow, OfferingRow, SectionRow, TextAppearance } from "@/types/content";
 import type { ThemeTokens } from "@/lib/theme/theme";
 
@@ -67,9 +67,10 @@ type EditorApi = {
   cancelPendingNavigation: () => void;
   cancelPendingPage: () => void;
   addSection: (type: AddableSectionType) => void;
+  addElement: (type: AddableElementType, target?: { sectionId?: string; parentId?: string; index?: number; placement?: "before" | "after" | "left" | "right" | "inside"; targetNodeId?: string }) => void;
   moveSection: (sectionId: string, direction: -1 | 1) => void;
   moveSectionToIndex: (sectionId: string, targetIndex: number) => void;
-  moveNode: (sectionId: string, nodeId: string, targetParentId: string, targetIndex: number) => void;
+  moveNode: (sectionId: string, nodeId: string, targetParentId: string, targetIndex: number, placement?: "before" | "after" | "left" | "right" | "inside", targetNodeId?: string) => void;
   resizeColumns: (sectionId: string, leftPercent: number, record?: boolean) => void;
   duplicateSection: (sectionId: string) => void;
   removeSection: (sectionId: string) => void;
@@ -306,6 +307,36 @@ export function EditorProvider({
     [applyDraft, draft, pageId, select, selected?.sectionId],
   );
 
+  const addElement = useCallback(
+    (
+      type: AddableElementType,
+      target?: { sectionId?: string; parentId?: string; index?: number; placement?: "before" | "after" | "left" | "right" | "inside"; targetNodeId?: string },
+    ) => {
+      const current = pageSections(draft, pageId);
+      const sectionId = target?.sectionId ?? selected?.sectionId ?? current[0]?.id;
+      const section = sectionId ? current.find((item) => item.id === sectionId) : undefined;
+      if (!section) return;
+      const tree = section.style?.layoutTree;
+      const fallbackParentId = target?.parentId ?? tree?.root.id ?? `layout.${section.id}.content`;
+      const inserted = insertLayoutElement(section, type, {
+        parentId: fallbackParentId,
+        index: target?.index ?? Number.MAX_SAFE_INTEGER,
+        placement: target?.placement ?? "inside",
+        targetNodeId: target?.targetNodeId,
+      });
+      applyDraft(updateSection(draft, section.id, () => normalizeSectionLayout(inserted.section)), true);
+      const selectionType = inserted.node.elementType === "image" ? "image" : "text";
+      const page = draft.pages.find((item) => item.id === pageId);
+      select({
+        id: inserted.node.elementType === "image" ? `${section.id}.image` : `${page?.slug ?? "page"}.${section.section_key}.${inserted.node.field}`,
+        type: selectionType,
+        sectionId: section.id,
+        field: inserted.node.field,
+      });
+    },
+    [applyDraft, draft, pageId, select, selected?.sectionId],
+  );
+
   const duplicateSection = useCallback(
     (sectionId: string) => {
       const current = pageSections(draft, pageId);
@@ -349,10 +380,17 @@ export function EditorProvider({
   );
 
   const moveNode = useCallback(
-    (sectionId: string, nodeId: string, targetParentId: string, targetIndex: number) => {
+    (
+      sectionId: string,
+      nodeId: string,
+      targetParentId: string,
+      targetIndex: number,
+      placement: "before" | "after" | "left" | "right" | "inside" = "inside",
+      targetNodeId?: string,
+    ) => {
       applyDraft(
         updateSection(draft, sectionId, (section) =>
-          normalizeSectionLayout(moveLayoutNode(section, nodeId, { parentId: targetParentId, index: targetIndex })),
+          normalizeSectionLayout(moveLayoutNode(section, nodeId, { parentId: targetParentId, index: targetIndex, placement, targetNodeId })),
         ),
         true,
       );
@@ -588,6 +626,7 @@ export function EditorProvider({
       cancelPendingNavigation,
       cancelPendingPage,
       addSection,
+      addElement,
       moveSection,
       moveSectionToIndex,
       moveNode,
@@ -600,6 +639,7 @@ export function EditorProvider({
     }),
     [
       addSection,
+      addElement,
       addMedia,
       cancelPendingPage,
       confirmPendingPage,

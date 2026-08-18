@@ -23,18 +23,43 @@ export default async function AdminEntryPage() {
       },
       {
         href: "/admin/submissions",
-        title: "Registreerumised",
-        description: "Vaata registreerumis- ja kontaktivorme.",
+        title: "Vormide vastused",
+        description: "Vaata kontakt- ja registreerumisvormide vastuseid.",
+      },
+      {
+        href: "/admin/pages",
+        title: "Lehed",
+        description: "Halda pealkirju, sluge, avaldamist ja SEO metaandmeid.",
+      },
+      {
+        href: "/admin/menu",
+        title: "Menüü",
+        description: "Muuda avaliku päise navigeerimist ja järjekorda.",
       },
       {
         href: "/admin/settings",
-        title: "Seaded",
+        title: "Üldseaded",
         description: "Muuda üldiseid kontakt- ja saidiseadeid.",
+      },
+      {
+        href: "/admin/design",
+        title: "Kujundus",
+        description: "Muuda globaalseid värve, fonte, vahesid ja nuppe.",
+      },
+      {
+        href: "/admin/seo",
+        title: "SEO",
+        description: "Halda saidi ja lehtede otsingu metaandmeid.",
       },
       {
         href: "/admin/admins",
         title: "Administraatorid",
         description: "Halda ligipääsu.",
+      },
+      {
+        href: "/admin/export",
+        title: "Andmed / eksport",
+        description: "Ekspordi saidi sisu ja vormide vastused.",
       },
     ];
 

@@ -93,7 +93,7 @@ function SectionImage({
       align={section.style?.image?.align}
     >
       {image ? (
-        <SiteImage media={image} className={photoClassName(crop)} />
+        <SiteImage media={image} className={photoClassName(crop)} draggable={editor && !editor.state.preview ? false : undefined} />
       ) : (
         fallback
       )}
@@ -329,6 +329,10 @@ function SectionView({
           data-vr-node-kind={editor && !editor.state.preview ? child.type : undefined}
           data-vr-selection-id={editor && !editor.state.preview ? selection.id : undefined}
           data-vr-selection-type={editor && !editor.state.preview ? selection.type : undefined}
+          data-vr-selection-section-id={editor && !editor.state.preview ? section.id : undefined}
+          data-vr-selection-field={editor && !editor.state.preview ? selection.field : undefined}
+          data-vr-selection-media-id={editor && !editor.state.preview ? selection.mediaId : undefined}
+          data-vr-selection-offering-id={editor && !editor.state.preview ? selection.offeringId : undefined}
         >
           {rendered}
         </div>
@@ -336,14 +340,16 @@ function SectionView({
     });
   }
 
-  function layoutSelectionForNode(node: LayoutNode): { id: string; type: "container" | "text" | "image" } {
+  function layoutSelectionForNode(node: LayoutNode): { id: string; type: "container" | "text" | "image"; field?: string; mediaId?: string; offeringId?: string } {
     if (node.type === "column" || node.type === "group" || node.type === "columns") {
       return { id: node.id, type: "container" };
     }
-    if (node.elementType === "image") return { id: `${section.id}.image`, type: "image" };
+    if (node.elementType === "image") return { id: `${section.id}.image`, type: "image", field: node.field ?? "image", mediaId };
     if (node.elementType === "text" && node.field) {
       return { id: node.field === "body" ? `${prefix}.body` : `${prefix}.${node.field}`, type: "text" };
     }
+    if (node.elementType === "offering") return { id: node.id, type: "text", offeringId: node.offeringId };
+    if (node.field) return { id: `${prefix}.${node.field}`, type: "text", field: node.field };
     return { id: node.id, type: "container" };
   }
 
@@ -357,7 +363,16 @@ function SectionView({
           </div>
         );
       }
-      if (!image) return null;
+      if (!image) {
+        if (!editor || editor.state.preview) return null;
+        return (
+          <div className="vr-layout-element vr-layout-element--media">
+            <EditableNode selection={{ id: `${section.id}.image`, type: "image", sectionId: section.id, field: node.field ?? "image" }} className="vr-editorial-placeholder vr-editorial-placeholder--image" as="div">
+              Choose image
+            </EditableNode>
+          </div>
+        );
+      }
       return (
         <div className="vr-layout-element vr-layout-element--media">
           <SectionImage section={section} image={image} className={section.section_type === "hero" ? "vr-hero-media" : undefined} />
@@ -378,8 +393,169 @@ function SectionView({
         />
       );
     }
+    if (node.elementType === "list") return renderListElement(node);
+    if (node.elementType === "buttons") return renderButtonsElement(node);
+    if (node.elementType === "link") return renderLinksElement(node);
+    if (node.elementType === "video") return renderMediaPlaceholder(node, "Video");
+    if (node.elementType === "audio") return renderMediaPlaceholder(node, "Audio");
+    if (node.elementType === "icons") return renderIconElement(node);
+    if (node.elementType === "gallery") return renderMediaPlaceholder(node, "Gallery");
+    if (node.elementType === "table") return renderTableElement(node);
+    if (node.elementType === "timer") return renderTimerElement(node);
+    if (node.elementType === "divider") return renderDividerElement(node);
+    if (node.elementType === "slideshow") return renderMediaPlaceholder(node, "Slideshow");
+    if (node.elementType === "widget") return renderWidgetElement(node);
+    if (node.elementType === "embed") return renderMediaPlaceholder(node, "Embed");
+    if (node.elementType === "control") return renderControlElement(node);
     if (!node.field) return null;
     return renderTextField(node.field);
+  }
+
+  function renderGenericSelection(node: LayoutElementNode, type: "text" | "link" = "text") {
+    return {
+      id: `${prefix}.${node.field ?? node.id}`,
+      type,
+      sectionId: section.id,
+      field: node.field,
+    };
+  }
+
+  function renderListElement(node: LayoutElementNode): ReactNode {
+    const raw = node.field ? section.content[node.field] : null;
+    const config = raw && typeof raw === "object" ? raw as { style?: string; items?: string[] } : {};
+    const items = Array.isArray(config.items) ? config.items : [];
+    const Tag = config.style === "numbered" ? "ol" : "ul";
+    return (
+      <div className="vr-layout-element vr-layout-element--text">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-list-element" as="div">
+          <Tag>
+            {items.map((item, index) => (
+              <li key={index}>{item}</li>
+            ))}
+          </Tag>
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderButtonsElement(node: LayoutElementNode): ReactNode {
+    const raw = node.field ? section.content[node.field] : null;
+    const config = raw && typeof raw === "object" ? raw as { buttons?: Array<{ label?: string; href?: string }>; direction?: string } : {};
+    const buttons = Array.isArray(config.buttons) ? config.buttons : [];
+    return (
+      <div className="vr-layout-element">
+        <EditableNode selection={renderGenericSelection(node)} className={`vr-button-group vr-button-group--${config.direction === "vertical" ? "vertical" : "horizontal"}`} as="div">
+          {buttons.map((button, index) => (
+            <Link key={index} className="vr-cta" href={button.href || "/"}>
+              {button.label || "Nupp"}
+            </Link>
+          ))}
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderLinksElement(node: LayoutElementNode): ReactNode {
+    const raw = node.field ? section.content[node.field] : null;
+    const config = raw && typeof raw === "object" ? raw as { items?: Array<{ label?: string; href?: string }>; direction?: string } : {};
+    const items = Array.isArray(config.items) ? config.items : [];
+    return (
+      <div className="vr-layout-element">
+        <EditableNode selection={renderGenericSelection(node, "link")} className={`vr-links-group vr-links-group--${config.direction === "vertical" ? "vertical" : "horizontal"}`} as="div">
+          {items.map((item, index) => (
+            <Link key={index} className="vr-text-link" href={item.href || "/"}>
+              {item.label || "Link"}
+            </Link>
+          ))}
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderMediaPlaceholder(node: LayoutElementNode, label: string): ReactNode {
+    return (
+      <div className="vr-layout-element">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-editorial-placeholder" as="div">
+          {label}
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderIconElement(node: LayoutElementNode): ReactNode {
+    return (
+      <div className="vr-layout-element">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-icon-element" as="div">
+          ○
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderTableElement(node: LayoutElementNode): ReactNode {
+    const raw = node.field ? section.content[node.field] : null;
+    const config = raw && typeof raw === "object" ? raw as { rows?: string[][] } : {};
+    const rows = Array.isArray(config.rows) ? config.rows : [];
+    return (
+      <div className="vr-layout-element vr-layout-element--text">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-simple-table-wrap" as="div">
+          <table className="vr-simple-table">
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderTimerElement(node: LayoutElementNode): ReactNode {
+    const raw = node.field ? section.content[node.field] : null;
+    const config = raw && typeof raw === "object" ? raw as { label?: string; target?: string } : {};
+    return (
+      <div className="vr-layout-element">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-timer-element" as="div">
+          <span>{config.label || "Aeg"}</span>
+          <strong>{config.target || "Vali kuupäev"}</strong>
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderDividerElement(node: LayoutElementNode): ReactNode {
+    return (
+      <div className="vr-layout-element vr-layout-element--divider">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-divider-element" as="div">
+          <span aria-hidden="true" />
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderWidgetElement(node: LayoutElementNode): ReactNode {
+    return (
+      <div className="vr-layout-element">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-widget-element" as="address">
+          {settings.contact_email || settings.contact_phone || "Kontakt"}
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderControlElement(node: LayoutElementNode): ReactNode {
+    return (
+      <div className="vr-layout-element">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-control-element" as="div">
+          Anchor
+        </EditableNode>
+      </div>
+    );
   }
 
   function renderTextField(field: string): ReactNode {

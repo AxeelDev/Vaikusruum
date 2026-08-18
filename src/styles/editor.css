@@ -1,5 +1,5 @@
 :root {
-  --editor-sidebar-width: 264px;
+  --editor-sidebar-width: 320px;
   --editor-bg: #373a44;
   --editor-shell: #373a44;
   --editor-panel: #3d404a;
@@ -24,6 +24,7 @@
   --z-editor-selection: 40;
   --z-editor-popover: 80;
   --z-editor-modal: 100;
+  --z-editor-inspector: 90;
 }
 
 html.vr-editor-lock,
@@ -41,46 +42,51 @@ html.vr-editor-lock body {
 }
 
 .vr-editor-root {
-  --editor-sidebar-width: 264px;
   width: 100%;
   height: 100svh;
-  display: grid;
-  grid-template-columns: var(--editor-sidebar-width) minmax(0, 1fr);
+  display: block;
+  position: relative;
   background: var(--editor-shell);
   color: var(--editor-text);
 }
 
 .vr-editor-root > .vr-inspector {
-  grid-column: 1;
-  grid-row: 1;
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  z-index: var(--z-editor-inspector);
 }
 
 .vr-editor-root > .vr-editor-workspace {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.vr-editor-root[data-inspector-open="false"] {
-  grid-template-columns: 0 minmax(0, 1fr);
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .vr-inspector {
   min-width: 0;
-  width: 100%;
+  width: var(--editor-sidebar-width);
   height: 100svh;
-  z-index: var(--z-inspector);
+  z-index: var(--z-editor-inspector);
   background: var(--editor-panel);
   border-right: 1px solid var(--editor-border-soft);
+  box-shadow: 18px 0 34px rgba(0, 0, 0, 0.18);
   overflow: hidden;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
   color: var(--editor-text);
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms ease-out;
 }
 
 .vr-editor-root[data-inspector-open="false"] .vr-inspector {
-  overflow: hidden;
-  border-right: 0;
+  opacity: 0;
+  transform: translateX(-12px);
+  pointer-events: none;
 }
 
 .vr-inspector-top {
@@ -163,6 +169,35 @@ html.vr-editor-lock body {
   background: var(--editor-panel);
   display: grid;
   gap: 10px;
+}
+
+.vr-inspector-resize {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: col-resize;
+}
+
+.vr-inspector-resize::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: var(--editor-accent);
+  opacity: 0;
+  transition: opacity 100ms ease-out;
+}
+
+.vr-inspector-resize:hover::before,
+.vr-inspector-resize:active::before {
+  opacity: 0.72;
 }
 
 .vr-inspector-save {
@@ -275,6 +310,48 @@ html.vr-editor-lock body {
 
 .vr-editor-more {
   position: relative;
+}
+
+.vr-editor-add {
+  position: relative;
+}
+
+.vr-editor-add-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: var(--z-editor-popover);
+  width: min(430px, calc(100vw - 24px));
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 12px;
+  padding: 10px;
+  border: 1px solid var(--editor-border);
+  border-radius: 5px;
+  background: #252832;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  animation: vr-editor-menu-in 140ms ease-out;
+}
+
+.vr-editor-add-menu button {
+  height: 30px;
+  justify-content: flex-start;
+  gap: 9px;
+  min-width: 0;
+  padding-inline: 7px;
+  color: var(--editor-text-secondary);
+}
+
+.vr-editor-add-menu button:hover {
+  color: var(--editor-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.vr-editor-add-icon {
+  width: 20px;
+  color: var(--editor-muted);
+  font-size: 12px;
+  text-align: center;
 }
 
 .vr-editor-top-menu {
@@ -452,6 +529,12 @@ html.vr-editor-lock body {
   position: absolute;
   box-sizing: border-box;
   pointer-events: none;
+  transition:
+    left 90ms ease-out,
+    top 90ms ease-out,
+    width 90ms ease-out,
+    height 90ms ease-out,
+    opacity 90ms ease-out;
 }
 
 .vr-editor-overlay-rect--hover {
@@ -491,6 +574,13 @@ html.vr-editor-lock body {
   box-shadow: 0 0 0 3px rgba(53, 183, 184, 0.1);
 }
 
+.vr-editor-overlay-rect--insert-vertical {
+  width: 2px !important;
+  min-width: 2px;
+  height: auto !important;
+  min-height: 42px;
+}
+
 .vr-editor-empty-drop {
   position: absolute;
   display: grid;
@@ -504,6 +594,12 @@ html.vr-editor-lock body {
 
 [data-vr-edit-mode="true"] [data-vr-draggable-node]:hover {
   cursor: grab;
+}
+
+.vr-editor-canvas [data-vr-editable],
+.vr-editor-canvas [data-vr-draggable-node] {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .vr-editor-canvas.is-dragging,
@@ -522,13 +618,19 @@ html.vr-editor-lock body {
   left: 0;
   z-index: var(--z-editor-modal);
   pointer-events: none;
-  opacity: 0.82;
+  opacity: 0.88;
   overflow: hidden;
   box-sizing: border-box;
   background: color-mix(in srgb, var(--vr-bg-main) 92%, transparent);
   outline: 1px solid rgba(53, 183, 184, 0.55);
   outline-offset: 2px;
   transform-origin: top left;
+}
+
+.vr-layout-child {
+  transition:
+    transform 150ms ease-out,
+    opacity 120ms ease-out;
 }
 
 .vr-column-resize {
@@ -1458,15 +1560,26 @@ html.vr-editor-lock body {
   }
 }
 
+@keyframes vr-editor-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (min-width: 1100px) {
   .vr-editor-root {
-    --editor-sidebar-width: 264px;
+    --editor-sidebar-width: 320px;
   }
 }
 
 @media (min-width: 760px) and (max-width: 1099px) {
   .vr-editor-root {
-    --editor-sidebar-width: 248px;
+    --editor-sidebar-width: 310px;
   }
 }
 
@@ -1478,6 +1591,7 @@ html.vr-editor-lock body {
 
 @media (max-width: 759px) {
   .vr-editor-root {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
   }
@@ -1508,6 +1622,10 @@ html.vr-editor-lock body {
     z-index: 80;
   }
 
+  .vr-inspector-resize {
+    display: none;
+  }
+
   .vr-editor-root[data-inspector-open="false"] .vr-inspector,
   .vr-editor-root[data-has-selection="false"] .vr-inspector {
     display: none;
@@ -1515,5 +1633,15 @@ html.vr-editor-lock body {
 
   .vr-ed-tooltip[data-tooltip]:hover::after {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vr-inspector,
+  .vr-editor-overlay-rect,
+  .vr-layout-child,
+  .vr-editor-add-menu {
+    animation: none !important;
+    transition: none !important;
   }
 }

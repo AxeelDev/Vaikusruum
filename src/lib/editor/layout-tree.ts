@@ -8,10 +8,13 @@ import type {
   SectionLayoutTree,
   SectionRow,
 } from "@/types/content";
+import type { AddableElementType } from "@/lib/editor/types";
 
 export type LayoutMoveTarget = {
   parentId: string;
   index: number;
+  placement?: "before" | "after" | "left" | "right" | "inside";
+  targetNodeId?: string;
 };
 
 export const COLUMN_BALANCE_OPTIONS: Array<{ value: ColumnBalance; label: string; left: number }> = [
@@ -87,13 +90,35 @@ export function moveLayoutNode(section: SectionRow, nodeId: string, target: Layo
 
   const extracted = removeNode(tree.root, nodeId);
   if (!extracted) return section;
-  const inserted = insertNode(tree.root, extracted.node, target.parentId, target.index);
+  const inserted =
+    target.placement === "left" || target.placement === "right"
+      ? insertNodeBeside(tree, extracted.node, target)
+      : insertNode(tree.root, extracted.node, target.parentId, target.index);
   if (!inserted) return section;
 
   return {
     ...section,
-    style: { ...section.style, layoutTree: tree },
+    style: { ...section.style, layoutTree: simplifyLayoutTree(tree) },
   };
+}
+
+export function insertLayoutElement(section: SectionRow, addType: AddableElementType, target: LayoutMoveTarget): { section: SectionRow; node: LayoutElementNode } {
+  const tree = structuredClone(getSectionLayoutTree(section));
+  const field = createElementField(addType);
+  const node = createElementNode(section, addType, field);
+  let inserted =
+    target.placement === "left" || target.placement === "right"
+      ? insertNodeBeside(tree, node, target)
+      : insertNode(tree.root, node, target.parentId, target.index);
+  if (!inserted) {
+    inserted = insertNode(tree.root, node, firstInsertableParentId(tree.root), Number.MAX_SAFE_INTEGER);
+  }
+  const next = {
+    ...section,
+    content: { ...section.content, [field]: defaultElementContent(addType) },
+    style: { ...section.style, layoutTree: inserted ? simplifyLayoutTree(tree) : tree },
+  };
+  return { section: next, node };
 }
 
 export function resizeLayoutColumns(section: SectionRow, leftPercent: number): SectionRow {
@@ -279,6 +304,105 @@ function element(
   return { id, type: "element", elementType, label, ...extra };
 }
 
+function createElementField(addType: AddableElementType) {
+  return `custom.${addType}.${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function createElementNode(section: SectionRow, addType: AddableElementType, field: string): LayoutElementNode {
+  const base = sectionNodePrefix(section);
+  const id = `${base}.${field}`;
+  switch (addType) {
+    case "links":
+      return element(id, "link", "Links", { field });
+    case "container":
+      return element(id, "text", "Container text", { field });
+    default:
+      return element(id, addType, elementLabel(addType), { field });
+  }
+}
+
+function elementLabel(addType: AddableElementType) {
+  switch (addType) {
+    case "text":
+      return "Text";
+    case "list":
+      return "List";
+    case "image":
+      return "Image";
+    case "buttons":
+      return "Buttons";
+    case "video":
+      return "Video";
+    case "links":
+      return "Links";
+    case "audio":
+      return "Audio";
+    case "icons":
+      return "Icons";
+    case "gallery":
+      return "Gallery";
+    case "table":
+      return "Table";
+    case "timer":
+      return "Timer";
+    case "divider":
+      return "Divider";
+    case "slideshow":
+      return "Slideshow";
+    case "form":
+      return "Form";
+    case "widget":
+      return "Widget";
+    case "embed":
+      return "Embed";
+    case "control":
+      return "Control";
+    case "container":
+      return "Container";
+  }
+}
+
+function defaultElementContent(addType: AddableElementType): unknown {
+  switch (addType) {
+    case "text":
+      return "Uus tekst";
+    case "list":
+      return { style: "bullet", items: ["Esimene punkt", "Teine punkt"] };
+    case "buttons":
+      return { buttons: [{ label: "Nupp", href: "/" }], direction: "horizontal" };
+    case "video":
+      return { url: "", title: "", controls: true, autoplay: false, muted: true, loop: false };
+    case "links":
+      return { items: [{ label: "Link", href: "/" }], direction: "horizontal" };
+    case "audio":
+      return { url: "", title: "Audio", controls: true, loop: false };
+    case "icons":
+      return { items: [{ icon: "circle", label: "Ikoon", href: "" }], size: 28 };
+    case "gallery":
+      return { images: [], columns: 3, gap: "medium", captions: false };
+    case "table":
+      return { header: true, rows: [["Pealkiri", "Väärtus"], ["", ""]] };
+    case "timer":
+      return { label: "Aeg", target: "", completionText: "Valmis" };
+    case "divider":
+      return { thickness: 1, opacity: 0.35 };
+    case "slideshow":
+      return { images: [], duration: 5, transition: "fade", autoplay: false };
+    case "form":
+      return { kind: "contact", submitLabel: "Saada", successText: "Aitäh." };
+    case "widget":
+      return { kind: "contact", title: "Kontakt" };
+    case "embed":
+      return { url: "", title: "Embed" };
+    case "control":
+      return { kind: "anchor", label: "Anchor" };
+    case "container":
+      return "Uus container";
+    case "image":
+      return { mediaId: "", alt: "" };
+  }
+}
+
 function isLayoutTree(value: unknown): value is SectionLayoutTree {
   if (!value || typeof value !== "object") return false;
   const tree = value as Partial<SectionLayoutTree>;
@@ -318,4 +442,68 @@ function insertNode(parent: LayoutNode, node: LayoutNode, parentId: string, inde
     return parent.children.some((child) => insertNode(child, node, parentId, index));
   }
   return false;
+}
+
+function firstInsertableParentId(node: LayoutNode): string {
+  if (node.type === "group" || node.type === "column") return node.id;
+  if (node.type === "columns") return node.columns[0].id;
+  return node.id;
+}
+
+function findParentWithChild(
+  parent: LayoutNode,
+  childId: string,
+): { parent: LayoutColumnNode | LayoutGroupNode; index: number } | null {
+  if (parent.type === "column" || parent.type === "group") {
+    const index = parent.children.findIndex((child) => child.id === childId);
+    if (index >= 0) return { parent, index };
+    for (const child of parent.children) {
+      const match = findParentWithChild(child, childId);
+      if (match) return match;
+    }
+  }
+  if (parent.type === "columns") {
+    for (const columnNode of parent.columns) {
+      const match = findParentWithChild(columnNode, childId);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+function insertNodeBeside(tree: SectionLayoutTree, node: LayoutNode, target: LayoutMoveTarget): boolean {
+  const targetNodeId = target.targetNodeId;
+  if (!targetNodeId || targetNodeId === node.id) return false;
+  const match = findParentWithChild(tree.root, targetNodeId);
+  if (!match) return false;
+  const [targetNode] = match.parent.children.splice(match.index, 1);
+  const leftChildren = target.placement === "left" ? [node] : [targetNode];
+  const rightChildren = target.placement === "left" ? [targetNode] : [node];
+  const wrapper = columns(`${targetNodeId}.columns.${crypto.randomUUID().slice(0, 8)}`, "Columns", "50-50", undefined, [
+    column(`${targetNodeId}.left.${crypto.randomUUID().slice(0, 6)}`, "Left column", leftChildren),
+    column(`${targetNodeId}.right.${crypto.randomUUID().slice(0, 6)}`, "Right column", rightChildren),
+  ]);
+  wrapper.mobile = { mode: "stack", order: target.placement === "left" ? "left-first" : "left-first" };
+  match.parent.children.splice(match.index, 0, wrapper);
+  return true;
+}
+
+function simplifyLayoutTree(tree: SectionLayoutTree): SectionLayoutTree {
+  return { ...tree, root: simplifyNode(tree.root) as SectionLayoutTree["root"] };
+}
+
+function simplifyNode(node: LayoutNode): LayoutNode {
+  if (node.type === "columns") {
+    const left = { ...node.columns[0], children: node.columns[0].children.map(simplifyNode) };
+    const right = { ...node.columns[1], children: node.columns[1].children.map(simplifyNode) };
+    const nonEmpty = [left, right].filter((columnNode) => columnNode.children.length > 0);
+    if (nonEmpty.length === 1) {
+      return group(`${node.id}.collapsed`, nonEmpty[0].label, nonEmpty[0].children);
+    }
+    return { ...node, columns: [left, right] };
+  }
+  if (node.type === "column" || node.type === "group") {
+    return { ...node, children: node.children.map(simplifyNode) };
+  }
+  return node;
 }

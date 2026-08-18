@@ -11,11 +11,18 @@ import { appearanceToStyle } from "@/lib/editor/appearance";
 import type { EditorSelection } from "@/lib/editor/types";
 import type { TextAppearance } from "@/types/content";
 
-function editProps(id: string, selected: boolean, preview: boolean) {
+function editProps(selection: EditorSelection, selected: boolean, preview: boolean) {
   if (preview) return {};
   return {
-    "data-vr-edit-id": id,
+    "data-vr-edit-id": selection.id,
     "data-vr-editable": "",
+    "data-vr-selection-id": selection.id,
+    "data-vr-selection-type": selection.type,
+    "data-vr-selection-section-id": selection.sectionId,
+    "data-vr-selection-field": selection.field,
+    "data-vr-selection-offering-id": selection.offeringId,
+    "data-vr-selection-media-id": selection.mediaId,
+    "data-vr-selection-nav-slug": selection.navSlug,
     "data-vr-selected": selected ? "" : undefined,
   };
 }
@@ -78,7 +85,7 @@ export function EditableText({
     <Tag
       className={className}
       style={mergedStyle}
-      {...editProps(selection.id, Boolean(selected), editor.state.preview)}
+      {...editProps(selection, Boolean(selected), editor.state.preview)}
       onClick={onClick}
     >
       {value}
@@ -114,7 +121,7 @@ export function EditableNode({
     <Tag
       className={className}
       style={style}
-      {...editProps(selection.id, Boolean(selected), editor.state.preview)}
+      {...editProps(selection, Boolean(selected), editor.state.preview)}
       onClick={(event: MouseEvent) => {
         event.stopPropagation();
         if (editor.state.preview) return;

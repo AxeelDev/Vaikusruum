@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type PointerEvent } from "react";
 import { useEditor } from "@/components/editor/EditorProvider";
 import { RichEditor } from "@/components/admin/RichEditor";
 import {
@@ -48,9 +48,36 @@ export function Inspector() {
   const editor = useEditor();
   const { state } = editor;
   const hasContext = Boolean(state.selected || state.themePanel);
+  const [width, setWidth] = useState(() => {
+    if (typeof window === "undefined") return 320;
+    const stored = Number(window.localStorage.getItem("vr.editor.inspectorWidth"));
+    return Number.isFinite(stored) ? clampInspectorWidth(stored) : 320;
+  });
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--editor-sidebar-width", `${width}px`);
+  }, [width]);
+
+  function onResizePointerDown(event: PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    event.currentTarget.setPointerCapture(pointerId);
+    const move = (moveEvent: globalThis.PointerEvent) => {
+      const next = clampInspectorWidth(moveEvent.clientX);
+      setWidth(next);
+      window.localStorage.setItem("vr.editor.inspectorWidth", String(next));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
 
   return (
-    <aside className="vr-inspector" aria-label="Redaktor">
+    <aside className="vr-inspector" aria-label="Redaktor" style={{ width }}>
       <div className="vr-inspector-top">
         <div className="vr-inspector-tabs">
           <EditorTooltip label="Sisu / elemendid">
@@ -134,8 +161,22 @@ export function Inspector() {
         {state.themePanel ? <ThemePanel /> : <SelectionPanels />}
       </div>
       <EditorFooterControls />
+      <button
+        type="button"
+        className="vr-inspector-resize"
+        aria-label="Muuda paneeli laiust"
+        onPointerDown={onResizePointerDown}
+        onDoubleClick={() => {
+          setWidth(320);
+          window.localStorage.setItem("vr.editor.inspectorWidth", "320");
+        }}
+      />
     </aside>
   );
+}
+
+function clampInspectorWidth(value: number) {
+  return Math.min(460, Math.max(270, Math.round(value)));
 }
 
 function EditorGlobalBrowser() {
@@ -266,6 +307,7 @@ function SelectionPanels() {
   }
   if (selected.type === "container") return <ContainerPanel />;
   if (selected.type === "image") return <ImagePanel />;
+  if (selected.type === "text" && isStructuredContentSelection(editor)) return <StructuredContentPanel />;
   if (tab === "appearance") return <AppearancePanel />;
   if (tab === "animation") return <AnimationPanel />;
   if (tab === "settings") return <SettingsPanel />;
@@ -273,6 +315,46 @@ function SelectionPanels() {
   if (selected.type === "header") return <HeaderPanel />;
   if (selected.type === "nav") return <NavItemPanel />;
   return <ContentPanel />;
+}
+
+function isStructuredContentSelection(editor: ReturnType<typeof useEditor>) {
+  const selected = editor.state.selected;
+  if (!selected?.sectionId || !selected.field) return false;
+  const section = findSection(editor.state.draft, selected.sectionId);
+  const raw = section?.content[selected.field];
+  return Boolean(raw && typeof raw === "object" && selected.field.startsWith("custom."));
+}
+
+function StructuredContentPanel() {
+  const editor = useEditor();
+  const selected = editor.state.selected!;
+  const raw = selected.sectionId && selected.field ? findSection(editor.state.draft, selected.sectionId)?.content[selected.field] : undefined;
+  const [error, setError] = useState("");
+  const value = JSON.stringify(raw ?? {}, null, 2);
+
+  function commit(next: string, record: boolean) {
+    try {
+      setError("");
+      editor.setPath(
+        { kind: "section-content", sectionId: selected.sectionId!, key: selected.field! },
+        JSON.parse(next) as unknown,
+        record,
+      );
+    } catch {
+      setError("JSON peab olema korrektne.");
+    }
+  }
+
+  return (
+    <div className="vr-inspector-body">
+      <EditorContext kicker="Komponent" title={selected.field?.split(".")[1] ?? "Element"} />
+      <EditorGroup label="Seaded">
+        <EditorTextarea rows={10} value={value} onChange={(next) => commit(next, false)} onCommit={(next) => commit(next, true)} />
+      </EditorGroup>
+      {error ? <p className="vr-form-error">{error}</p> : null}
+      <p className="vr-ed-help">Selle komponendi sisu salvestub struktureeritud JSON-ina sektsiooni sisusse.</p>
+    </div>
+  );
 }
 
 function PageOverview({ mode = "content" }: { mode?: "content" | "settings" }) {
