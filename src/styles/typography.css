@@ -14,10 +14,12 @@
 }
 
 .vr-wordmark--hero {
-  font-size: clamp(52px, 4.2vw, 72px);
-  letter-spacing: 0.16em;
+  font-size: clamp(40px, 3.4vw, 56px);
+  letter-spacing: 0.12em;
   line-height: 1;
   margin: 0;
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 760px) {

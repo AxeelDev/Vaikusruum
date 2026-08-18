@@ -88,7 +88,7 @@ function SectionImage({
   const frame = (
     <MediaFrame
       crop={crop}
-      width={section.style?.image?.width}
+      width={section.section_type === "hero" ? undefined : section.style?.image?.width}
       radius={section.style?.image?.radius}
       align={section.style?.image?.align}
     >
@@ -281,42 +281,40 @@ function SectionView({
       }
 
       const columnsSelected = editor?.state.selected?.id === node.id && !editor.state.preview;
+      const splitVars = {
+        "--vr-left-column": `${left}%`,
+        "--vr-right-column": `${100 - left}%`,
+      } as CSSProperties;
       return (
-        <SplitLayout
-          section={section}
-          hasMedia
-          className={[
-            "vr-layout-columns",
-            section.section_type === "hero" ? "vr-hero-layout" : "",
-            columnsSelected ? "is-split-selected" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          data-vr-edit-id={editor && !editor.state.preview ? node.id : undefined}
-          data-vr-editable={editor && !editor.state.preview ? "" : undefined}
-          data-vr-selected={columnsSelected ? "" : undefined}
-          data-vr-node-id={editor && !editor.state.preview ? node.id : undefined}
-          data-vr-section-id={editor && !editor.state.preview ? section.id : undefined}
-          data-vr-node-kind={editor && !editor.state.preview ? "columns" : undefined}
-          onClick={(event) => {
-            if (!editor || editor.state.preview) return;
-            if (event.target !== event.currentTarget) return;
-            event.stopPropagation();
-            editor.select({ id: node.id, type: "container", sectionId: section.id, layoutNodeId: node.id });
-          }}
+        <div
+          className={["vr-layout-columns", columnsSelected ? "is-split-selected" : ""].filter(Boolean).join(" ")}
+          style={splitVars}
         >
-          {renderedColumns.map(({ node: columnNode, children }) => (
-            <LayoutContainer key={columnNode.id} section={section} node={columnNode} className="vr-layout-column">
-              {children}
-            </LayoutContainer>
-          ))}
+          <SplitLayout
+            section={section}
+            hasMedia
+            className={section.section_type === "hero" ? "vr-hero-layout" : undefined}
+            data-vr-edit-id={editor && !editor.state.preview ? node.id : undefined}
+            data-vr-editable={editor && !editor.state.preview ? "" : undefined}
+            data-vr-selected={columnsSelected ? "" : undefined}
+            data-vr-node-id={editor && !editor.state.preview ? node.id : undefined}
+            data-vr-section-id={editor && !editor.state.preview ? section.id : undefined}
+            data-vr-node-kind={editor && !editor.state.preview ? "columns" : undefined}
+            onClick={(event) => {
+              if (!editor || editor.state.preview) return;
+              if (event.target !== event.currentTarget) return;
+              event.stopPropagation();
+              editor.select({ id: node.id, type: "container", sectionId: section.id, layoutNodeId: node.id });
+            }}
+          >
+            {renderedColumns.map(({ node: columnNode, children }) => (
+              <LayoutContainer key={columnNode.id} section={section} node={columnNode} className="vr-layout-column">
+                {children}
+              </LayoutContainer>
+            ))}
+          </SplitLayout>
           <ColumnResizeHandle section={section} columnsId={node.id} />
-          {columnsSelected ? (
-            <span className="vr-column-ratio" aria-hidden>
-              {left} / {100 - left}
-            </span>
-          ) : null}
-        </SplitLayout>
+        </div>
       );
     }
     if (node.type === "group") {
@@ -601,7 +599,11 @@ function SectionView({
             selection={selection}
             path={{ kind: "section-content", sectionId: section.id, key: field }}
             value={typeof section.content.title === "string" && section.content.title ? section.content.title : String(settings.site_name || "VAIKUSRUUM")}
-            appearance={section.section_type === "hero" ? { ...titleAppearance, width: undefined } : titleAppearance}
+            appearance={
+              section.section_type === "hero"
+                ? { ...titleAppearance, width: undefined, size: undefined, letterSpacing: undefined }
+                : titleAppearance
+            }
           />
         </div>
       );

@@ -34,9 +34,9 @@
   --vr-section-space-mobile: 64px;
   --vr-split-gap: clamp(90px, 8vw, 150px);
   --vr-header-height: 70px;
-  --vr-hero-intro-width: 560px;
-  --vr-hero-artwork-size: 620px;
-  --vr-hero-text-gap: 68px;
+  --vr-hero-intro-width: 520px;
+  --vr-hero-artwork-size: 100%;
+  --vr-hero-text-gap: 56px;
   --vr-paragraph-spacing: 20px;
   --vr-image-radius: 0px;
   --vr-button-radius: 999px;

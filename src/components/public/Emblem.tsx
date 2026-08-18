@@ -27,6 +27,8 @@ export function Emblem({ className }: { className?: string }) {
     <svg
       className={className ?? "vr-emblem"}
       viewBox="0 0 400 400"
+      width="100%"
+      height="100%"
       role="img"
       aria-hidden="true"
       focusable="false"

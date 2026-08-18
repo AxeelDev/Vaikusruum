@@ -215,7 +215,7 @@ export function themeToCssVars(theme: ThemeTokens): CSSProperties {
     "--vr-heading-tracking": `${t.headingTracking}em`,
     "--vr-paragraph-max-width": `${t.paragraphMaxWidth}rem`,
     "--vr-content-width": `${t.contentMaxWidth}px`,
-    "--vr-hero-max-width": `${t.contentMaxWidth}px`,
+    "--vr-hero-max-width": "1480px",
     "--vr-page-gutter": `clamp(48px, 5vw, ${t.gutterDesktop}px)`,
     "--vr-gutter-desktop": "var(--vr-page-gutter)",
     "--vr-gutter-mobile": `${t.gutterMobile}px`,

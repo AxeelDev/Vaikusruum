@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSection, duplicateSection, reorderSections } from "@/lib/editor/draft";
 import { appearanceToStyle, mergeFieldStyle } from "@/lib/editor/appearance";
-import { resolveColumnBalance, resolveHeight, resolveVerticalAlign } from "@/components/layout/primitives";
+import { resolveColumnBalance, resolveHeight, resolveVerticalAlign, splitGridColumns } from "@/components/layout/primitives";
 import { getSectionLayoutTree, ratioToLeftPercent } from "@/lib/editor/layout-tree";
 import type { SectionRow } from "@/types/content";
 
@@ -39,6 +39,11 @@ describe("section layout primitives", () => {
     expect(tree.root.type).toBe("columns");
     if (tree.root.type !== "columns") return;
     expect(ratioToLeftPercent(tree.root.ratio, tree.root.customRatio)).toBe(46);
+  });
+
+  it("emits real grid tracks instead of custom-property fr values", () => {
+    expect(splitGridColumns(46)).toBe("minmax(0, 46fr) minmax(0, 54fr)");
+    expect(splitGridColumns(50)).toBe("minmax(0, 50fr) minmax(0, 50fr)");
   });
 });
 

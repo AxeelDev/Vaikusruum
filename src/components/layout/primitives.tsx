@@ -63,7 +63,10 @@ export function sectionPaddingStyle(section: SectionRow): CSSProperties {
   if (typeof section.style?.topSpace === "number") style.paddingTop = section.style.topSpace;
   if (typeof section.style?.bottomSpace === "number") style.paddingBottom = section.style.bottomSpace;
   if (typeof section.style?.contentWidth === "number") {
-    (style as Record<string, string>)["--vr-content-width"] = `${section.style.contentWidth}px`;
+    const split = section.section_type === "hero" || SCREEN_KEYS.has(section.section_key) || section.section_type === "split_media_text";
+    const minWidth = section.section_type === "hero" ? 1480 : split ? 1280 : 0;
+    const width = Math.max(minWidth, section.style.contentWidth);
+    (style as Record<string, string>)["--vr-content-width"] = `${width}px`;
   }
   return style;
 }
@@ -105,11 +108,16 @@ export function SectionInner({
   );
 }
 
+export function splitGridColumns(leftPercent: number): string {
+  return `minmax(0, ${leftPercent}fr) minmax(0, ${100 - leftPercent}fr)`;
+}
+
 export function SplitLayout({
   section,
   hasMedia,
   children,
   className,
+  style,
   ...rest
 }: {
   section: SectionRow;
@@ -118,18 +126,19 @@ export function SplitLayout({
   className?: string;
 } & HTMLAttributes<HTMLDivElement>) {
   const tree = getSectionLayoutTree(section);
-  const style: CSSProperties = {};
-  if (typeof section.style?.splitGap === "number") style.gap = `${section.style.splitGap}px`;
+  const merged: CSSProperties = { ...style };
+  if (typeof section.style?.splitGap === "number" && section.section_type !== "hero") {
+    merged.gap = `${section.style.splitGap}px`;
+  }
   if (tree.root.type === "columns") {
     const left = ratioToLeftPercent(tree.root.ratio, tree.root.customRatio ?? section.style?.columnRatio);
-    const vars = style as Record<string, string>;
+    const vars = merged as Record<string, string | number | undefined>;
     vars["--vr-left-column"] = `${left}%`;
     vars["--vr-right-column"] = `${100 - left}%`;
-    vars["--vr-left-ratio"] = `${left / 100}fr`;
-    vars["--vr-right-ratio"] = `${(100 - left) / 100}fr`;
+    merged.gridTemplateColumns = splitGridColumns(left);
   }
   return (
-    <div className={[splitClassName(section, hasMedia), className].filter(Boolean).join(" ")} style={style} {...rest}>
+    <div className={[splitClassName(section, hasMedia), className].filter(Boolean).join(" ")} style={merged} {...rest}>
       {children}
     </div>
   );

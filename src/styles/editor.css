@@ -558,12 +558,20 @@ html.vr-editor-lock body {
 
 .vr-editor-canvas--mobile .vr-header,
 .vr-editor-canvas--mobile .vr-footer {
-  padding-left: var(--vr-gutter-mobile);
-  padding-right: var(--vr-gutter-mobile);
+  padding-left: 0;
+  padding-right: 0;
 }
 
-.vr-editor-canvas--mobile .vr-section-inner {
-  width: calc(100% - (var(--vr-gutter-mobile) * 2));
+.vr-editor-canvas--mobile .vr-header-inner,
+.vr-editor-canvas--mobile .vr-section-inner,
+.vr-editor-canvas--mobile .vr-section-inner--hero {
+  width: 100%;
+  padding-inline: var(--vr-gutter-mobile);
+}
+
+.vr-editor-canvas--tablet .vr-split,
+.vr-editor-canvas--mobile .vr-split {
+  grid-template-columns: 1fr !important;
 }
 
 .vr-editor-canvas--mobile .vr-screen-section,
@@ -829,7 +837,7 @@ html.vr-editor-lock body {
 }
 
 [data-vr-edit-mode="true"] .vr-layout-columns.is-split-selected .vr-layout-column {
-  box-shadow: inset 0 0 0 1px rgba(53, 183, 184, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(53, 183, 184, 0.14);
 }
 
 .vr-inspector-row {
