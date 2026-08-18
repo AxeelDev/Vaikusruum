@@ -3,7 +3,7 @@
 import { memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Inspector } from "@/components/editor/Inspector";
 import { useDragRuntime, useEditor } from "@/components/editor/EditorProvider";
-import { EditorButton } from "@/components/editor/ui";
+import { EditorButton, EditorPopover } from "@/components/editor/ui";
 import { SiteView } from "@/components/site/SiteView";
 import { BREAKPOINT_WIDTH, type AddableElementType, type EditorSelection } from "@/lib/editor/types";
 import { addableNodesForRole } from "@/lib/editor/node-registry";
@@ -887,27 +887,11 @@ function EditorTopBar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const page = state.draft.pages.find((item) => item.id === state.pageId);
   const canUndo = state.historyIndex > 0;
   const canRedo = state.historyIndex < state.history.length - 1;
   const saveText = state.saving ? "Salvestan…" : state.saveFlash && !state.dirty ? "Salvestatud" : "Salvesta";
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    function onClick(event: PointerEvent) {
-      const target = event.target as HTMLElement | null;
-      if (!target?.closest(".vr-editor-add")) setMenuOpen(false);
-    }
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onClick);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onClick);
-    };
-  }, [menuOpen]);
 
   return (
     <div className="vr-editor-topstrip">
@@ -917,7 +901,13 @@ function EditorTopBar({
             +
           </button>
           {menuOpen ? (
-            <div className="vr-editor-add-menu" role="menu">
+            <EditorPopover
+              open={menuOpen}
+              onClose={() => setMenuOpen(false)}
+              anchorRef={addButtonRef}
+              placement="bottom-start"
+              className="vr-editor-add-menu"
+            >
               {addableNodesForRole(editor.role).map((item) => (
                 <button
                   key={item.type}
@@ -934,7 +924,7 @@ function EditorTopBar({
                   <span>{item.label}</span>
                 </button>
               ))}
-            </div>
+            </EditorPopover>
           ) : null}
         </div>
         <button type="button" aria-label="Võta tagasi" disabled={!canUndo} onClick={() => editor.undo()}>
@@ -966,40 +956,50 @@ function EditorTopBar({
           {saveText}
         </button>
         <div className="vr-editor-more">
-          <button type="button" aria-label="Rohkem" data-active={moreOpen ? "true" : undefined} onClick={() => setMoreOpen((open) => !open)}>
+          <button
+            ref={moreButtonRef}
+            type="button"
+            aria-label="Rohkem"
+            data-active={moreOpen ? "true" : undefined}
+            onClick={() => setMoreOpen((open) => !open)}
+          >
             ⋮
           </button>
-          {moreOpen ? (
-            <div className="vr-editor-menu vr-editor-top-menu">
-              <button
-                type="button"
-                onClick={() => {
-                  editor.openSiteDesign();
-                  setMoreOpen(false);
-                }}
-              >
-                Saidi kujundus
-              </button>
-              <button type="button" onClick={() => editor.requestNavigation("/admin/design")}>
-                Halduse kujundus
-              </button>
-              <button type="button" onClick={() => editor.requestNavigation("/admin")}>
-                Haldus
-              </button>
-              <button type="button" onClick={() => editor.requestNavigation("/")}>
-                Vaata lehte
-              </button>
-              <button type="button" onClick={() => editor.requestNavigation("/admin/media")}>
-                Pildid
-              </button>
-              <button type="button" onClick={() => editor.requestNavigation("/admin/settings")}>
-                Seaded
-              </button>
-              <form action={logoutAction}>
-                <button type="submit">Logi välja</button>
-              </form>
-            </div>
-          ) : null}
+          <EditorPopover
+            open={moreOpen}
+            onClose={() => setMoreOpen(false)}
+            anchorRef={moreButtonRef}
+            placement="bottom-end"
+            className="vr-editor-menu vr-editor-top-menu"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                editor.openSiteDesign();
+                setMoreOpen(false);
+              }}
+            >
+              Saidi kujundus
+            </button>
+            <button type="button" onClick={() => editor.requestNavigation("/admin/design")}>
+              Halduse kujundus
+            </button>
+            <button type="button" onClick={() => editor.requestNavigation("/admin")}>
+              Haldus
+            </button>
+            <button type="button" onClick={() => editor.requestNavigation("/")}>
+              Vaata lehte
+            </button>
+            <button type="button" onClick={() => editor.requestNavigation("/admin/media")}>
+              Pildid
+            </button>
+            <button type="button" onClick={() => editor.requestNavigation("/admin/settings")}>
+              Seaded
+            </button>
+            <form action={logoutAction}>
+              <button type="submit">Logi välja</button>
+            </form>
+          </EditorPopover>
         </div>
       </div>
     </div>

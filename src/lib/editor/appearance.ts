@@ -40,6 +40,10 @@ export function mergeFieldStyle(
     next.maxWidth = null;
     delete next.width;
   }
+  if (patch.maxWidth === 0) {
+    next.maxWidth = 0;
+    next.width = 0;
+  }
   return {
     ...section,
     style: {

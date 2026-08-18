@@ -40,9 +40,10 @@
   --z-public-content: 1;
   --z-public-header: 20;
   --z-editor-selection: 40;
-  --z-editor-popover: 80;
-  --z-editor-modal: 100;
-  --z-editor-inspector: 90;
+  --z-editor-inspector: 100;
+  --z-editor-topbar: 110;
+  --z-editor-popover: 200;
+  --z-editor-modal: 300;
 }
 
 html.vr-editor-lock,
@@ -345,7 +346,7 @@ html.vr-editor-lock body {
   padding: 6px 10px;
   background: var(--editor-shell);
   border-bottom: 1px solid var(--editor-border-soft);
-  z-index: var(--z-editor-popover);
+  z-index: var(--z-editor-topbar);
 }
 
 .vr-editor-topbar {
@@ -413,11 +414,9 @@ html.vr-editor-lock body {
 }
 
 .vr-editor-add-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
   z-index: var(--z-editor-popover);
-  width: min(430px, calc(100vw - 24px));
+  width: min(430px, calc(100vw - 16px));
+  max-width: min(430px, calc(100vw - 16px));
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px 12px;
@@ -457,15 +456,22 @@ html.vr-editor-lock body {
 
 .vr-editor-menu,
 .vr-ed-popover {
-  position: absolute;
-  top: calc(100% + 4px);
+  position: fixed;
+  top: 0;
   left: 0;
   z-index: var(--z-editor-popover);
   min-width: 12rem;
+  max-width: min(280px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
   background: var(--editor-panel);
   border: 1px solid var(--editor-border);
   border-radius: 4px;
   box-shadow: 0 8px 24px rgba(57, 55, 50, 0.08);
+}
+
+.vr-editor-add-menu.vr-ed-popover {
+  max-width: min(430px, calc(100vw - 16px));
 }
 
 .vr-editor-menu {
@@ -538,6 +544,7 @@ html.vr-editor-lock body {
   background: var(--vr-bg-main);
   min-height: 100%;
   --vr-site-viewport-height: 100%;
+  container-type: inline-size;
 }
 
 .vr-editor-canvas--tablet,
@@ -552,64 +559,7 @@ html.vr-editor-lock body {
   margin: 0 auto 1.25rem;
   min-height: calc(100% - 1.25rem);
   box-shadow: 0 0 0 1px var(--editor-border-soft);
-}
-
-.vr-editor-canvas--tablet .vr-nav,
-.vr-editor-canvas--mobile .vr-nav {
-  display: none;
-}
-
-.vr-editor-canvas--tablet .vr-menu-toggle,
-.vr-editor-canvas--mobile .vr-menu-toggle {
-  display: inline-flex;
-}
-
-.vr-editor-canvas--mobile .vr-header,
-.vr-editor-canvas--mobile .vr-footer {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.vr-editor-canvas--mobile .vr-header-inner,
-.vr-editor-canvas--mobile .vr-section-inner,
-.vr-editor-canvas--mobile .vr-section-inner--hero {
-  width: 100%;
-  padding-inline: var(--vr-gutter-mobile);
-}
-
-.vr-editor-canvas--tablet .vr-split,
-.vr-editor-canvas--mobile .vr-split {
-  grid-template-columns: 1fr !important;
-}
-
-.vr-editor-canvas--mobile .vr-screen-section,
-.vr-editor-canvas--mobile .vr-section--hero,
-.vr-editor-canvas--mobile .vr-section--viewport,
-.vr-editor-canvas--mobile .vr-screen-section--auto,
-.vr-editor-canvas--mobile .vr-section--compact {
-  min-height: auto;
-  padding-block: 72px;
-}
-
-.vr-editor-canvas--tablet .vr-menu-overlay,
-.vr-editor-canvas--mobile .vr-menu-overlay {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1.4rem;
-  position: absolute;
-  inset: 0;
-  background: var(--vr-bg-main);
-  z-index: var(--z-editor-modal);
-  padding: 5rem var(--vr-gutter-mobile) 2rem;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.vr-editor-canvas--tablet .vr-menu-overlay.is-open,
-.vr-editor-canvas--mobile .vr-menu-overlay.is-open {
-  opacity: 1;
-  pointer-events: auto;
+  container-type: inline-size;
 }
 
 .vr-editor-canvas-busy {
@@ -1180,11 +1130,9 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-select-menu {
-  left: 0;
-  right: 0;
-  min-width: 100%;
+  min-width: 12rem;
   padding: 4px;
-  max-height: 240px;
+  max-height: min(240px, calc(100dvh - 16px));
   overflow: auto;
 }
 
@@ -1391,9 +1339,6 @@ html.vr-editor-lock body {
 }
 
 .vr-ed-color-pop {
-  top: calc(100% + 6px);
-  left: 0;
-  right: auto;
   width: 220px;
   padding: 10px;
   display: grid;
@@ -1882,7 +1827,7 @@ html.vr-editor-lock body {
     border-right: 0;
     border-top: 1px solid var(--editor-border);
     border-radius: 0;
-    z-index: 80;
+    z-index: var(--z-editor-inspector);
   }
 
   .vr-inspector-resize {

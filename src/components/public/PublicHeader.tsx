@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { EditableText } from "@/components/site/Editable";
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
 import type { NavItem } from "@/types/content";
@@ -20,18 +20,39 @@ export function PublicHeader({
 }) {
   const pathname = usePathname();
   const current = currentHref ?? pathname;
-  const [menuPath, setMenuPath] = useState<string | null>(null);
-  const open = menuPath === pathname;
+  const [open, setOpen] = useState(false);
   const editor = useOptionalEditor();
+  const headerRef = useRef<HTMLElement>(null);
+  const menuId = useId();
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    setOpen(false);
+  }, [pathname, currentHref]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    function onPointer(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (target && headerRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
     return () => {
-      document.body.style.overflow = "";
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
     };
   }, [open]);
 
+  function closeMenu() {
+    setOpen(false);
+  }
+
   function onNavClick(event: MouseEvent<HTMLAnchorElement>, slug: string) {
+    closeMenu();
     if (!editor) return;
     event.preventDefault();
     if (event.shiftKey && !editor.state.preview) {
@@ -45,11 +66,11 @@ export function PublicHeader({
       return;
     }
     editor.requestSwitchPageBySlug(slug);
-    setMenuPath(null);
   }
 
   return (
     <header
+      ref={headerRef}
       className="vr-header"
       data-vr-edit-id={editor && !editor.state.preview ? "header.bar" : undefined}
       data-vr-editable={editor && !editor.state.preview ? "" : undefined}
@@ -66,6 +87,7 @@ export function PublicHeader({
           className="vr-wordmark vr-wordmark--header"
           title={editor && !editor.state.preview ? NAV_HINT : undefined}
           onClick={(event) => {
+            closeMenu();
             if (!editor) return;
             event.preventDefault();
             if (event.shiftKey && !editor.state.preview) {
@@ -102,19 +124,24 @@ export function PublicHeader({
             </Link>
           ))}
         </nav>
-        <button type="button" className="vr-menu-toggle" onClick={() => setMenuPath(pathname)}>
-          Menüü
+        <button
+          type="button"
+          className="vr-menu-toggle"
+          aria-label="Ava menüü"
+          aria-expanded={open}
+          aria-controls={menuId}
+          onClick={() => setOpen((next) => !next)}
+        >
+          <MenuIcon open={open} />
         </button>
       </div>
-      <div className={open ? "vr-menu-overlay is-open" : "vr-menu-overlay"} aria-hidden={!open}>
-        <button type="button" className="vr-menu-close" onClick={() => setMenuPath(null)}>
-          Sulge
-        </button>
+      <div id={menuId} className={open ? "vr-nav-sheet is-open" : "vr-nav-sheet"}>
         <nav aria-label="Mobiilimenüü">
           {items.map((item) => (
             <Link
               key={item.slug}
               href={item.href}
+              aria-current={current === item.href ? "page" : undefined}
               title={editor && !editor.state.preview ? NAV_HINT : undefined}
               onClick={(event) => onNavClick(event, item.slug)}
             >
@@ -124,5 +151,17 @@ export function PublicHeader({
         </nav>
       </div>
     </header>
+  );
+}
+
+function MenuIcon({ open }: { open: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      {open ? (
+        <path d="M4.5 4.5l11 11M15.5 4.5l-11 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      ) : (
+        <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      )}
+    </svg>
   );
 }

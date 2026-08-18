@@ -2,13 +2,16 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   canonicalizeHex,
   clamp,
@@ -19,6 +22,7 @@ import {
   type Hsv,
   type ThemeSwatch,
 } from "@/lib/editor/color";
+import { placeFloating, type FloatingPlacement } from "@/lib/editor/popover-position";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -266,18 +270,60 @@ export function EditorPopover({
   onClose,
   children,
   className,
+  anchorRef,
+  placement = "bottom-start",
 }: {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  anchorRef: RefObject<HTMLElement | null>;
+  placement?: FloatingPlacement;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, ready: false });
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setCoords({ top: 0, left: 0, ready: false });
+      return;
+    }
+    function update() {
+      const trigger = anchorRef.current?.getBoundingClientRect();
+      const floating = ref.current?.getBoundingClientRect();
+      if (!trigger || !floating) return;
+      const next = placeFloating({
+        trigger,
+        floatingWidth: Math.max(floating.width, 1),
+        floatingHeight: Math.max(floating.height, 1),
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        placement,
+      });
+      setCoords((prev) =>
+        prev.ready && prev.top === next.top && prev.left === next.left ? prev : { ...next, ready: true },
+      );
+    }
+    update();
+    const floatingEl = ref.current;
+    const observer = floatingEl ? new ResizeObserver(update) : null;
+    if (floatingEl) observer?.observe(floatingEl);
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [anchorRef, open, placement]);
 
   useEffect(() => {
     if (!open) return;
     function onDoc(event: MouseEvent) {
-      if (!ref.current?.contains(event.target as Node)) onClose();
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (ref.current?.contains(target) || anchorRef.current?.contains(target)) return;
+      onClose();
     }
     function onKey(event: globalThis.KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -288,13 +334,23 @@ export function EditorPopover({
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, [onClose, open]);
+  }, [anchorRef, onClose, open]);
 
-  if (!open) return null;
-  return (
-    <div ref={ref} className={cx("vr-ed-popover", className)} role="dialog">
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      ref={ref}
+      className={cx("vr-ed-popover", className)}
+      role="dialog"
+      style={{
+        top: coords.top,
+        left: coords.left,
+        visibility: coords.ready ? "visible" : "hidden",
+      }}
+    >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -312,6 +368,7 @@ export function EditorSelect({
   previewFont?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
   const current = options.find((option) => option.value === value) ?? options[0];
   const style: CSSProperties | undefined =
     previewFont && current?.fontFamily ? { fontFamily: current.fontFamily } : undefined;
@@ -319,6 +376,7 @@ export function EditorSelect({
   return (
     <div className="vr-ed-select-wrap">
       <button
+        ref={anchorRef}
         type="button"
         className={cx("vr-ed-select", previewFont && "vr-ed-select--font")}
         style={style}
@@ -336,7 +394,7 @@ export function EditorSelect({
         )}
         <Chevron />
       </button>
-      <EditorPopover open={open} onClose={() => setOpen(false)} className="vr-ed-select-menu">
+      <EditorPopover open={open} onClose={() => setOpen(false)} anchorRef={anchorRef} className="vr-ed-select-menu">
         <ul role="listbox">
           {options.map((option) => (
             <li key={option.value}>
@@ -514,6 +572,7 @@ function EditorColorInner({
   const [hex, setHex] = useState(resolved);
   const [invalid, setInvalid] = useState(false);
   const [hsv, setHsv] = useState<Hsv>(() => hexToHsv(resolved));
+  const anchorRef = useRef<HTMLButtonElement>(null);
 
   function commit(next: string) {
     const canonical = canonicalizeHex(next);
@@ -538,6 +597,7 @@ function EditorColorInner({
     <EditorGroup label={label} value={inherited ? inheritedLabel : hex}>
       <div className="vr-ed-color">
         <button
+          ref={anchorRef}
           type="button"
           className="vr-ed-swatch"
           aria-label={`${label} värv`}
@@ -558,7 +618,7 @@ function EditorColorInner({
             }
           }}
         />
-        <EditorPopover open={open} onClose={() => setOpen(false)} className="vr-ed-color-pop">
+        <EditorPopover open={open} onClose={() => setOpen(false)} anchorRef={anchorRef} className="vr-ed-color-pop">
           <ColorArea hsv={hsv} onChange={(next) => commit(hsvToHex(next))} />
           <HueSlider hsv={hsv} onChange={(next) => commit(hsvToHex(next))} />
           <div className="vr-ed-swatches">

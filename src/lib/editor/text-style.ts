@@ -21,7 +21,13 @@ export type CanonicalTextStyle = {
   fontStyle?: "normal" | "italic";
   textDecoration?: "none" | "underline";
   role?: TextRole;
+  desktop?: { fontSize?: number; maxWidth?: number | null };
+  tablet?: { fontSize?: number; maxWidth?: number | null };
+  mobile?: { fontSize?: number; maxWidth?: number | null };
 };
+
+/** Sentinel: 100% of the parent column, never 100vw. */
+export const WIDTH_FULL = 0;
 
 export const TEXT_STYLE_BOUNDS = {
   fontSize: { min: 8, max: 240 },
@@ -38,13 +44,23 @@ export const TEXT_SIZE_RANGES: Record<TextStyleScale, { min: number; max: number
   display: { min: 16, max: 240 },
 };
 
+export const TEXT_WIDTH_RANGES: Record<TextStyleScale, { min: number; max: number }> = {
+  body: { min: 160, max: 1200 },
+  heading: { min: 160, max: 1200 },
+  display: { min: 160, max: 1600 },
+};
+
 export const WIDTH_PRESETS = [
   { id: "auto", label: "Auto", value: null },
-  { id: "narrow", label: "Narrow", value: 480 },
-  { id: "medium", label: "Medium", value: 560 },
-  { id: "wide", label: "Wide", value: 640 },
-  { id: "custom", label: "Custom", value: 720 },
+  { id: "narrow", label: "Narrow", value: 420 },
+  { id: "medium", label: "Medium", value: 620 },
+  { id: "wide", label: "Wide", value: 860 },
+  { id: "full", label: "Full", value: WIDTH_FULL },
 ] as const;
+
+export function isFullWidth(maxWidth?: number | null): boolean {
+  return maxWidth === WIDTH_FULL;
+}
 
 export function textStyleKey(selection: Pick<EditorSelection, "field" | "offeringId">): string | null {
   if (!selection.field) return null;
@@ -73,6 +89,9 @@ export function readTextStyle(raw?: TextAppearance | null): CanonicalTextStyle {
     maxWidth,
     fontStyle: raw.fontStyle,
     textDecoration: raw.textDecoration,
+    desktop: raw.desktop,
+    tablet: raw.tablet,
+    mobile: raw.mobile,
   };
 }
 
@@ -100,8 +119,11 @@ export function writeTextStylePatch(patch: Partial<CanonicalTextStyle>): Partial
   if (patch.textTransform !== undefined) next.textTransform = patch.textTransform;
   if (patch.maxWidth !== undefined) {
     next.maxWidth = patch.maxWidth;
-    next.width = patch.maxWidth ?? undefined;
+    next.width = patch.maxWidth === null ? undefined : patch.maxWidth;
   }
+  if (patch.desktop !== undefined) next.desktop = patch.desktop;
+  if (patch.tablet !== undefined) next.tablet = patch.tablet;
+  if (patch.mobile !== undefined) next.mobile = patch.mobile;
   if (patch.fontStyle !== undefined) next.fontStyle = patch.fontStyle;
   if (patch.textDecoration !== undefined) next.textDecoration = patch.textDecoration;
   return next;
@@ -109,6 +131,7 @@ export function writeTextStylePatch(patch: Partial<CanonicalTextStyle>): Partial
 
 export function clampTextStyle(style: CanonicalTextStyle, scale: TextStyleScale = "body"): CanonicalTextStyle {
   const sizeRange = TEXT_SIZE_RANGES[scale];
+  const widthRange = TEXT_WIDTH_RANGES[scale];
   return {
     ...style,
     fontSize: style.fontSize == null ? undefined : clamp(style.fontSize, sizeRange.min, sizeRange.max),
@@ -123,7 +146,9 @@ export function clampTextStyle(style: CanonicalTextStyle, scale: TextStyleScale 
         ? undefined
         : clamp(style.paragraphSpacing, TEXT_STYLE_BOUNDS.paragraphSpacing.min, TEXT_STYLE_BOUNDS.paragraphSpacing.max),
     maxWidth:
-      style.maxWidth == null ? style.maxWidth : clamp(style.maxWidth, TEXT_STYLE_BOUNDS.maxWidth.min, TEXT_STYLE_BOUNDS.maxWidth.max),
+      style.maxWidth == null || style.maxWidth === WIDTH_FULL
+        ? style.maxWidth
+        : clamp(style.maxWidth, widthRange.min, widthRange.max),
   };
 }
 
@@ -235,17 +260,39 @@ export function textStyleToCss(style: CanonicalTextStyle): CSSProperties {
   if (style.textTransform) css.textTransform = style.textTransform;
   if (style.fontStyle) css.fontStyle = style.fontStyle;
   if (style.textDecoration) css.textDecoration = style.textDecoration;
-  if (typeof style.maxWidth === "number") {
-    css.maxWidth = `${style.maxWidth}px`;
+  if (style.maxWidth === WIDTH_FULL) {
+    css.width = "100%";
+    css.maxWidth = "none";
+    css["--node-max-width"] = "100%";
+    css["--node-width"] = "100%";
+  } else if (typeof style.maxWidth === "number") {
+    const width = `min(${style.maxWidth}px, 100%)`;
+    css.width = width;
+    css.maxWidth = width;
     css["--node-max-width"] = `${style.maxWidth}px`;
   }
+  applyBreakpointVars(css, "tablet", style.tablet);
+  applyBreakpointVars(css, "mobile", style.mobile);
   return css;
 }
 
 export function widthPresetId(maxWidth?: number | null): string {
   if (maxWidth == null) return "auto";
+  if (maxWidth === WIDTH_FULL) return "full";
   const match = WIDTH_PRESETS.find((item) => item.value === maxWidth);
   return match?.id ?? "custom";
+}
+
+function applyBreakpointVars(
+  css: CSSProperties & Record<string, string | number>,
+  breakpoint: "tablet" | "mobile",
+  style?: { fontSize?: number; maxWidth?: number | null },
+) {
+  if (!style) return;
+  if (typeof style.fontSize === "number") css[`--node-font-size-${breakpoint}`] = `${style.fontSize}px`;
+  if (style.maxWidth === WIDTH_FULL) css[`--node-max-width-${breakpoint}`] = "100%";
+  else if (typeof style.maxWidth === "number") css[`--node-max-width-${breakpoint}`] = `${style.maxWidth}px`;
+  else if (style.maxWidth === null) css[`--node-max-width-${breakpoint}`] = "100%";
 }
 
 function firstNumber(...values: Array<number | null | undefined>): number | undefined {

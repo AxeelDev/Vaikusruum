@@ -4,8 +4,8 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 test("mobile homepage stacks and menu works", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Menüü" })).toBeVisible();
-  await page.getByRole("button", { name: "Menüü" }).click();
+  await expect(page.getByRole("button", { name: "Ava menüü" })).toBeVisible();
+  await page.getByRole("button", { name: "Ava menüü" }).click();
   const menu = page.getByRole("navigation", { name: "Mobiilimenüü" });
   await expect(menu).toBeVisible();
   await menu.getByRole("link", { name: "Kundalini jooga" }).click();

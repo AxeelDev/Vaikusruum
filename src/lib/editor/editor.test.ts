@@ -3,6 +3,7 @@ import { createSection, duplicateSection, reorderSections } from "@/lib/editor/d
 import { resolveColumnBalance, resolveHeight, resolveVerticalAlign, splitGridColumns } from "@/components/layout/primitives";
 import { appearanceToStyle, mergeFieldStyle } from "@/lib/editor/appearance";
 import { clampTextStyle, readTextStyle, writeTextStylePatch } from "@/lib/editor/text-style";
+import { placeFloating } from "@/lib/editor/popover-position";
 import { insertLayoutElement } from "@/lib/editor/layout-tree";
 import { addableNodesForRole } from "@/lib/editor/node-registry";
 import { getSectionLayoutTree, ratioToLeftPercent } from "@/lib/editor/layout-tree";
@@ -98,6 +99,27 @@ describe("text appearance", () => {
     expect(clampTextStyle({ fontSize: 80 }, "body").fontSize).toBe(64);
   });
 
+  it("lets normal text reach 1200px and display text 1600px", () => {
+    expect(clampTextStyle({ maxWidth: 1200 }, "body").maxWidth).toBe(1200);
+    expect(clampTextStyle({ maxWidth: 1400 }, "body").maxWidth).toBe(1200);
+    expect(clampTextStyle({ maxWidth: 1600 }, "display").maxWidth).toBe(1600);
+  });
+
+  it("treats 0 as Full parent width, not a pixel cap", () => {
+    expect(clampTextStyle({ maxWidth: 0 }, "body").maxWidth).toBe(0);
+    const css = appearanceToStyle({ maxWidth: 0 });
+    expect(css.width).toBe("100%");
+    expect(css.maxWidth).toBe("none");
+    expect((css as Record<string, string>)["--node-max-width"]).toBe("100%");
+  });
+
+  it("clamps configured width to the parent with min()", () => {
+    const css = appearanceToStyle({ maxWidth: 1000 });
+    expect(css.width).toBe("min(1000px, 100%)");
+    expect(css.maxWidth).toBe("min(1000px, 100%)");
+    expect((css as Record<string, string>)["--node-max-width"]).toBe("1000px");
+  });
+
   it("stores field styles on the section", () => {
     const next = mergeFieldStyle(section({}), "title", { letterSpacing: 0.2 });
     expect(next.style.fieldStyles?.title.letterSpacing).toBe(0.2);
@@ -127,5 +149,34 @@ describe("component creation", () => {
     const field = inserted.node.type === "element" ? inserted.node.field : undefined;
     expect(field).toMatch(/^custom\.text\./);
     expect(inserted.section.content[field!]).toBe("Uus tekst");
+  });
+});
+
+describe("popover placement", () => {
+  it("aligns bottom-end and keeps 8px inside the right edge", () => {
+    const next = placeFloating({
+      trigger: { top: 40, right: 1272, bottom: 68, left: 1244, width: 28, height: 28 },
+      floatingWidth: 240,
+      floatingHeight: 220,
+      viewportWidth: 1280,
+      viewportHeight: 800,
+      placement: "bottom-end",
+    });
+    expect(next.left + 240).toBeLessThanOrEqual(1272);
+    expect(next.left).toBeGreaterThanOrEqual(8);
+    expect(next.top).toBe(74);
+  });
+
+  it("flips above when the menu would overflow the bottom", () => {
+    const next = placeFloating({
+      trigger: { top: 760, right: 200, bottom: 788, left: 172, width: 28, height: 28 },
+      floatingWidth: 220,
+      floatingHeight: 200,
+      viewportWidth: 1280,
+      viewportHeight: 800,
+      placement: "bottom-end",
+    });
+    expect(next.top + 200).toBeLessThanOrEqual(760);
+    expect(next.top).toBeGreaterThanOrEqual(8);
   });
 });

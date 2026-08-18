@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useDragRuntime, useEditor } from "@/components/editor/EditorProvider";
 import { RichEditor } from "@/components/admin/RichEditor";
 import {
@@ -12,6 +12,7 @@ import {
   EditorDivider,
   EditorGroup,
   EditorIconButton,
+  EditorPopover,
   EditorSegmented,
   EditorSelect,
   EditorSlider,
@@ -36,7 +37,9 @@ import {
   textStyleKey,
   textStyleScale,
   TEXT_SIZE_RANGES,
+  TEXT_WIDTH_RANGES,
   WIDTH_PRESETS,
+  isFullWidth,
   widthPresetId,
   writeTextStylePatch,
   type CanonicalTextStyle,
@@ -83,6 +86,7 @@ export function Inspector() {
     return Number.isFinite(stored) ? clampInspectorWidth(stored) : 316;
   });
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--editor-sidebar-width", `${width}px`);
@@ -134,19 +138,25 @@ export function Inspector() {
         <span>{hasContext ? model.kicker : ""}</span>
         {canMoveSelected(state.selected) ? (
           <div className="vr-inspector-more">
-            <EditorIconButton ariaLabel="Rohkem" active={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
-              ⋯
-            </EditorIconButton>
-            {moreOpen ? (
-              <div className="vr-editor-menu">
-                <MoveActions asMenu />
-                {canDeleteSelection(state.selected, state.inspectorContext.kind) ? (
-                  <button type="button" className="vr-ed-danger" onClick={() => editor.removeSelected()}>
-                    Kustuta
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
+            <span ref={moreRef}>
+              <EditorIconButton ariaLabel="Rohkem" active={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
+                ⋯
+              </EditorIconButton>
+            </span>
+            <EditorPopover
+              open={moreOpen}
+              onClose={() => setMoreOpen(false)}
+              anchorRef={moreRef}
+              placement="bottom-end"
+              className="vr-editor-menu"
+            >
+              <MoveActions asMenu />
+              {canDeleteSelection(state.selected, state.inspectorContext.kind) ? (
+                <button type="button" className="vr-ed-danger" onClick={() => editor.removeSelected()}>
+                  Kustuta
+                </button>
+              ) : null}
+            </EditorPopover>
           </div>
         ) : (
           <span />
@@ -192,6 +202,7 @@ function clampInspectorWidth(value: number) {
 function EditorGlobalBrowser() {
   const editor = useEditor();
   const [addOpen, setAddOpen] = useState(false);
+  const addRef = useRef<HTMLDivElement>(null);
   const page = editor.state.draft.pages.find((item) => item.id === editor.state.pageId);
   const visiblePages = editor.state.draft.pages.filter((item) => item.show_in_nav && item.is_published);
   const hiddenPages = editor.state.draft.pages.filter((item) => !item.show_in_nav || !item.is_published);
@@ -229,26 +240,30 @@ function EditorGlobalBrowser() {
       <EditorContext kicker="Elements" title={`${pageLabel(page)} (${pageSections(editor.state.draft, page.id).length})`} />
       <EditorElementTree />
       <EditorDivider />
-      <div className="vr-inspector-add">
+      <div className="vr-inspector-add" ref={addRef}>
         <EditorButton variant="ghost" onClick={() => setAddOpen((open) => !open)}>
           + Lisa sektsioon
         </EditorButton>
-        {addOpen ? (
-          <div className="vr-editor-menu" onClick={(event) => event.stopPropagation()}>
-            {ADDABLE_SECTIONS.map((item) => (
-              <button
-                key={item.type}
-                type="button"
-                onClick={() => {
-                  editor.addSection(item.type);
-                  setAddOpen(false);
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <EditorPopover
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          anchorRef={addRef}
+          placement="bottom-start"
+          className="vr-editor-menu"
+        >
+          {ADDABLE_SECTIONS.map((item) => (
+            <button
+              key={item.type}
+              type="button"
+              onClick={() => {
+                editor.addSection(item.type);
+                setAddOpen(false);
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </EditorPopover>
       </div>
     </>
   );
@@ -706,6 +721,9 @@ function NodeAppearanceInspector() {
   const sectionId = selected.sectionId;
   const swatches = themeColorSwatches(editor.state.draft.theme);
   const widthId = widthPresetId(effective.maxWidth ?? null);
+  const widthRange = TEXT_WIDTH_RANGES[scale];
+  const widthFull = isFullWidth(effective.maxWidth);
+  const sliderWidth = widthFull ? widthRange.max : (effective.maxWidth ?? 620);
 
   function patch(next: Partial<CanonicalTextStyle>, record = false) {
     const clamped = clampTextStyle(next, scale);
@@ -826,31 +844,27 @@ function NodeAppearanceInspector() {
           onChange={(fontStyle) => patch({ fontStyle: fontStyle as "normal" | "italic" }, true)}
         />
       </EditorGroup>
-      <EditorGroup
+      <EditorSlider
         label="Laius"
+        min={widthRange.min}
+        max={widthRange.max}
+        value={sliderWidth}
+        onChange={(maxWidth) => patch({ maxWidth })}
+        unit={widthFull ? undefined : "px"}
+        displayValue={widthFull ? "100%" : undefined}
+        exact
         inherited={!isOverridden(override, "maxWidth")}
         onReset={() => reset(["maxWidth", "width"])}
-      >
-        <EditorSegmented
-          value={widthId === "custom" ? "custom" : widthId}
-          options={WIDTH_PRESETS.map((item) => ({ value: item.id, label: item.label }))}
-          onChange={(id) => {
-            const preset = WIDTH_PRESETS.find((item) => item.id === id);
-            patch({ maxWidth: preset?.value ?? 720 }, true);
-          }}
-        />
-      </EditorGroup>
-      {advanced || editor.role === "owner" ? (
-        <EditorSlider
-          label="Täpne laius"
-          min={160}
-          max={1600}
-          value={effective.maxWidth ?? 720}
-          onChange={(maxWidth) => patch({ maxWidth })}
-          unit="px"
-          exact
-        />
-      ) : null}
+      />
+      <EditorSegmented
+        value={widthId as "auto" | "narrow" | "medium" | "wide" | "full"}
+        options={WIDTH_PRESETS.map((item) => ({ value: item.id, label: item.label }))}
+        onChange={(id) => {
+          const preset = WIDTH_PRESETS.find((item) => item.id === id);
+          if (!preset) return;
+          patch({ maxWidth: preset.value }, true);
+        }}
+      />
       {editor.role === "owner" ? (
         <>
           <hr className="vr-ed-divider" />

@@ -50,9 +50,9 @@ test.describe("public site", () => {
     await page.goto("/");
     const width = page.viewportSize()?.width ?? 1440;
     const nav =
-      width < 960
+      width < 900
         ? await (async () => {
-            await page.getByRole("button", { name: "Menüü" }).click();
+            await page.getByRole("button", { name: "Ava menüü" }).click();
             return page.getByRole("navigation", { name: "Mobiilimenüü" });
           })()
         : page.getByRole("navigation", { name: "Peamenüü" });

@@ -123,6 +123,11 @@ export type SectionLayoutTree = {
   root: LayoutColumnsNode | LayoutGroupNode;
 };
 
+export type BreakpointTextStyle = {
+  fontSize?: number;
+  maxWidth?: number | null;
+};
+
 export type TextAppearance = {
   role?: TextRole;
   color?: string;
@@ -142,6 +147,9 @@ export type TextAppearance = {
   width?: number;
   fontStyle?: "normal" | "italic";
   textDecoration?: "none" | "underline";
+  desktop?: BreakpointTextStyle;
+  tablet?: BreakpointTextStyle;
+  mobile?: BreakpointTextStyle;
 };
 
 export type ImageAppearance = {
