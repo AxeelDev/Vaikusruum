@@ -19,11 +19,11 @@
   --vr-heading-scale: 1;
   --vr-page-title-size: 42px;
   --vr-wordmark-size: 56px;
-  --vr-wordmark-tracking: 0.22em;
+  --vr-wordmark-tracking: 0.18em;
   --vr-heading-tracking: 0.08em;
   --vr-paragraph-max-width: 38rem;
-  --vr-content-width: 1440px;
-  --vr-page-gutter: clamp(50px, 6vw, 110px);
+  --vr-content-width: 1480px;
+  --vr-page-gutter: clamp(50px, 6vw, 90px);
   --vr-gutter-desktop: var(--vr-page-gutter);
   --vr-gutter-tablet: 36px;
   --vr-gutter-mobile: 22px;
@@ -31,8 +31,8 @@
   --vr-section-space-desktop: 120px;
   --vr-section-space-tablet: 88px;
   --vr-section-space-mobile: 64px;
-  --vr-split-gap: clamp(60px, 8vw, 150px);
-  --vr-header-height: 76px;
+  --vr-split-gap: clamp(70px, 8vw, 145px);
+  --vr-header-height: 72px;
   --vr-paragraph-spacing: 20px;
   --vr-image-radius: 0px;
   --vr-button-radius: 999px;

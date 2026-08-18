@@ -44,6 +44,15 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
   }, [state.pageId]);
 
   useEffect(() => {
+    if (!state.selected || state.preview) return;
+    const frame = canvasRef.current;
+    if (!frame) return;
+    const escape = window.CSS?.escape ?? ((value: string) => value.replace(/["\\]/g, "\\$&"));
+    const node = frame.querySelector<HTMLElement>(`[data-vr-edit-id="${escape(state.selected.id)}"]`);
+    node?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  }, [state.preview, state.selected]);
+
+  useEffect(() => {
     if (!ctx) return;
     function close() {
       setCtx(null);
@@ -140,7 +149,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
               const link = target.closest("a");
               if (link) {
                 event.preventDefault();
-                if (event.shiftKey || state.preview) return;
+                if (event.shiftKey) return;
                 const href = link.getAttribute("href");
                 if (!href) return;
                 const slug = hrefToSlug(href);

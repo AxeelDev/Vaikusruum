@@ -9,15 +9,22 @@
 }
 
 .vr-wordmark--header {
-  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
-  letter-spacing: clamp(0.14em, 0.2em, var(--vr-wordmark-tracking));
+  font-size: clamp(20px, 1.45vw, 24px);
+  letter-spacing: clamp(0.14em, 0.18em, var(--vr-wordmark-tracking));
 }
 
 .vr-wordmark--hero {
-  font-size: clamp(42px, 4vw, 70px);
-  letter-spacing: 0.22em;
+  font-size: clamp(50px, 4.1vw, 76px);
+  letter-spacing: 0.18em;
   line-height: 1;
-  margin: 0 0 var(--vr-space-5);
+  margin: 0 0 clamp(58px, 5vw, 76px);
+}
+
+@media (max-width: 760px) {
+  .vr-wordmark--hero {
+    font-size: clamp(36px, 12vw, 50px);
+    letter-spacing: clamp(0.08em, 3vw, 0.14em);
+  }
 }
 
 .vr-page-title {

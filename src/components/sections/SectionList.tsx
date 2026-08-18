@@ -16,6 +16,13 @@ import { pageHref } from "@/lib/utils/urls";
 import { docHasText } from "@/lib/content/rich-text";
 import type { EventRow, MediaRow, OfferingRow, SectionRow, SiteSettings } from "@/types/content";
 
+function resolveSectionMediaId(section: SectionRow): string | undefined {
+  if (Object.prototype.hasOwnProperty.call(section.style ?? {}, "mediaId")) {
+    return typeof section.style?.mediaId === "string" && section.style.mediaId ? section.style.mediaId : undefined;
+  }
+  return typeof section.content.mediaId === "string" && section.content.mediaId ? section.content.mediaId : undefined;
+}
+
 function SectionShell({
   section,
   specksOn,
@@ -83,13 +90,15 @@ function SectionImage({
   section,
   image,
   fallback,
+  className,
 }: {
   section: SectionRow;
   image?: MediaRow;
   fallback?: ReactNode;
+  className?: string;
 }) {
   const editor = useOptionalEditor();
-  const crop = section.style?.image?.crop ?? (section.section_type === "split_media_text" ? "portrait" : "landscape");
+  const crop = section.style?.image?.crop ?? (section.section_type === "hero" ? "square" : "landscape");
   const selection = {
     id: `${section.id}.image`,
     type: "image" as const,
@@ -113,10 +122,10 @@ function SectionImage({
     </MediaFrame>
   );
 
-  if (!editor) return <div className="vr-split-media">{frame}</div>;
+  if (!editor) return <div className={["vr-split-media", className].filter(Boolean).join(" ")}>{frame}</div>;
 
   return (
-    <EditableNode selection={selection} className="vr-split-media">
+    <EditableNode selection={selection} className={["vr-split-media", className].filter(Boolean).join(" ")}>
       {frame}
     </EditableNode>
   );
@@ -179,7 +188,7 @@ function SectionView({
 }) {
   const editor = useOptionalEditor();
   const specksOn = section.style?.specks !== false;
-  const mediaId = (section.style?.mediaId || section.content.mediaId) as string | undefined;
+  const mediaId = resolveSectionMediaId(section);
   const image = mediaId ? media[mediaId] : undefined;
   const layout = section.style?.layout;
   const align = section.style?.textAlign;
@@ -196,7 +205,7 @@ function SectionView({
     return (
       <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
-          <SplitLayout section={section} hasMedia={showEmblem || Boolean(image)}>
+          <SplitLayout section={section} hasMedia={showEmblem || Boolean(image)} className="vr-hero-layout">
             <div className="vr-split-text">
               <div className="vr-hero-copy" style={{ textAlign: align ?? "center" }}>
                 <EditableText
@@ -220,11 +229,9 @@ function SectionView({
             </div>
             {showEmblem || image ? (
               image ? (
-                <SectionImage section={section} image={image} />
+                <SectionImage section={section} image={image} className="vr-hero-media" />
               ) : (
-                <div className="vr-split-media">
-                  <Emblem />
-                </div>
+                <SectionImage section={section} fallback={<Emblem />} className="vr-hero-media" />
               )
             ) : null}
           </SplitLayout>

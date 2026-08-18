@@ -21,7 +21,7 @@ export function resolveVerticalAlign(section: SectionRow): VerticalAlign {
 
 export function resolveColumnBalance(section: SectionRow): ColumnBalance {
   const value = section.style?.columnBalance;
-  if (value === "40-60" || value === "50-50" || value === "60-40") return value;
+  if (value === "40-60" || value === "45-55" || value === "50-50" || value === "55-45" || value === "60-40") return value;
   return "50-50";
 }
 

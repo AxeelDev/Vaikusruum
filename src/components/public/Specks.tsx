@@ -53,6 +53,12 @@ export function Specks({
             top: `${top}%`,
             width: size,
             height: size,
+            background:
+              index % 9 === 0
+                ? "color-mix(in srgb, var(--vr-accent-bluegray) 58%, var(--vr-bg-main))"
+                : index % 5 === 0
+                  ? "color-mix(in srgb, var(--vr-line) 72%, var(--vr-text-muted))"
+                  : "var(--vr-speck-color)",
           }}
         />
       ))}

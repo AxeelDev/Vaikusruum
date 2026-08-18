@@ -215,8 +215,11 @@ export async function getEditorBundle() {
 export function collectMediaIds(sections: SectionRow[]): string[] {
   const ids: string[] = [];
   for (const section of sections) {
-    const styleId = section.style?.mediaId;
-    if (typeof styleId === "string" && styleId) ids.push(styleId);
+    if (Object.prototype.hasOwnProperty.call(section.style ?? {}, "mediaId")) {
+      const styleId = section.style?.mediaId;
+      if (typeof styleId === "string" && styleId) ids.push(styleId);
+      continue;
+    }
     const contentId = section.content?.mediaId;
     if (typeof contentId === "string" && contentId) ids.push(contentId);
   }

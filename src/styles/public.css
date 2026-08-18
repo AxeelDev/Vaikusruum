@@ -10,8 +10,12 @@
   position: sticky;
   top: 0;
   z-index: var(--z-public-header, 20);
-  background: color-mix(in srgb, var(--vr-bg-main) 92%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--vr-line) 42%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--vr-bg-main) 96%, var(--vr-bg-warm)),
+    color-mix(in srgb, var(--vr-bg-main) 88%, var(--vr-bg-warm))
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--vr-line) 18%, transparent);
 }
 
 .vr-header-inner {
@@ -36,19 +40,22 @@
   display: flex;
   flex-wrap: nowrap;
   justify-content: flex-end;
-  gap: 0.15rem clamp(1rem, 1.7vw, 1.65rem);
+  gap: 0.15rem clamp(26px, 2.1vw, 34px);
 }
 
 .vr-nav a {
   text-decoration: none;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  color: color-mix(in srgb, var(--vr-text) 88%, transparent);
 }
 
 .vr-nav a[aria-current="page"] {
   text-decoration: underline;
-  text-underline-offset: 0.28em;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.38em;
+  color: var(--vr-text);
 }
 
 .vr-menu-toggle {
@@ -74,7 +81,7 @@
   width: 100%;
   display: flex;
   align-items: center;
-  padding-block: var(--vr-space-6);
+  padding-block: clamp(56px, 5vw, 80px);
 }
 
 .vr-section[data-vr-animation] {
@@ -122,7 +129,8 @@
   padding-block: var(--vr-space-7);
 }
 
-.vr-screen-section--top {
+.vr-screen-section--top,
+.vr-screen-section--start {
   align-items: flex-start;
 }
 
@@ -130,7 +138,8 @@
   align-items: center;
 }
 
-.vr-screen-section--bottom {
+.vr-screen-section--bottom,
+.vr-screen-section--end {
   align-items: flex-end;
 }
 
@@ -166,8 +175,16 @@
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
 }
 
+.vr-split--45-55 {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
 .vr-split--50-50 {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.vr-split--55-45 {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
 }
 
 .vr-split--60-40 {
@@ -192,7 +209,7 @@
 
 .vr-centered,
 .vr-centered-text {
-  width: min(100%, var(--vr-text-narrow));
+  width: min(100%, 600px);
   margin-inline: auto;
 }
 
@@ -208,14 +225,15 @@
 }
 
 .vr-hero-copy {
-  width: min(100%, 500px);
+  width: min(100%, 620px);
   margin-inline: auto;
   text-align: center;
 }
 
 .vr-hero-copy .vr-body,
 .vr-hero-copy p {
-  line-height: 1.8;
+  font-size: clamp(18px, 1.18vw, 19px);
+  line-height: 1.9;
   margin: 0;
 }
 
@@ -224,7 +242,7 @@
 }
 
 .vr-narrow {
-  max-width: var(--vr-text-narrow);
+  max-width: 600px;
   margin-inline: auto;
 }
 
@@ -264,6 +282,10 @@
   width: 100%;
 }
 
+.vr-split-media .vr-media-frame {
+  max-width: min(100%, 700px);
+}
+
 .vr-photo {
   width: 100%;
   aspect-ratio: 4 / 3;
@@ -290,9 +312,22 @@
 }
 
 .vr-emblem {
-  width: min(100%, 430px);
+  width: min(100%, 620px);
   margin: 0 auto;
   display: block;
+}
+
+.vr-hero-layout {
+  column-gap: clamp(80px, 8vw, 150px);
+}
+
+.vr-hero-layout .vr-split-text,
+.vr-hero-layout .vr-split-media {
+  min-width: 0;
+}
+
+.vr-hero-media .vr-media-frame {
+  max-width: min(100%, 620px);
 }
 
 .vr-cta {
@@ -339,11 +374,11 @@
 }
 
 .vr-offering + .vr-offering {
-  margin-top: var(--vr-space-6);
+  margin-top: clamp(50px, 4.5vw, 66px);
 }
 
 .vr-offering .vr-heading {
-  margin-bottom: var(--vr-space-3);
+  margin-bottom: clamp(14px, 1.25vw, 18px);
 }
 
 .vr-offering p {
@@ -352,12 +387,12 @@
 }
 
 .vr-offering p + p {
-  margin-top: 0.15rem;
+  margin-top: 0.35rem;
 }
 
 .vr-offering .vr-text-link {
   display: inline-block;
-  margin-top: var(--vr-space-3);
+  margin-top: clamp(18px, 2vw, 24px);
 }
 
 .vr-private {
@@ -471,7 +506,7 @@
 .vr-speck {
   position: absolute;
   border-radius: 50%;
-  background: var(--vr-speck-color);
+  background: var(--vr-speck-color, var(--vr-speck));
   opacity: var(--vr-speck-opacity);
 }
 
@@ -637,9 +672,12 @@
   .vr-split,
   .vr-split--image-right,
   .vr-split--40-60,
+  .vr-split--45-55,
   .vr-split--50-50,
+  .vr-split--55-45,
   .vr-split--60-40 {
     grid-template-columns: 1fr;
+    gap: clamp(42px, 12vw, 72px);
   }
 
   .vr-split--image-right .vr-split-media,
