@@ -50,8 +50,6 @@ type EditorApi = {
   setThemePanel: (open: boolean) => void;
   setDraggedNode: (id: string | null) => void;
   setHoveredNode: (id: string | null) => void;
-  startInlineEdit: (id: string) => void;
-  stopInlineEdit: () => void;
   setPath: (path: EditPath, value: unknown, record?: boolean) => void;
   patchSection: (sectionId: string, updater: (section: SectionRow) => SectionRow, record?: boolean) => void;
   patchTheme: (patch: Partial<ThemeTokens>, record?: boolean) => void;
@@ -110,7 +108,6 @@ export function EditorProvider({
   const [breakpoint, setBreakpoint] = useState<EditorState["breakpoint"]>("desktop");
   const [history, setHistory] = useState<EditorDraft[]>(() => [snapshot(initial)]);
   const [historyIndex, setHistoryIndex] = useState(0);
-  const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
@@ -152,7 +149,6 @@ export function EditorProvider({
 
   const deselect = useCallback(() => {
     setSelected(null);
-    setInlineEditingId(null);
   }, []);
 
   const setPath = useCallback(
@@ -250,7 +246,6 @@ export function EditorProvider({
   const switchPage = useCallback((nextPageId: string) => {
     setPageId(nextPageId);
     setSelected(null);
-    setInlineEditingId(null);
     setThemePanel(false);
     setInspectorTab("content");
     setInspectorOpen(true);
@@ -396,7 +391,6 @@ export function EditorProvider({
     historyRef.current.index = index;
     setHistoryIndex(index);
     setDraft(cloneDraft(historyRef.current.items[index]));
-    setInlineEditingId(null);
   }, []);
 
   const redo = useCallback(() => {
@@ -405,7 +399,6 @@ export function EditorProvider({
     historyRef.current.index = index;
     setHistoryIndex(index);
     setDraft(cloneDraft(historyRef.current.items[index]));
-    setInlineEditingId(null);
   }, []);
 
   const save = useCallback(async () => {
@@ -525,7 +518,6 @@ export function EditorProvider({
       dirty,
       history,
       historyIndex,
-      inlineEditingId,
       draggedNodeId,
       hoveredNodeId,
       preview,
@@ -546,7 +538,6 @@ export function EditorProvider({
       historyIndex,
       draggedNodeId,
       hoveredNodeId,
-      inlineEditingId,
       inspectorOpen,
       inspectorTab,
       pageId,
@@ -580,11 +571,6 @@ export function EditorProvider({
       },
       setDraggedNode: setDraggedNodeId,
       setHoveredNode: setHoveredNodeId,
-      startInlineEdit: (id) => {
-        setInlineEditingId(id);
-        setInspectorOpen(true);
-      },
-      stopInlineEdit: () => setInlineEditingId(null),
       setPath,
       patchSection,
       patchTheme,

@@ -41,8 +41,6 @@ function SectionShell({
   const disabled = editor && !section.enabled;
 
   return (
-    <>
-    <SectionDropZone sectionId={section.id} index={section.sort_order - 1} />
     <ScreenSection
       section={section}
       className={disabled ? "vr-section--disabled" : undefined}
@@ -62,49 +60,7 @@ function SectionShell({
     >
       {specksOn ? <Specks density={themeDensity} /> : null}
       {children}
-      {selected ? (
-        <div className="vr-section-move">
-          <button
-            type="button"
-            className="vr-section-grip"
-            aria-label="Liiguta sektsiooni"
-            draggable
-            onClick={(event) => event.stopPropagation()}
-            onDragStart={(event) => {
-              event.stopPropagation();
-              editor?.setDraggedNode(`section.${section.id}`);
-              event.dataTransfer.effectAllowed = "move";
-              event.dataTransfer.setData("application/x-vr-section", JSON.stringify({ sectionId: section.id }));
-              event.dataTransfer.setData("text/plain", section.section_key);
-            }}
-            onDragEnd={() => editor?.setDraggedNode(null)}
-          >
-            ⋮⋮
-          </button>
-          <button
-            type="button"
-            aria-label="Liiguta üles"
-            onClick={(event) => {
-              event.stopPropagation();
-              editor?.moveSection(section.id, -1);
-            }}
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            aria-label="Liiguta alla"
-            onClick={(event) => {
-              event.stopPropagation();
-              editor?.moveSection(section.id, 1);
-            }}
-          >
-            ↓
-          </button>
-        </div>
-      ) : null}
     </ScreenSection>
-    </>
   );
 }
 
@@ -153,87 +109,6 @@ function SectionImage({
   );
 }
 
-function EditorDragHandle({ sectionId, nodeId, label }: { sectionId: string; nodeId: string; label: string }) {
-  const editor = useOptionalEditor();
-  if (!editor || editor.state.preview) return null;
-  return (
-    <button
-      type="button"
-      className="vr-drag-handle"
-      aria-label="Liiguta elementi"
-      draggable
-      onClick={(event) => event.stopPropagation()}
-      onDragStart={(event) => {
-        event.stopPropagation();
-        editor.setDraggedNode(nodeId);
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("application/x-vr-node", JSON.stringify({ sectionId, nodeId, label }));
-        event.dataTransfer.setData("text/plain", label);
-      }}
-      onDragEnd={() => editor.setDraggedNode(null)}
-    >
-      ⋮⋮
-    </button>
-  );
-}
-
-function DropZone({
-  sectionId,
-  parentId,
-  index,
-}: {
-  sectionId: string;
-  parentId: string;
-  index: number;
-}) {
-  const editor = useOptionalEditor();
-  if (!editor || editor.state.preview) return null;
-  return (
-    <div
-      className="vr-drop-zone"
-      data-active={editor.state.draggedNodeId ? "true" : undefined}
-      onDragOver={(event) => {
-        if (!editor.state.draggedNodeId) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const raw = event.dataTransfer.getData("application/x-vr-node");
-        if (!raw) return;
-        const dragged = JSON.parse(raw) as { sectionId: string; nodeId: string };
-        if (dragged.sectionId !== sectionId) return;
-        editor.moveNode(sectionId, dragged.nodeId, parentId, index);
-      }}
-    />
-  );
-}
-
-function SectionDropZone({ sectionId, index }: { sectionId: string; index: number }) {
-  const editor = useOptionalEditor();
-  if (!editor || editor.state.preview) return null;
-  return (
-    <div
-      className="vr-section-drop-zone"
-      data-active={editor.state.draggedNodeId?.startsWith("section.") ? "true" : undefined}
-      onDragOver={(event) => {
-        const raw = event.dataTransfer.getData("text/plain");
-        if (!raw && !editor.state.draggedNodeId?.startsWith("section.")) return;
-        event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        const raw = event.dataTransfer.getData("application/x-vr-section");
-        if (!raw) return;
-        const dragged = JSON.parse(raw) as { sectionId: string };
-        if (dragged.sectionId === sectionId) return;
-        editor.moveSectionToIndex(dragged.sectionId, index);
-      }}
-    />
-  );
-}
-
 function LayoutContainer({
   section,
   node,
@@ -253,6 +128,10 @@ function LayoutContainer({
       data-vr-edit-id={editor && !editor.state.preview ? node.id : undefined}
       data-vr-editable={editor && !editor.state.preview ? "" : undefined}
       data-vr-selected={selected ? "" : undefined}
+      data-vr-drop-container={editor && !editor.state.preview ? node.id : undefined}
+      data-vr-section-id={editor && !editor.state.preview ? section.id : undefined}
+      data-vr-node-kind={editor && !editor.state.preview ? node.type : undefined}
+      data-vr-orientation="vertical"
       onClick={(event) => {
         if (!editor || editor.state.preview) return;
         if (event.target !== event.currentTarget) return;
@@ -260,21 +139,23 @@ function LayoutContainer({
         editor.select({ id: node.id, type: "container", sectionId: section.id });
       }}
     >
-      <EditorDragHandle sectionId={section.id} nodeId={node.id} label={node.label} />
       {children}
     </div>
   );
 }
 
-function ColumnResizeHandle({ section }: { section: SectionRow }) {
+function ColumnResizeHandle({ section, columnsId }: { section: SectionRow; columnsId: string }) {
   const editor = useOptionalEditor();
   const [live, setLive] = useState<number | null>(null);
   if (!editor || editor.state.preview) return null;
+  const active = editor.state.selected?.id === columnsId || live !== null;
+  if (!active) return null;
 
   return (
     <button
       type="button"
       className="vr-column-resize"
+      data-vr-column-resize=""
       aria-label="Muuda veergude suhet"
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => {
@@ -375,20 +256,32 @@ function SectionView({
   function renderLayoutNode(node: LayoutNode): ReactNode {
     if (node.type === "columns") {
       const left = ratioToLeftPercent(node.ratio, node.customRatio ?? section.style?.columnRatio);
+      const renderedColumns = node.columns
+        .map((columnNode) => ({
+          node: columnNode,
+          children: renderContainerChildren(columnNode),
+        }))
+        .filter((column) => column.children.length > 0);
+
+      if (renderedColumns.length === 0) return null;
+
+      if (renderedColumns.length === 1) {
+        const only = renderedColumns[0];
+        return (
+          <LayoutContainer section={section} node={only.node} className="vr-layout-column vr-layout-column--single">
+            {only.children}
+          </LayoutContainer>
+        );
+      }
+
       return (
         <SplitLayout section={section} hasMedia className={section.section_type === "hero" ? "vr-hero-layout vr-layout-columns" : "vr-layout-columns"}>
-          {node.columns.map((columnNode) => (
+          {renderedColumns.map(({ node: columnNode, children }) => (
             <LayoutContainer key={columnNode.id} section={section} node={columnNode} className="vr-layout-column">
-              <DropZone sectionId={section.id} parentId={columnNode.id} index={0} />
-              {columnNode.children.map((child, childIndex) => (
-                <div key={child.id} className="vr-layout-child">
-                  {renderLayoutNode(child)}
-                  <DropZone sectionId={section.id} parentId={columnNode.id} index={childIndex + 1} />
-                </div>
-              ))}
+              {children}
             </LayoutContainer>
           ))}
-          <ColumnResizeHandle section={section} />
+          <ColumnResizeHandle section={section} columnsId={node.id} />
           <span className="vr-column-ratio" aria-hidden>
             {left} / {100 - left}
           </span>
@@ -396,32 +289,62 @@ function SectionView({
       );
     }
     if (node.type === "group") {
+      const children = renderContainerChildren(node);
+      if (children.length === 0) return null;
       return (
-        <LayoutContainer section={section} node={node} className={`vr-layout-group vr-layout-group--${node.gap ?? "medium"}`}>
-          <DropZone sectionId={section.id} parentId={node.id} index={0} />
-          {node.children.map((child, childIndex) => (
-            <div key={child.id} className="vr-layout-child">
-              {renderLayoutNode(child)}
-              <DropZone sectionId={section.id} parentId={node.id} index={childIndex + 1} />
-            </div>
-          ))}
+        <LayoutContainer
+          section={section}
+          node={node}
+          className={`vr-layout-group vr-layout-group--${node.gap ?? "medium"}`}
+        >
+          {children}
         </LayoutContainer>
       );
     }
     if (node.type === "column") {
+      const children = renderContainerChildren(node);
+      if (children.length === 0) return null;
       return (
         <LayoutContainer section={section} node={node} className="vr-layout-column">
-          <DropZone sectionId={section.id} parentId={node.id} index={0} />
-          {node.children.map((child, childIndex) => (
-            <div key={child.id} className="vr-layout-child">
-              {renderLayoutNode(child)}
-              <DropZone sectionId={section.id} parentId={node.id} index={childIndex + 1} />
-            </div>
-          ))}
+          {children}
         </LayoutContainer>
       );
     }
     return renderLayoutElement(node);
+  }
+
+  function renderContainerChildren(node: LayoutColumnNode | LayoutGroupNode): ReactNode[] {
+    return node.children.flatMap((child) => {
+      const rendered = renderLayoutNode(child);
+      if (!rendered) return [];
+      const selection = layoutSelectionForNode(child);
+      return (
+        <div
+          key={child.id}
+          className="vr-layout-child"
+          data-vr-node-id={editor && !editor.state.preview ? child.id : undefined}
+          data-vr-section-id={editor && !editor.state.preview ? section.id : undefined}
+          data-vr-drag-label={editor && !editor.state.preview ? child.label : undefined}
+          data-vr-draggable-node={editor && !editor.state.preview ? "" : undefined}
+          data-vr-node-kind={editor && !editor.state.preview ? child.type : undefined}
+          data-vr-selection-id={editor && !editor.state.preview ? selection.id : undefined}
+          data-vr-selection-type={editor && !editor.state.preview ? selection.type : undefined}
+        >
+          {rendered}
+        </div>
+      );
+    });
+  }
+
+  function layoutSelectionForNode(node: LayoutNode): { id: string; type: "container" | "text" | "image" } {
+    if (node.type === "column" || node.type === "group" || node.type === "columns") {
+      return { id: node.id, type: "container" };
+    }
+    if (node.elementType === "image") return { id: `${section.id}.image`, type: "image" };
+    if (node.elementType === "text" && node.field) {
+      return { id: node.field === "body" ? `${prefix}.body` : `${prefix}.${node.field}`, type: "text" };
+    }
+    return { id: node.id, type: "container" };
   }
 
   function renderLayoutElement(node: LayoutElementNode): ReactNode {
@@ -430,15 +353,13 @@ function SectionView({
         if (section.content.showEmblem === false) return null;
         return (
           <div className="vr-layout-element">
-            <EditorDragHandle sectionId={section.id} nodeId={node.id} label={node.label} />
             <SectionImage section={section} fallback={<Emblem />} className="vr-hero-media" />
           </div>
         );
       }
       if (!image) return null;
       return (
-        <div className="vr-layout-element">
-          <EditorDragHandle sectionId={section.id} nodeId={node.id} label={node.label} />
+        <div className="vr-layout-element vr-layout-element--media">
           <SectionImage section={section} image={image} className={section.section_type === "hero" ? "vr-hero-media" : undefined} />
         </div>
       );
@@ -446,7 +367,7 @@ function SectionView({
     if (node.elementType === "offering") {
       const offering = node.offeringId ? offerings[node.offeringId] : undefined;
       if (!offering) return null;
-      return renderOfferingCard(offering);
+      return <div className="vr-layout-element vr-layout-element--card">{renderOfferingCard(offering)}</div>;
     }
     if (node.elementType === "form" && section.section_type === "contact") {
       return (
@@ -458,17 +379,15 @@ function SectionView({
       );
     }
     if (!node.field) return null;
-    return renderTextField(node.field, node.id, node.label);
+    return renderTextField(node.field);
   }
 
-  function renderTextField(field: string, nodeId: string, label: string): ReactNode {
+  function renderTextField(field: string): ReactNode {
     const selection = { id: field === "body" ? `${prefix}.body` : `${prefix}.${field}`, type: "text" as const, sectionId: section.id, field };
-    const drag = <EditorDragHandle sectionId={section.id} nodeId={nodeId} label={label} />;
     if (field === "title") {
       const titleAppearance = fieldStyle(section, field);
       return (
-        <div className="vr-layout-element">
-          {drag}
+        <div className="vr-layout-element vr-layout-element--text">
           <EditableText
             as={section.section_type === "hero" ? "h1" : "h2"}
             className={section.section_type === "hero" ? "vr-wordmark vr-wordmark--hero" : "vr-heading"}
@@ -485,7 +404,6 @@ function SectionView({
       if (!value) return null;
       return (
         <div className="vr-layout-element">
-          {drag}
           <EditableText
             as={section.section_type === "contact" ? "h1" : "h2"}
             className={section.section_type === "contact" ? "vr-page-title" : "vr-heading"}
@@ -502,7 +420,6 @@ function SectionView({
       if (!value) return null;
       return (
         <div className="vr-layout-element">
-          {drag}
           <EditableText
             as="div"
             className="vr-body"
@@ -518,8 +435,7 @@ function SectionView({
     if (field === "body") {
       const body = section.content.body ?? section.content.text;
       return (
-        <div className="vr-layout-element vr-body">
-          {drag}
+        <div className="vr-layout-element vr-layout-element--rich vr-body">
           <EditableRichText
             className="vr-rich"
             selection={selection}

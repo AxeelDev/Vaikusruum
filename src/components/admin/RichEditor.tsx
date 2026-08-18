@@ -10,9 +10,11 @@ import { emptyDoc } from "@/lib/content/rich-text";
 export function RichEditor({
   value,
   onChange,
+  onCommit,
 }: {
   value: unknown;
   onChange: (value: TiptapNode) => void;
+  onCommit?: (value: TiptapNode) => void;
 }) {
   const editor = useEditor({
     immediatelyRender: false,
@@ -23,6 +25,9 @@ export function RichEditor({
     content: (value as object) ?? emptyDoc(),
     onUpdate: ({ editor: instance }) => {
       onChange(instance.getJSON() as TiptapNode);
+    },
+    onBlur: ({ editor: instance }) => {
+      onCommit?.(instance.getJSON() as TiptapNode);
     },
   });
 

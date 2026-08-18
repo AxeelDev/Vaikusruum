@@ -440,115 +440,135 @@ html.vr-editor-lock body {
   pointer-events: none;
 }
 
-[data-vr-edit-mode="true"] [data-vr-editable] {
-  outline-offset: 2px;
-}
-
-[data-vr-edit-mode="true"] [data-vr-editable]:hover {
-  outline: 1px solid rgba(53, 183, 184, 0.35);
-  outline-offset: 1px;
-}
-
-[data-vr-edit-mode="true"] [data-vr-selected] {
-  outline: 1px solid rgba(53, 183, 184, 0.9);
-  outline-offset: 2px;
-}
-
-.vr-section-move {
+.vr-editor-overlay {
   position: absolute;
-  top: 0.7rem;
-  right: 0.7rem;
-  display: flex;
-  gap: 0.15rem;
-  z-index: var(--z-editor-selection);
-}
-
-.vr-drag-handle {
-  position: absolute;
-  top: -24px;
-  left: -18px;
-  z-index: var(--z-editor-selection);
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--editor-border);
-  border-radius: 4px;
-  background: var(--editor-panel);
-  color: var(--editor-text-secondary);
-  cursor: grab;
-  opacity: 0;
+  inset: 0;
+  z-index: calc(var(--z-public-header) - 1);
   pointer-events: none;
-  font-size: 12px;
-  line-height: 1;
+  min-height: 100%;
 }
 
-[data-vr-edit-mode="true"] [data-vr-editable]:hover > .vr-drag-handle,
-[data-vr-edit-mode="true"] [data-vr-selected] > .vr-drag-handle,
-[data-vr-edit-mode="true"] .vr-layout-element:hover > .vr-drag-handle {
-  opacity: 1;
-  pointer-events: auto;
+.vr-editor-overlay-rect {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
 }
 
-.vr-drag-handle:active {
-  cursor: grabbing;
+.vr-editor-overlay-rect--hover {
+  outline: 1px solid rgba(53, 183, 184, 0.32);
+  outline-offset: 2px;
 }
 
-.vr-drop-zone,
-.vr-section-drop-zone {
-  display: none;
-  width: 100%;
-  min-height: 8px;
+.vr-editor-overlay-rect--selected {
+  outline: 1px solid rgba(53, 183, 184, 0.95);
+  outline-offset: 2px;
 }
 
-.vr-drop-zone[data-active="true"] {
-  display: block;
-  position: relative;
-  margin-block: 5px;
+.vr-editor-overlay-rect--selected span {
+  position: absolute;
+  left: 0;
+  top: -20px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: var(--editor-accent);
+  color: #102526;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
-.vr-drop-zone[data-active="true"]::before,
-.vr-section-drop-zone[data-active="true"]::before {
-  content: "";
-  display: block;
-  height: 2px;
+.vr-editor-overlay-rect--target {
+  background: rgba(53, 183, 184, 0.04);
+  outline: 1px solid rgba(53, 183, 184, 0.4);
+  outline-offset: 2px;
+}
+
+.vr-editor-overlay-rect--insert {
+  height: 2px !important;
+  min-height: 2px;
   border-radius: 999px;
   background: var(--editor-accent);
-  box-shadow: 0 0 0 3px var(--editor-accent-soft);
+  box-shadow: 0 0 0 3px rgba(53, 183, 184, 0.1);
 }
 
-.vr-section-drop-zone[data-active="true"] {
-  display: block;
-  height: 10px;
-  background: var(--editor-shell);
+.vr-editor-empty-drop {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(53, 183, 184, 0.45);
+  background: rgba(53, 183, 184, 0.04);
+  color: var(--editor-accent);
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
-.vr-layout-node[data-vr-selected] {
-  outline-style: dashed;
+[data-vr-edit-mode="true"] [data-vr-draggable-node]:hover {
+  cursor: grab;
+}
+
+.vr-editor-canvas.is-dragging,
+.vr-editor-is-dragging .vr-editor-canvas {
+  cursor: grabbing;
+  user-select: none;
+}
+
+[data-editor-dragging] {
+  opacity: 0.2;
+}
+
+.vr-editor-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-editor-modal);
+  pointer-events: none;
+  opacity: 0.82;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--vr-bg-main) 92%, transparent);
+  outline: 1px solid rgba(53, 183, 184, 0.55);
+  outline-offset: 2px;
+  transform-origin: top left;
 }
 
 .vr-column-resize {
   position: absolute;
-  top: 50%;
+  top: 0;
   left: var(--vr-left-column, 50%);
-  transform: translate(-50%, -50%);
+  bottom: 0;
+  transform: translateX(-50%);
   z-index: var(--z-editor-selection);
-  width: 28px;
-  min-height: 76px;
-  border: 1px solid color-mix(in srgb, var(--editor-accent) 55%, var(--editor-border));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--editor-panel) 90%, transparent);
+  width: 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--editor-text);
   cursor: col-resize;
-  opacity: 0;
 }
 
-[data-vr-edit-mode="true"] .vr-layout-columns:hover > .vr-column-resize,
-[data-vr-edit-mode="true"] .vr-layout-columns:has([data-vr-selected]) > .vr-column-resize {
-  opacity: 1;
+.vr-column-resize::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: rgba(53, 183, 184, 0.45);
 }
 
 .vr-column-resize span {
-  writing-mode: vertical-rl;
-  font-size: 11px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  padding: 3px 6px;
+  border: 1px solid rgba(53, 183, 184, 0.45);
+  border-radius: 999px;
+  background: var(--editor-panel);
+  font-size: 10px;
+  opacity: 0;
 }
 
 .vr-column-ratio {
@@ -566,19 +586,10 @@ html.vr-editor-lock body {
   pointer-events: none;
 }
 
+.vr-column-resize:hover span,
+.vr-column-resize:active span,
 [data-vr-edit-mode="true"] .vr-layout-columns:hover > .vr-column-ratio {
   opacity: 1;
-}
-
-.vr-section-move button,
-.vr-inline-rich-toolbar button {
-  background: var(--editor-panel);
-  border: 1px solid var(--editor-border);
-  border-radius: 4px;
-  cursor: pointer;
-  padding: 0.2rem 0.45rem;
-  color: var(--editor-text);
-  font-size: 12px;
 }
 
 .vr-inspector-row {
@@ -590,25 +601,6 @@ html.vr-editor-lock body {
 
 .vr-section--disabled {
   opacity: 0.55;
-}
-
-.vr-inline-rich {
-  position: relative;
-}
-
-.vr-inline-rich-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  margin-bottom: 0.4rem;
-}
-
-.vr-inline-rich .tiptap {
-  outline: none;
-}
-
-.vr-inline-rich .tiptap p {
-  margin: 0 0 var(--vr-paragraph-spacing);
 }
 
 .vr-editor-loading,
@@ -1209,7 +1201,9 @@ html.vr-editor-lock body {
 }
 
 .vr-element-group summary:hover,
-.vr-element-children button:hover {
+.vr-element-children button:hover,
+.vr-element-group summary[data-hovered="true"],
+.vr-element-children button[data-hovered="true"] {
   background: var(--editor-panel-hover);
 }
 

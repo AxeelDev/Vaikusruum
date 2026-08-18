@@ -1,21 +1,15 @@
 "use client";
 
 import {
-  useEffect,
-  useRef,
   type CSSProperties,
   type ElementType,
-  type KeyboardEvent,
   type MouseEvent,
-  type PointerEvent,
   type ReactNode,
 } from "react";
 import { useOptionalEditor, type EditPath } from "@/components/editor/EditorProvider";
 import { appearanceToStyle } from "@/lib/editor/appearance";
 import type { EditorSelection } from "@/lib/editor/types";
 import type { TextAppearance } from "@/types/content";
-
-const MOVE_THRESHOLD = 5;
 
 function editProps(id: string, selected: boolean, preview: boolean) {
   if (preview) return {};
@@ -32,7 +26,7 @@ function isNavigateType(type: EditorSelection["type"]) {
 
 export function EditableText({
   selection,
-  path,
+  path: _path,
   as: Tag = "p",
   className,
   value,
@@ -52,23 +46,8 @@ export function EditableText({
   clickMode?: "select" | "defer";
 }) {
   const editor = useOptionalEditor();
-  const ref = useRef<HTMLElement | null>(null);
-  const seeded = useRef(false);
-  const pointer = useRef({ x: 0, y: 0, moved: false });
+  void _path;
   const selected = editor?.state.selected?.id === selection.id && !editor.state.preview;
-  const editing = editor?.state.inlineEditingId === selection.id;
-
-  useEffect(() => {
-    if (!editing) {
-      seeded.current = false;
-      return;
-    }
-    if (ref.current && !seeded.current) {
-      ref.current.innerText = value;
-      seeded.current = true;
-      ref.current.focus();
-    }
-  }, [editing, value]);
 
   const mergedStyle: CSSProperties = {
     ...appearanceToStyle(appearance),
@@ -84,76 +63,25 @@ export function EditableText({
     );
   }
 
-  function markPointer(event: PointerEvent) {
-    pointer.current = { x: event.clientX, y: event.clientY, moved: false };
-  }
-
-  function trackPointer(event: PointerEvent) {
-    const dx = event.clientX - pointer.current.x;
-    const dy = event.clientY - pointer.current.y;
-    if (dx * dx + dy * dy > MOVE_THRESHOLD * MOVE_THRESHOLD) pointer.current.moved = true;
-  }
-
   function onClick(event: MouseEvent) {
     if (editor!.state.preview) return;
-    if (pointer.current.moved) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    if (clickMode === "defer" && !event.shiftKey && !editing) return;
-    if (isNavigateType(selection.type) && !event.shiftKey && !editing) {
+    if (clickMode === "defer" && !event.shiftKey) return;
+    if (isNavigateType(selection.type) && !event.shiftKey) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
     editor!.select(selection);
-  }
-
-  function onDoubleClick(event: MouseEvent) {
-    if (editor!.state.preview) return;
-    event.preventDefault();
-    event.stopPropagation();
-    editor!.select(selection);
-    editor!.startInlineEdit(selection.id);
-  }
-
-  function commit() {
-    const text = (ref.current?.innerText ?? "").replace(/\u00a0/g, " ").replace(/\n$/, "");
-    if (text !== value) editor!.setPath(path, text, true);
-    editor!.stopInlineEdit();
-  }
-
-  function onKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      if (ref.current) ref.current.innerText = value;
-      editor!.stopInlineEdit();
-    }
-    if (event.key === "Enter" && !multiline) {
-      event.preventDefault();
-      commit();
-    }
   }
 
   return (
     <Tag
-      ref={ref}
       className={className}
       style={mergedStyle}
       {...editProps(selection.id, Boolean(selected), editor.state.preview)}
-      contentEditable={editing}
-      suppressContentEditableWarning
-      onPointerDown={markPointer}
-      onPointerMove={trackPointer}
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      onBlur={() => {
-        if (editing) commit();
-      }}
-      onKeyDown={onKeyDown}
     >
-      {editing ? null : value}
+      {value}
     </Tag>
   );
 }

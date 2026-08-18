@@ -245,12 +245,20 @@
 .vr-layout-column {
   min-width: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--vr-space-4);
+}
+
+.vr-layout-column--single {
+  width: min(100%, 760px);
+  margin-inline: auto;
 }
 
 .vr-layout-group {
-  width: min(100%, 620px);
+  width: fit-content;
+  max-width: min(100%, 620px);
   margin-inline: auto;
   display: grid;
   justify-items: center;
@@ -271,17 +279,29 @@
 
 .vr-layout-child,
 .vr-layout-element {
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
   position: relative;
   text-align: inherit;
 }
 
+.vr-layout-element--text,
+.vr-layout-element--rich,
+.vr-layout-element--card {
+  width: min(100%, 620px);
+}
+
+.vr-layout-element--media {
+  width: min(100%, 700px);
+}
+
 .vr-layout-element > .vr-wordmark--hero,
 .vr-layout-element > .vr-heading,
 .vr-layout-element > .vr-page-title {
-  display: block;
-  width: 100%;
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
   text-align: inherit;
   margin-bottom: 0;
 }

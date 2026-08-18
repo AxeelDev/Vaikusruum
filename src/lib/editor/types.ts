@@ -55,7 +55,6 @@ export type EditorState = {
   dirty: boolean;
   history: EditorDraft[];
   historyIndex: number;
-  inlineEditingId: string | null;
   draggedNodeId: string | null;
   hoveredNodeId: string | null;
   preview: boolean;

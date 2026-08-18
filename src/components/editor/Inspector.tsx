@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useEditor } from "@/components/editor/EditorProvider";
+import { RichEditor } from "@/components/admin/RichEditor";
 import {
   EditorButton,
   EditorCheck,
@@ -31,6 +32,7 @@ import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { compressImage } from "@/lib/utils/compress-image";
 import { mediaPublicUrl } from "@/lib/utils/urls";
 import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
+import type { TiptapNode } from "@/types/content";
 
 const FONT_OPTIONS = ALL_FONTS.map((font) => ({
   value: font.id,
@@ -338,6 +340,7 @@ function EditorElementTree() {
         <details key={section.id} className="vr-element-group" open>
           <summary
             data-selected={editor.state.selected?.id === `section.${section.id}` ? "true" : undefined}
+            data-hovered={editor.state.hoveredNodeId === `section.${section.id}` ? "true" : undefined}
             draggable
             onDragStart={(event) => {
               editor.setDraggedNode(`section.${section.id}`);
@@ -361,6 +364,8 @@ function EditorElementTree() {
               event.preventDefault();
               editor.select({ id: `section.${section.id}`, type: "section", sectionId: section.id });
             }}
+            onMouseEnter={() => editor.setHoveredNode(`section.${section.id}`)}
+            onMouseLeave={() => editor.setHoveredNode(null)}
           >
             <span className="vr-element-icon">▣</span>
             <span>
@@ -386,10 +391,13 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
       <details className="vr-element-node" open>
         <summary
           data-selected={selected ? "true" : undefined}
+          data-hovered={editor.state.hoveredNodeId === node.id ? "true" : undefined}
           onClick={(event) => {
             event.preventDefault();
             editor.select({ id: node.id, type: "container", sectionId: section.id });
           }}
+          onMouseEnter={() => editor.setHoveredNode(node.id)}
+          onMouseLeave={() => editor.setHoveredNode(null)}
         >
           <span className="vr-element-icon">▥</span>
           <span>
@@ -411,6 +419,7 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
       <details className="vr-element-node" open>
         <summary
           data-selected={selected ? "true" : undefined}
+          data-hovered={editor.state.hoveredNodeId === node.id ? "true" : undefined}
           onClick={(event) => {
             event.preventDefault();
             editor.select({ id: node.id, type: "container", sectionId: section.id });
@@ -427,6 +436,8 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
             if (dragged.sectionId !== section.id) return;
             editor.moveNode(section.id, dragged.nodeId, node.id, node.children.length);
           }}
+          onMouseEnter={() => editor.setHoveredNode(node.id)}
+          onMouseLeave={() => editor.setHoveredNode(null)}
         >
           <span className="vr-element-icon">{node.type === "column" ? "▤" : "▧"}</span>
           <span>
@@ -449,6 +460,7 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
       type="button"
       className="vr-element-leaf"
       data-selected={editor.state.selected?.id === row.selection.id ? "true" : undefined}
+      data-hovered={editor.state.hoveredNodeId === row.selection.id ? "true" : undefined}
       draggable
       onDragStart={(event) => {
         editor.setDraggedNode(node.id);
@@ -458,6 +470,8 @@ function LayoutTreeNode({ section, node, slug }: { section: SectionRow; node: La
       }}
       onDragEnd={() => editor.setDraggedNode(null)}
       onClick={() => editor.select(row.selection)}
+      onMouseEnter={() => editor.setHoveredNode(row.selection.id)}
+      onMouseLeave={() => editor.setHoveredNode(null)}
     >
       <span className="vr-element-icon">{row.icon}</span>
       <span>
@@ -602,10 +616,14 @@ function ContentPanel() {
       <EditorContext kicker={kicker} title={labelFor(selected.id, value)} />
       {isRichTextSelection(editor) ? (
         <>
-          <p className="vr-ed-help">Rikasteksti vormindus säilib lõuendil muutes. Topeltklõpsa tekstiplokki või ava muutmine siit.</p>
-          <EditorButton variant="secondary" onClick={() => editor.startInlineEdit(selected.id)}>
-            Muuda lõuendil
-          </EditorButton>
+          <EditorGroup label="Tekst">
+            <RichEditor
+              value={readRichText(editor)}
+              onChange={(next) => writeRichText(editor, next, false)}
+              onCommit={(next) => writeRichText(editor, next, true)}
+            />
+          </EditorGroup>
+          <p className="vr-ed-help">Lõuend renderdab tulemust. Sisu salvestub andmebaasi tavalise Salvesta nupuga.</p>
         </>
       ) : (
         <EditorGroup label="Tekst">
@@ -638,6 +656,19 @@ function ContentPanel() {
       </EditorButton>
     </div>
   );
+}
+
+function readRichText(editor: ReturnType<typeof useEditor>): unknown {
+  const selected = editor.state.selected;
+  if (!selected?.sectionId || !selected.field) return undefined;
+  const section = findSection(editor.state.draft, selected.sectionId);
+  return section?.content[selected.field];
+}
+
+function writeRichText(editor: ReturnType<typeof useEditor>, value: TiptapNode, record: boolean) {
+  const selected = editor.state.selected;
+  if (!selected?.sectionId || !selected.field) return;
+  editor.setPath({ kind: "section-content", sectionId: selected.sectionId, key: selected.field }, value, record);
 }
 
 function isRichTextSelection(editor: ReturnType<typeof useEditor>) {
