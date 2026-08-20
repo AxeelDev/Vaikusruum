@@ -4,6 +4,10 @@ import type { ColumnBalance, HeightPreset, SectionRow, VerticalAlign } from "@/t
 
 const SCREEN_KEYS = new Set(["hero", "miina", "yoga", "offerings", "contact"]);
 
+export function isHomeSceneSection(section: SectionRow, slug: string): boolean {
+  return slug === "avaleht" && SCREEN_KEYS.has(section.section_key);
+}
+
 export function resolveHeight(section: SectionRow): HeightPreset {
   const height = section.style?.height;
   if (height === "screen" || height === "large" || height === "auto") return height;

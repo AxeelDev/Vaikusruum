@@ -10,7 +10,7 @@ import { ContactForm } from "@/components/forms/ContactForm";
 import { RegistrationBlock } from "@/components/forms/RegistrationBlock";
 import { EditableNode, EditableText } from "@/components/site/Editable";
 import { EditableRichText } from "@/components/site/EditableRichText";
-import { MediaFrame, ScreenSection, SectionInner, SplitLayout } from "@/components/layout/primitives";
+import { MediaFrame, ScreenSection, SectionInner, SplitLayout, isHomeSceneSection } from "@/components/layout/primitives";
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
 import { fieldStyle, photoClassName } from "@/lib/editor/appearance";
 import { textStyleKey } from "@/lib/editor/text-style";
@@ -41,21 +41,29 @@ function SectionShell({
   section,
   specksOn,
   themeDensity,
+  slug,
   children,
 }: {
   section: SectionRow;
   specksOn: boolean;
   themeDensity: string;
+  slug?: string;
   children: ReactNode;
 }) {
   const editor = useOptionalEditor();
   const selected = editor?.state.selected?.id === `section.${section.id}` && !editor.state.preview;
   const disabled = editor && !section.enabled;
+  const className = [
+    disabled ? "vr-section--disabled" : "",
+    slug && isHomeSceneSection(section, slug) ? "vr-home-scene" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <ScreenSection
       section={section}
-      className={disabled ? "vr-section--disabled" : undefined}
+      className={className || undefined}
       data-vr-animation={section.style?.animation?.preset && section.style.animation.preset !== "none" ? section.style.animation.preset : undefined}
       style={{
         "--vr-anim-duration": `${section.style?.animation?.duration ?? 1}s`,
@@ -389,7 +397,7 @@ function SectionView({
     if (node.elementType === "text" && node.field) {
       return { id: node.field === "body" ? `${prefix}.body` : `${prefix}.${node.field}`, type: "text", field: node.field };
     }
-    if (node.elementType === "offering") return { id: node.id, type: "text", offeringId: node.offeringId };
+    if (node.elementType === "offering") return { id: `${prefix}.${node.offeringId}.title`, type: "text", field: "short_title", offeringId: node.offeringId };
     if (node.field) return { id: `${prefix}.${node.field}`, type: "text", field: node.field };
     return { id: node.id, type: "container" };
   }
@@ -411,7 +419,7 @@ function SectionView({
         return (
           <div className="vr-layout-element vr-layout-element--media">
             <EditableNode selection={{ id: `${section.id}.${node.field ?? "image"}`, type: "image", sectionId: section.id, field: node.field ?? "image", layoutNodeId: node.id }} className="vr-editorial-placeholder vr-editorial-placeholder--image" as="div">
-              Vali pilt
+              Pilt
             </EditableNode>
           </div>
         );
@@ -724,11 +732,13 @@ function SectionView({
             selection={{
               id: `${prefix}.${offering.id}.schedule`,
               type: "text",
+              sectionId: section.id,
               offeringId: offering.id,
               field: "schedule_summary",
             }}
             path={{ kind: "offering", offeringId: offering.id, key: "schedule_summary" }}
             value={offering.schedule_summary}
+            appearance={fieldStyle(section, textStyleKey({ field: "schedule_summary", offeringId: offering.id }) ?? `${offering.id}.schedule_summary`)}
           />
         ) : null}
         {offering.location_name ? (
@@ -736,11 +746,13 @@ function SectionView({
             selection={{
               id: `${prefix}.${offering.id}.location`,
               type: "text",
+              sectionId: section.id,
               offeringId: offering.id,
               field: "location_name",
             }}
             path={{ kind: "offering", offeringId: offering.id, key: "location_name" }}
             value={offering.location_name}
+            appearance={fieldStyle(section, textStyleKey({ field: "location_name", offeringId: offering.id }) ?? `${offering.id}.location_name`)}
           />
         ) : null}
         {offering.address ? (
@@ -748,11 +760,13 @@ function SectionView({
             selection={{
               id: `${prefix}.${offering.id}.address`,
               type: "text",
+              sectionId: section.id,
               offeringId: offering.id,
               field: "address",
             }}
             path={{ kind: "offering", offeringId: offering.id, key: "address" }}
             value={offering.address}
+            appearance={fieldStyle(section, textStyleKey({ field: "address", offeringId: offering.id }) ?? `${offering.id}.address`)}
           />
         ) : null}
         <p>
@@ -761,14 +775,13 @@ function SectionView({
               as="span"
               className="vr-text-link"
               selection={{
-                id: `${prefix}.moreInfo`,
-                type: "link",
+                id: `${prefix}.${offering.id}.moreInfo`,
+                type: "text",
                 sectionId: section.id,
                 field: "moreInfoLabel",
               }}
               path={{ kind: "section-content", sectionId: section.id, key: "moreInfoLabel" }}
               value={label}
-              clickMode="defer"
             />
           </Link>
         </p>
@@ -777,12 +790,12 @@ function SectionView({
   }
 
   if (section.section_type === "spacer") {
-    return <SectionShell section={section} specksOn={false} themeDensity={themeDensity}>{null}</SectionShell>;
+    return <SectionShell section={section} slug={slug} specksOn={false} themeDensity={themeDensity}>{null}</SectionShell>;
   }
 
   if (section.section_type === "hero") {
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner className="vr-section-inner--hero">
           {renderLayoutNode(tree.root)}
         </SectionInner>
@@ -793,7 +806,7 @@ function SectionView({
   if (section.section_type === "split_media_text" || section.section_type === "rich_text") {
     if (tree.root.type === "columns" && (slug === "avaleht" || section.section_type === "split_media_text")) {
       return (
-        <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+        <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
           <SectionInner>
             {renderLayoutNode(tree.root)}
           </SectionInner>
@@ -811,7 +824,7 @@ function SectionView({
 
     if (layout === "image-only" && image) {
       return (
-        <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+        <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
           <SectionInner>
             <SectionImage section={section} image={image} />
           </SectionInner>
@@ -856,14 +869,14 @@ function SectionView({
 
     if (!hasMedia) {
       return (
-        <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+        <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
           <SectionInner>{text}</SectionInner>
         </SectionShell>
       );
     }
 
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
           <SplitLayout section={section} hasMedia>
             <SectionImage section={section} image={image} />
@@ -877,7 +890,7 @@ function SectionView({
   if (section.section_type === "offering_overview") {
     if (tree.root.type === "columns") {
       return (
-        <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+        <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
           <SectionInner>
             {renderLayoutNode(tree.root)}
           </SectionInner>
@@ -885,88 +898,17 @@ function SectionView({
       );
     }
     const ids = Array.isArray(section.content.offeringIds) ? (section.content.offeringIds as string[]) : [];
-    const label = String(section.content.moreInfoLabel ?? "rohkem infot");
     const listed = ids.map((id) => offerings[id]).filter(Boolean);
     const hasMedia = Boolean(image);
     const list = (
       <div className={hasMedia ? "vr-split-text" : undefined}>
         <div className="vr-offering-group" style={{ textAlign: align ?? "center" }}>
-          {listed.map((offering) => (
-            <article key={offering.id} className="vr-offering">
-              <EditableText
-                as="h2"
-                className="vr-heading"
-                selection={{
-                  id: `${prefix}.${offering.id}.title`,
-                  type: "text",
-                  sectionId: section.id,
-                  offeringId: offering.id,
-                  field: "short_title",
-                }}
-                path={{ kind: "offering", offeringId: offering.id, key: "short_title" }}
-                value={offering.short_title || offering.title}
-                appearance={fieldStyle(section, textStyleKey({ field: "short_title", offeringId: offering.id }) ?? `${offering.id}.short_title`)}
-              />
-              {offering.schedule_summary ? (
-                <EditableText
-                  selection={{
-                    id: `${prefix}.${offering.id}.schedule`,
-                    type: "text",
-                    offeringId: offering.id,
-                    field: "schedule_summary",
-                  }}
-                  path={{ kind: "offering", offeringId: offering.id, key: "schedule_summary" }}
-                  value={offering.schedule_summary}
-                />
-              ) : null}
-              {offering.location_name ? (
-                <EditableText
-                  selection={{
-                    id: `${prefix}.${offering.id}.location`,
-                    type: "text",
-                    offeringId: offering.id,
-                    field: "location_name",
-                  }}
-                  path={{ kind: "offering", offeringId: offering.id, key: "location_name" }}
-                  value={offering.location_name}
-                />
-              ) : null}
-              {offering.address ? (
-                <EditableText
-                  selection={{
-                    id: `${prefix}.${offering.id}.address`,
-                    type: "text",
-                    offeringId: offering.id,
-                    field: "address",
-                  }}
-                  path={{ kind: "offering", offeringId: offering.id, key: "address" }}
-                  value={offering.address}
-                />
-              ) : null}
-              <p>
-                <Link className="vr-text-link" href={pageHref(offering.slug)}>
-                  <EditableText
-                    as="span"
-                    className="vr-text-link"
-                    selection={{
-                      id: `${prefix}.moreInfo`,
-                      type: "link",
-                      sectionId: section.id,
-                      field: "moreInfoLabel",
-                    }}
-                    path={{ kind: "section-content", sectionId: section.id, key: "moreInfoLabel" }}
-                    value={label}
-                    clickMode="defer"
-                  />
-                </Link>
-              </p>
-            </article>
-          ))}
+          {listed.map((offering) => renderOfferingCard(offering))}
         </div>
       </div>
     );
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
           {hasMedia ? (
             <SplitLayout section={section} hasMedia>
@@ -985,7 +927,7 @@ function SectionView({
     const label = String(section.content.label ?? "Eratunnid kokkuleppel");
     const action = String(section.content.actionLabel ?? "Võta ühendust");
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
           <div className="vr-centered vr-private">
             <EditableText
@@ -1014,7 +956,7 @@ function SectionView({
   if (section.section_type === "contact") {
     if (slug === "avaleht" && tree.root.type === "columns") {
       return (
-        <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+        <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
           <SectionInner>
             {renderLayoutNode(tree.root)}
           </SectionInner>
@@ -1051,7 +993,7 @@ function SectionView({
       </div>
     );
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
           {hasMedia ? (
             <SplitLayout section={section} hasMedia>
@@ -1075,7 +1017,7 @@ function SectionView({
     const notes = typeof section.content.notes === "string" ? section.content.notes : "";
     const scheduleText = typeof section.content.scheduleText === "string" ? section.content.scheduleText : "";
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
           <div className="vr-reading vr-body">
             {scheduleText ? (
@@ -1141,7 +1083,7 @@ function SectionView({
   if (section.section_type === "faq") {
     const items = Array.isArray(section.content.items) ? section.content.items : [];
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
           <div className="vr-reading">
             <div className="vr-faq">
@@ -1177,7 +1119,7 @@ function SectionView({
   if (section.section_type === "important_info") {
     const items = Array.isArray(section.content.items) ? (section.content.items as string[]) : [];
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
           <div className="vr-reading vr-body">
             {items.map((item, i) => (
@@ -1203,7 +1145,7 @@ function SectionView({
     });
     if (usable.length === 0 && !editor) return null;
     return (
-      <SectionShell section={section} specksOn={specksOn} themeDensity={themeDensity}>
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
         <SectionInner>
           <div className="vr-reading vr-body">
             {usable.map((item, i) => {

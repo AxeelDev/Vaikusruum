@@ -183,20 +183,43 @@ export function EditorTextarea({
   onChange,
   onCommit,
   rows = 4,
+  placeholder,
 }: {
   value: string;
   onChange: (value: string) => void;
   onCommit?: (value: string) => void;
   rows?: number;
+  placeholder?: string;
 }) {
   return (
     <textarea
       className="vr-ed-textarea"
       rows={rows}
       value={value}
+      placeholder={placeholder}
       onChange={(event) => onChange(event.target.value)}
       onBlur={(event) => onCommit?.(event.target.value)}
     />
+  );
+}
+
+export function MarkdownHelp({
+  items,
+}: {
+  items: ReadonlyArray<{ sample: string; hint: string }>;
+}) {
+  return (
+    <details className="vr-md-help">
+      <summary>Markdown</summary>
+      <div className="vr-md-help-list">
+        {items.map((item) => (
+          <div key={item.sample} className="vr-md-help-row">
+            <code>{item.sample}</code>
+            <span>{item.hint}</span>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

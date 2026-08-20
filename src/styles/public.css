@@ -452,6 +452,27 @@
   flex-direction: column;
 }
 
+.vr-md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+}
+
+.vr-md-mark {
+  background: color-mix(in srgb, var(--vr-accent, #d48342) 28%, transparent);
+  color: inherit;
+}
+
+.vr-md-spoiler {
+  background: color-mix(in srgb, var(--vr-text) 82%, transparent);
+  color: transparent;
+}
+
+.vr-md-spoiler:hover,
+.vr-md-spoiler:focus {
+  background: transparent;
+  color: inherit;
+}
+
 .vr-editorial-placeholder,
 .vr-widget-element,
 .vr-control-element,
@@ -1058,6 +1079,14 @@
     min-height: auto;
     height: auto;
     padding-block: clamp(64px, 12cqi, 96px);
+  }
+
+  .vr-home-scene,
+  .vr-home-scene.vr-section--hero,
+  .vr-home-scene.vr-section--viewport,
+  .vr-home-scene.vr-screen-section--large {
+    min-height: calc(100svh - var(--vr-header-height));
+    height: auto;
   }
 
   .vr-screen-section--auto,

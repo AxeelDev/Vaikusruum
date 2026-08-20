@@ -116,6 +116,11 @@ export function inspectorTitle(
     const section = selection.sectionId ? findSection(draft, selection.sectionId) : undefined;
     return section?.section_type === "hero" ? "Hero sissejuhatus" : "Sissejuhatus";
   }
+  if (selection.field === "short_title") return "Pealkiri";
+  if (selection.field === "schedule_summary") return "Aeg";
+  if (selection.field === "location_name") return "Koht";
+  if (selection.field === "address") return "Aadress";
+  if (selection.field === "moreInfoLabel") return "Link";
   if (selection.field === "heading") return "Pealkiri";
   if (selection.field === "plain" || selection.field === "body") return "Tekst";
   if (fallback && fallback !== nodeKindLabel(kind)) return fallback;

@@ -188,16 +188,16 @@ export function EditorProvider({
 
   const setTab = useCallback(
     (tab: InspectorTab) => {
-      if (inspectorContext.kind === "site") return;
+      const requested = tab === "settings" ? "advanced" : tab;
       if (!selected) {
-        setInspectorTab(tab === "settings" ? "advanced" : tab);
+        setInspectorTab(requested);
         return;
       }
       const content = readEditorContent(draft, selected);
       const kind = resolveNodeKind(selected, { rich: content.format === "rich" });
-      setInspectorTab(resolveInspectorTab(kind, tab, role));
+      setInspectorTab(resolveInspectorTab(kind, requested, role));
     },
-    [draft, inspectorContext.kind, role, selected],
+    [draft, role, selected],
   );
 
   const clearNotice = useCallback(() => setNotice(null), []);

@@ -93,16 +93,16 @@ describe("text appearance", () => {
     expect(writeTextStylePatch({ fontSize: 110 }).fontSize).toBe(110);
   });
 
-  it("allows display text up to 240px", () => {
-    expect(clampTextStyle({ fontSize: 240 }, "display").fontSize).toBe(240);
-    expect(clampTextStyle({ fontSize: 300 }, "display").fontSize).toBe(240);
-    expect(clampTextStyle({ fontSize: 80 }, "body").fontSize).toBe(64);
+  it("allows display text up to 320px", () => {
+    expect(clampTextStyle({ fontSize: 320 }, "display").fontSize).toBe(320);
+    expect(clampTextStyle({ fontSize: 400 }, "display").fontSize).toBe(320);
+    expect(clampTextStyle({ fontSize: 120 }, "body").fontSize).toBe(96);
   });
 
-  it("lets normal text reach 1200px and display text 1600px", () => {
-    expect(clampTextStyle({ maxWidth: 1200 }, "body").maxWidth).toBe(1200);
-    expect(clampTextStyle({ maxWidth: 1400 }, "body").maxWidth).toBe(1200);
-    expect(clampTextStyle({ maxWidth: 1600 }, "display").maxWidth).toBe(1600);
+  it("lets normal text reach 1600px and display text 2000px", () => {
+    expect(clampTextStyle({ maxWidth: 1600 }, "body").maxWidth).toBe(1600);
+    expect(clampTextStyle({ maxWidth: 1800 }, "body").maxWidth).toBe(1600);
+    expect(clampTextStyle({ maxWidth: 2000 }, "display").maxWidth).toBe(2000);
   });
 
   it("treats 0 as Full parent width, not a pixel cap", () => {

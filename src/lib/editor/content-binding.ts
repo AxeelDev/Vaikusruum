@@ -53,7 +53,7 @@ export function bindSelection(draft: EditorDraft, selection: EditorSelection): B
   if (selection.offeringId && selection.field) {
     const offering = draft.offerings[selection.offeringId];
     const value = String((offering as Record<string, unknown> | undefined)?.[selection.field] ?? "");
-    return plain(value, { kind: "offering", offeringId: selection.offeringId, key: selection.field as keyof OfferingRow }, "Tund");
+    return plain(value, { kind: "offering", offeringId: selection.offeringId, key: selection.field as keyof OfferingRow }, offeringFieldLabel(selection.field));
   }
   if (selection.sectionId && selection.field) {
     const section = findSection(draft, selection.sectionId);
@@ -145,6 +145,14 @@ function plain(value: string, path: EditPath, label: string): BoundEditorContent
   return { format: "plain", value, path, label, plainPreview: value };
 }
 
+function offeringFieldLabel(field: string) {
+  if (field === "short_title" || field === "title") return "Pealkiri";
+  if (field === "schedule_summary") return "Aeg";
+  if (field === "location_name") return "Koht";
+  if (field === "address") return "Aadress";
+  return "Tund";
+}
+
 function fieldLabel(field: string, sectionType?: string) {
   if (field === "title") return sectionType === "hero" ? "Hero pealkiri" : "Pealkiri";
   if (field === "intro") return sectionType === "hero" ? "Hero sissejuhatus" : "Sissejuhatus";
@@ -152,6 +160,7 @@ function fieldLabel(field: string, sectionType?: string) {
   if (field === "plain" || field === "body") return "Tekst";
   if (field === "label") return "Silt";
   if (field === "actionLabel") return "Nupp";
+  if (field === "moreInfoLabel") return "Link";
   if (field.startsWith("custom.")) return "Komponent";
   return "Sisu";
 }

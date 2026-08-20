@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Inspector } from "@/components/editor/Inspector";
 import { useDragRuntime, useEditor } from "@/components/editor/EditorProvider";
 import { EditorButton, EditorPopover } from "@/components/editor/ui";
@@ -908,22 +908,28 @@ function EditorTopBar({
               placement="bottom-start"
               className="vr-editor-add-menu"
             >
-              {addableNodesForRole(editor.role).map((item) => (
-                <button
-                  key={item.type}
-                  type="button"
-                  role="menuitem"
-                  onPointerDown={(event) => onAddPointerDown(event, item.type)}
-                  onClick={() => {
-                    if (shouldSuppressAddClick()) return;
-                    onAddElement(item.type);
-                    setMenuOpen(false);
-                  }}
-                >
-                  <span className="vr-editor-add-icon">{addIcon(item.type)}</span>
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {addableNodesForRole(editor.role).map((item, index, items) => {
+                const prev = items[index - 1];
+                const showSep = item.type === "container" && prev && prev.type !== "container" && prev.type !== "control";
+                return (
+                  <Fragment key={item.type}>
+                    {showSep ? <div className="vr-editor-add-sep" /> : null}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onPointerDown={(event) => onAddPointerDown(event, item.type)}
+                      onClick={() => {
+                        if (shouldSuppressAddClick()) return;
+                        onAddElement(item.type);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <span className="vr-editor-add-icon">{addIcon(item.type)}</span>
+                      <span>{item.label}</span>
+                    </button>
+                  </Fragment>
+                );
+              })}
             </EditorPopover>
           ) : null}
         </div>
@@ -1007,43 +1013,141 @@ function EditorTopBar({
 }
 
 function addIcon(type: AddableElementType) {
+  const svg = {
+    width: 16,
+    height: 16,
+    viewBox: "0 0 16 16",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.4,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
   switch (type) {
     case "text":
-      return "A";
+      return (
+        <svg {...svg}>
+          <path d="M3.5 3.5h9M8 3.5v9M5.5 12.5h5" />
+        </svg>
+      );
     case "list":
-      return "≡";
+      return (
+        <svg {...svg}>
+          <path d="M6 4h7M6 8h7M6 12h7M3 4h.01M3 8h.01M3 12h.01" />
+        </svg>
+      );
     case "image":
-      return "◫";
+      return (
+        <svg {...svg}>
+          <rect x="2.5" y="3.5" width="11" height="9" rx="1" />
+          <path d="M2.5 11.2 6 8l2.4 2.2L11 8.2l2.5 3" />
+          <circle cx="5.5" cy="6.2" r="0.8" />
+        </svg>
+      );
     case "buttons":
-      return "▰";
+      return (
+        <svg {...svg}>
+          <rect x="2.5" y="5" width="11" height="6" rx="1.5" />
+        </svg>
+      );
     case "video":
-      return "▷";
+      return (
+        <svg {...svg}>
+          <rect x="2.5" y="4" width="11" height="8" rx="1" />
+          <path d="M7 6.5v3l2.5-1.5z" fill="currentColor" stroke="none" />
+        </svg>
+      );
     case "links":
-      return "↗";
+      return (
+        <svg {...svg}>
+          <path d="M6.5 9.5 5 11a2.1 2.1 0 1 1-3-3l1.5-1.5M9.5 6.5 11 5a2.1 2.1 0 1 1 3 3L12.5 9.5M6.8 9.2l2.4-2.4" />
+        </svg>
+      );
     case "audio":
-      return "♪";
+      return (
+        <svg {...svg}>
+          <path d="M4 10.5V6l7-1.5v7" />
+          <circle cx="3.8" cy="10.8" r="1.4" />
+          <circle cx="10.8" cy="11.5" r="1.4" />
+        </svg>
+      );
     case "icons":
-      return "◇";
+      return (
+        <svg {...svg}>
+          <circle cx="8" cy="8" r="5.2" />
+          <path d="M8 5.5v5M5.5 8h5" />
+        </svg>
+      );
     case "gallery":
-      return "▦";
+      return (
+        <svg {...svg}>
+          <rect x="3" y="4" width="6.5" height="6.5" rx="0.8" />
+          <path d="M6.5 11.5h5.2c.7 0 1.3-.6 1.3-1.3V6.5" />
+        </svg>
+      );
     case "table":
-      return "▥";
+      return (
+        <svg {...svg}>
+          <rect x="2.5" y="3.5" width="11" height="9" rx="1" />
+          <path d="M2.5 7h11M2.5 10.5h11M8 3.5v9" />
+        </svg>
+      );
     case "timer":
-      return "◴";
+      return (
+        <svg {...svg}>
+          <circle cx="8" cy="8.5" r="4.5" />
+          <path d="M8 8.5V6.2M8 3.2V4.4M6.5 3.2h3" />
+        </svg>
+      );
     case "divider":
-      return "─";
+      return (
+        <svg {...svg}>
+          <path d="M3 8h10" />
+        </svg>
+      );
     case "slideshow":
-      return "▣";
+      return (
+        <svg {...svg}>
+          <rect x="3.5" y="4" width="9" height="8" rx="1" />
+          <path d="M2.5 6v4M13.5 6v4" />
+        </svg>
+      );
     case "form":
-      return "▤";
+      return (
+        <svg {...svg}>
+          <rect x="3" y="3" width="10" height="10" rx="1" />
+          <path d="M6 6.5h4M6 9.5h4" />
+        </svg>
+      );
     case "widget":
-      return "◇";
+      return (
+        <svg {...svg}>
+          <rect x="3" y="3" width="4.2" height="4.2" rx="0.6" />
+          <rect x="8.8" y="3" width="4.2" height="4.2" rx="0.6" />
+          <rect x="3" y="8.8" width="4.2" height="4.2" rx="0.6" />
+          <rect x="8.8" y="8.8" width="4.2" height="4.2" rx="0.6" />
+        </svg>
+      );
     case "embed":
-      return "</>";
+      return (
+        <svg {...svg}>
+          <path d="M6 4.5 2.8 8 6 11.5M10 4.5 13.2 8 10 11.5" />
+        </svg>
+      );
     case "container":
-      return "▣";
+      return (
+        <svg {...svg}>
+          <rect x="2.5" y="3.5" width="11" height="9" rx="1" />
+        </svg>
+      );
     case "control":
-      return "#";
+      return (
+        <svg {...svg}>
+          <circle cx="8" cy="8" r="2" />
+          <path d="M8 3.5v2M8 10.5v2M3.5 8h2M10.5 8h2" />
+        </svg>
+      );
   }
 }
 

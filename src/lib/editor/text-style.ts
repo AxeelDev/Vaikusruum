@@ -30,24 +30,24 @@ export type CanonicalTextStyle = {
 export const WIDTH_FULL = 0;
 
 export const TEXT_STYLE_BOUNDS = {
-  fontSize: { min: 8, max: 240 },
+  fontSize: { min: 8, max: 320 },
   lineHeight: { min: 0.8, max: 3 },
   letterSpacing: { min: -0.1, max: 1 },
   fontWeight: { min: 100, max: 900 },
-  maxWidth: { min: 160, max: 1600 },
+  maxWidth: { min: 160, max: 2000 },
   paragraphSpacing: { min: 0, max: 80 },
 } as const;
 
 export const TEXT_SIZE_RANGES: Record<TextStyleScale, { min: number; max: number }> = {
-  body: { min: 8, max: 64 },
-  heading: { min: 12, max: 160 },
-  display: { min: 16, max: 240 },
+  body: { min: 8, max: 96 },
+  heading: { min: 12, max: 200 },
+  display: { min: 16, max: 320 },
 };
 
 export const TEXT_WIDTH_RANGES: Record<TextStyleScale, { min: number; max: number }> = {
-  body: { min: 160, max: 1200 },
-  heading: { min: 160, max: 1200 },
-  display: { min: 160, max: 1600 },
+  body: { min: 160, max: 1600 },
+  heading: { min: 160, max: 1600 },
+  display: { min: 160, max: 2000 },
 };
 
 export const WIDTH_PRESETS = [

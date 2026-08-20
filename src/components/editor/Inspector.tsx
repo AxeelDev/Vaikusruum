@@ -20,6 +20,7 @@ import {
   EditorTextInput,
   EditorTextarea,
   EditorTooltip,
+  MarkdownHelp,
 } from "@/components/editor/ui";
 import { findSection, pageSections } from "@/lib/editor/draft";
 import { fieldStyle, clearFieldStyleKeys } from "@/lib/editor/appearance";
@@ -48,6 +49,7 @@ import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { compressImage } from "@/lib/utils/compress-image";
 import { mediaPublicUrl } from "@/lib/utils/urls";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
+import { MARKDOWN_HELP_ITEMS, RICH_MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
 import { readEditorContent } from "@/lib/editor/content-binding";
 import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
 import type { EditorSelection, InspectorTabId } from "@/lib/editor/types";
@@ -178,7 +180,11 @@ export function Inspector() {
             <p className="vr-ed-context-title">{model.title}</p>
           </div>
         ) : null}
-        {model.context.kind === "site" ? <SiteDesignInspector /> : <SelectionPanels tab={model.tab} />}
+        {model.context.kind === "site" ? (
+          <SiteDesignInspector />
+        ) : (
+          <SelectionPanels key={`${state.selected?.id ?? "page"}:${model.tab}`} tab={model.tab} />
+        )}
       </div>
       <EditorFooterControls />
       <button
@@ -662,22 +668,23 @@ function NodeContentInspector() {
   return (
     <div className="vr-inspector-body">
       {content.format === "rich" ? (
-        <>
-          <EditorGroup label="Tekst">
-            <RichEditor value={content.value} onChange={(next) => writeRich(next, false)} onCommit={(next) => writeRich(next, true)} />
-          </EditorGroup>
-        </>
+        <EditorGroup label={content.label || "Tekst"}>
+          <RichEditor value={content.value} onChange={(next) => writeRich(next, false)} onCommit={(next) => writeRich(next, true)} />
+          <MarkdownHelp items={RICH_MARKDOWN_HELP_ITEMS} />
+        </EditorGroup>
       ) : content.format === "structured" ? (
         <StructuredContentPanel />
       ) : (
-        <EditorGroup label="Tekst">
+        <EditorGroup label={content.label || "Tekst"}>
           <EditorTextarea
             key={selected.id}
-            rows={Math.max(4, content.value.split("\n").length + 1)}
+            rows={Math.min(8, Math.max(3, content.value.split("\n").length + 1))}
             value={content.value}
+            placeholder="Kirjuta tekst"
             onChange={(next) => writePlain(next, false)}
             onCommit={(next) => writePlain(next, true)}
           />
+          <MarkdownHelp items={MARKDOWN_HELP_ITEMS} />
         </EditorGroup>
       )}
       {selected.type === "nav" ? <NavTarget /> : null}
@@ -961,8 +968,8 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
           </EditorGroup>
           <EditorSlider
             label="Veergude vahe"
-            min={24}
-            max={180}
+            min={0}
+            max={320}
             value={style.splitGap ?? editor.state.draft.theme.splitGap}
             onChange={(splitGap) => patchStyle({ splitGap }, false)}
             unit="px"
@@ -970,8 +977,8 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
           />
           <EditorSlider
             label="Sisu laius"
-            min={720}
-            max={1440}
+            min={320}
+            max={2000}
             value={style.contentWidth ?? editor.state.draft.theme.contentMaxWidth}
             onChange={(contentWidth) => patchStyle({ contentWidth }, false)}
             unit="px"
@@ -988,8 +995,8 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
               onChange={(textAlign) => patchStyle({ textAlign: textAlign as SectionStyle["textAlign"] })}
             />
           </EditorGroup>
-          <EditorSlider label="Ülemine vahe" min={0} max={160} value={style.topSpace ?? 64} onChange={(topSpace) => patchStyle({ topSpace }, false)} unit="px" exact={editor.state.advanced} />
-          <EditorSlider label="Alumine vahe" min={0} max={160} value={style.bottomSpace ?? 64} onChange={(bottomSpace) => patchStyle({ bottomSpace }, false)} unit="px" exact={editor.state.advanced} />
+          <EditorSlider label="Ülemine vahe" min={0} max={320} value={style.topSpace ?? 64} onChange={(topSpace) => patchStyle({ topSpace }, false)} unit="px" exact={editor.state.advanced} />
+          <EditorSlider label="Alumine vahe" min={0} max={320} value={style.bottomSpace ?? 64} onChange={(bottomSpace) => patchStyle({ bottomSpace }, false)} unit="px" exact={editor.state.advanced} />
           <EditorGroup label="Mobiili järjekord">
             <EditorSelect
               value={style.mobileOrder ?? "image-first"}
@@ -1082,8 +1089,8 @@ function ContainerPanel() {
           </EditorGroup>
           <EditorSlider
             label="Vahe"
-            min={24}
-            max={180}
+            min={0}
+            max={320}
             value={style.splitGap ?? editor.state.draft.theme.splitGap}
             onChange={(splitGap) => patchStyle({ splitGap }, false)}
             unit="px"
@@ -1147,7 +1154,7 @@ function HeaderPanel() {
       <EditorSlider label="Kõrgus" min={56} max={140} value={theme.headerHeight} onChange={(headerHeight) => editor.patchTheme({ headerHeight })} unit="px" exact={editor.state.advanced} />
       <EditorSlider label="Logo suurus" min={24} max={96} value={theme.wordmarkSize} onChange={(wordmarkSize) => editor.patchTheme({ wordmarkSize })} unit="px" exact={editor.state.advanced} />
       <EditorSlider label="Logo tähevahe" min={0.08} max={0.4} step={0.01} value={theme.wordmarkTracking} onChange={(wordmarkTracking) => editor.patchTheme({ wordmarkTracking })} unit="em" exact={editor.state.advanced} />
-      <EditorSlider label="Sisu laius" min={720} max={1600} value={theme.contentMaxWidth} onChange={(contentMaxWidth) => editor.patchTheme({ contentMaxWidth })} unit="px" exact={editor.state.advanced} />
+      <EditorSlider label="Sisu laius" min={320} max={2000} value={theme.contentMaxWidth} onChange={(contentMaxWidth) => editor.patchTheme({ contentMaxWidth })} unit="px" exact={editor.state.advanced} />
       <EditorSwitch checked={theme.headerSticky} onChange={(headerSticky) => editor.patchTheme({ headerSticky }, true)} label="Sticky" />
       <EditorDivider />
       <EditorContext kicker="Menüü" title="Lingid" />
@@ -1364,7 +1371,7 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
       </EditorGroup>
       <EditorSlider
         label="Laius"
-        min={40}
+        min={10}
         max={100}
         value={image.width ?? 100}
         onChange={(width) =>
@@ -1609,7 +1616,7 @@ function SiteDesignInspector() {
         </EditorGroup>
       </EditorCollapse>
       <EditorCollapse title="Lehe laius">
-        <EditorSlider label="Sisu maksimaalne laius" min={720} max={1600} value={theme.contentMaxWidth} onChange={(contentMaxWidth) => editor.patchTheme({ contentMaxWidth })} unit="px" exact={exact} />
+        <EditorSlider label="Sisu maksimaalne laius" min={320} max={2000} value={theme.contentMaxWidth} onChange={(contentMaxWidth) => editor.patchTheme({ contentMaxWidth })} unit="px" exact={exact} />
         <EditorSlider label="Lehe küljevahe" min={24} max={140} value={theme.gutterDesktop} onChange={(gutterDesktop) => editor.patchTheme({ gutterDesktop })} unit="px" exact={exact} />
       </EditorCollapse>
       <EditorCollapse title="Üldine tekst">
@@ -1619,7 +1626,7 @@ function SiteDesignInspector() {
       </EditorCollapse>
       <EditorCollapse title="Vahed">
         <EditorSlider label="Sektsiooni vertikaalne vahe" min={48} max={160} value={theme.sectionSpace} onChange={(sectionSpace) => editor.patchTheme({ sectionSpace })} unit="px" exact={exact} />
-        <EditorSlider label="Kahe veeru vahe" min={16} max={180} value={theme.splitGap} onChange={(splitGap) => editor.patchTheme({ splitGap })} unit="px" exact={exact} />
+        <EditorSlider label="Kahe veeru vahe" min={0} max={320} value={theme.splitGap} onChange={(splitGap) => editor.patchTheme({ splitGap })} unit="px" exact={exact} />
       </EditorCollapse>
       <EditorCollapse title="Nupud">
         <EditorColor label="Taust" value={theme.buttonBg} fallback={theme.buttonBg} swatches={swatches} onChange={(buttonBg) => editor.patchTheme({ buttonBg })} />

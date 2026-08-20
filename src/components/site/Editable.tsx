@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useOptionalEditor, type EditPath } from "@/components/editor/EditorProvider";
 import { appearanceToStyle } from "@/lib/editor/appearance";
+import { looksLikeMarkdown, renderMarkdown } from "@/lib/content/markdown";
 import type { EditorSelection } from "@/lib/editor/types";
 import type { TextAppearance } from "@/types/content";
 
@@ -57,6 +58,8 @@ export function EditableText({
   const editor = useOptionalEditor();
   void _path;
   const selected = editor?.state.selected?.id === selection.id && !editor.state.preview;
+  const allowMarkdown = !String(className ?? "").includes("vr-wordmark");
+  const rendered = allowMarkdown && looksLikeMarkdown(value) ? renderMarkdown(value) : value;
 
   const mergedStyle: CSSProperties = {
     ...appearanceToStyle(appearance),
@@ -67,7 +70,7 @@ export function EditableText({
   if (!editor) {
     return (
       <Tag className={className} style={mergedStyle}>
-        {value}
+        {rendered}
       </Tag>
     );
   }
@@ -90,7 +93,7 @@ export function EditableText({
       {...editProps(selection, Boolean(selected), editor.state.preview)}
       onClick={onClick}
     >
-      {value}
+      {rendered}
     </Tag>
   );
 }
