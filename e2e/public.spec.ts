@@ -33,7 +33,7 @@ test.describe("public site", () => {
 
   test("contact page has no placeholder copy", async ({ page }) => {
     await page.goto("/kontakt");
-    await expect(page.getByText("VÕTA KONTAKTI")).toBeVisible();
+    await expect(page.getByText("VÕTA ÜHENDUST")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Lorem ipsum");
     await expect(page.getByLabel("Nimi")).toBeVisible();
   });

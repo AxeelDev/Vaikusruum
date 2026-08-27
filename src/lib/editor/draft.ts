@@ -44,7 +44,7 @@ export function defaultSectionContent(type: SectionType): Record<string, unknown
     case "faq":
       return { items: [{ question: "Küsimus", answer: "Vastus" }] };
     case "contact":
-      return { heading: "VÕTA KONTAKTI" };
+      return { heading: "VÕTA ÜHENDUST" };
     case "private_lessons":
       return { label: "Eratunnid kokkuleppel", actionLabel: "Võta ühendust" };
     case "testimonials":

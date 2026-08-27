@@ -266,7 +266,7 @@ async function main() {
       section_type: "contact",
       sort_order: 6,
       enabled: true,
-      content: { heading: "VÕTA KONTAKTI" },
+      content: { heading: "VÕTA ÜHENDUST" },
       style: { background: "warm", layout: "text-only", height: "screen", verticalAlign: "center", specks: true },
     },
     {
@@ -474,7 +474,7 @@ async function main() {
       section_type: "contact",
       sort_order: 1,
       enabled: true,
-      content: { heading: "VÕTA KONTAKTI" },
+      content: { heading: "VÕTA ÜHENDUST" },
       style: { background: "warm", specks: true },
     },
   ];

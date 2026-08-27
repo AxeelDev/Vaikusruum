@@ -963,7 +963,7 @@ function SectionView({
         </SectionShell>
       );
     }
-    const heading = String(section.content.heading ?? "VÕTA KONTAKTI");
+    const heading = String(section.content.heading ?? "VÕTA ÜHENDUST");
     const intro = typeof section.content.intro === "string" ? section.content.intro : "";
     const hasMedia = Boolean(image);
     const content = (
