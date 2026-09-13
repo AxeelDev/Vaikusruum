@@ -51,6 +51,13 @@ export function defaultSectionContent(type: SectionType): Record<string, unknown
       return { items: [{ quote: "Tsitaat", name: "" }] };
     case "important_info":
       return { items: [""] };
+    case "offering_practical_info":
+      return {
+        datesLabel: "Kuupäevad:",
+        headTeadaLabel: "Hea teada",
+        tasakaalLabel: "Tasakaal",
+        registerHeading: "Registreeri tundi",
+      };
     case "spacer":
       return {};
     default:

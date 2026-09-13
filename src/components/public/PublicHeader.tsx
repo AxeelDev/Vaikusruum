@@ -20,24 +20,21 @@ export function PublicHeader({
 }) {
   const pathname = usePathname();
   const current = currentHref ?? pathname;
-  const [open, setOpen] = useState(false);
+  const [openRoute, setOpenRoute] = useState<string | null>(null);
   const editor = useOptionalEditor();
   const headerRef = useRef<HTMLElement>(null);
   const menuId = useId();
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname, currentHref]);
+  const open = openRoute === current;
 
   useEffect(() => {
     if (!open) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") setOpenRoute(null);
     }
     function onPointer(event: PointerEvent) {
       const target = event.target as Node | null;
       if (target && headerRef.current?.contains(target)) return;
-      setOpen(false);
+      setOpenRoute(null);
     }
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
@@ -48,7 +45,7 @@ export function PublicHeader({
   }, [open]);
 
   function closeMenu() {
-    setOpen(false);
+    setOpenRoute(null);
   }
 
   function onNavClick(event: MouseEvent<HTMLAnchorElement>, slug: string) {
@@ -130,7 +127,7 @@ export function PublicHeader({
           aria-label="Ava menüü"
           aria-expanded={open}
           aria-controls={menuId}
-          onClick={() => setOpen((next) => !next)}
+          onClick={() => setOpenRoute((currentRoute) => (currentRoute === current ? null : current))}
         >
           <MenuIcon open={open} />
         </button>
@@ -145,7 +142,12 @@ export function PublicHeader({
               title={editor && !editor.state.preview ? NAV_HINT : undefined}
               onClick={(event) => onNavClick(event, item.slug)}
             >
-              {item.label}
+              <EditableText
+                as="span"
+                selection={{ id: `header.nav.${item.slug}`, type: "nav", navSlug: item.slug, field: "nav_label" }}
+                path={{ kind: "nav-label", pageId: editor?.state.draft.pages.find((page) => page.slug === item.slug)?.id ?? "" }}
+                value={item.label}
+              />
             </Link>
           ))}
         </nav>
