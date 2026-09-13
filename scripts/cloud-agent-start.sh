@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Cloud Agent start phase: per-boot reconciliation of runtime services.
-# Must tolerate restarts and avoid duplicate processes. It reconciles the
-# backing services (Docker + the Supabase stack + schema/seed) and then runs
-# the Next.js dev server in the foreground so it stays attached for the agent.
+# Must tolerate restarts, avoid duplicate processes, reach readiness, then
+# return. It reconciles the backing services (Docker + the Supabase stack +
+# schema/seed) and launches the Next.js dev server in the background so boot
+# completes promptly; the server logs to /tmp/next-dev.log.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -45,7 +46,15 @@ pnpm seed
 pnpm seed:media
 log "database migrated and seeded"
 
-# 4) Next.js dev server, kept attached in the foreground so its logs stay
-#    visible to the agent.
-log "starting Next.js dev server on http://127.0.0.1:3000"
-exec pnpm dev --hostname 127.0.0.1 --port 3000
+# 4) Next.js dev server. Started in the background (logs to /tmp/next-dev.log)
+#    so this script returns and boot can complete. A single instance is kept.
+if curl -sf -o /dev/null http://127.0.0.1:3000/ 2>/dev/null; then
+  log "dev server already responding on http://127.0.0.1:3000"
+elif pgrep -f "next dev" >/dev/null 2>&1; then
+  log "dev server process already running"
+else
+  log "starting Next.js dev server on http://127.0.0.1:3000 (logs: /tmp/next-dev.log)"
+  nohup pnpm dev --hostname 127.0.0.1 --port 3000 >/tmp/next-dev.log 2>&1 &
+fi
+
+log "done"
