@@ -227,7 +227,10 @@ export function fieldLabel(field: string, sectionType?: string) {
   if (field === "title") return sectionType === "hero" ? "Hero pealkiri" : "Pealkiri";
   if (field === "intro") return sectionType === "hero" ? "Hero sissejuhatus" : "Sissejuhatus";
   if (field === "heading") return "Pealkiri";
-  if (field === "plain" || field === "body") return "Tekst";
+  if (field === "plain") return "Tekst";
+  if (field === "body") return "Lõik";
+  if (field.startsWith("custom.paragraph.")) return "Lõik";
+  if (field.startsWith("custom.text.")) return "Tekst";
   if (field === "label") return "Silt";
   if (field === "actionLabel") return "Nupp";
   if (field === "moreInfoLabel") return "Link";

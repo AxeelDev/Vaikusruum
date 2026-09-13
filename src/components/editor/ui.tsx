@@ -205,11 +205,18 @@ export function EditorTextarea({
 
 export function MarkdownHelp({
   items,
+  defaultOpen = true,
 }: {
   items: ReadonlyArray<{ sample: string; hint: string }>;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <details className="vr-md-help">
+    <details
+      className="vr-md-help"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary>Markdown</summary>
       <div className="vr-md-help-list">
         {items.map((item) => (

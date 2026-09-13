@@ -175,7 +175,7 @@ describe("component creation", () => {
   it("exposes every add-menu type from the registry", () => {
     const types = addableNodesForRole("owner").map((item) => item.type);
     expect(types).toEqual(expect.arrayContaining([
-      "text", "list", "image", "buttons", "video", "links", "audio", "icons", "gallery",
+      "text", "paragraph", "list", "image", "buttons", "video", "links", "audio", "icons", "gallery",
       "table", "timer", "divider", "slideshow", "form", "widget", "embed", "container", "control",
     ]));
   });
@@ -187,6 +187,16 @@ describe("component creation", () => {
     const field = inserted.node.type === "element" ? inserted.node.field : undefined;
     expect(field).toMatch(/^custom\.text\./);
     expect(inserted.section.content[field!]).toBe("Uus tekst");
+  });
+
+  it("inserts a paragraph as a rich-text document", () => {
+    const hero = section({ content: { title: "VAIKUSRUUM", intro: "Tere" } });
+    const inserted = insertLayoutElement(hero, "paragraph", { parentId: `layout.${hero.id}.hero.textGroup`, index: 99, placement: "inside" });
+    expect(inserted.node.type === "element" && inserted.node.elementType).toBe("paragraph");
+    const field = inserted.node.type === "element" ? inserted.node.field : undefined;
+    expect(field).toMatch(/^custom\.paragraph\./);
+    const value = inserted.section.content[field!];
+    expect(value).toMatchObject({ type: "doc" });
   });
 });
 

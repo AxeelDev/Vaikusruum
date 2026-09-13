@@ -6,10 +6,12 @@ export function RegistrationBlock({
   offering,
   fallbackEmail,
   heading,
+  pageSlug,
 }: {
   offering: OfferingRow;
   fallbackEmail: string | null;
   heading?: ReactNode;
+  pageSlug?: string;
 }) {
   const mode = offering.registration_mode;
   if (mode === "disabled") return null;
@@ -25,7 +27,7 @@ export function RegistrationBlock({
     <div>
       {heading ?? <h2 className="vr-heading">Registreeri tundi</h2>}
       {showForm ? (
-        <ContactForm kind="registration" offeringId={offering.id} showKindSelect={false} email={showEmail ? email : null} />
+        <ContactForm kind="registration" offeringId={offering.id} showKindSelect={false} email={showEmail ? email : null} pageSlug={pageSlug} />
       ) : null}
       {!showForm && showEmail ? (
         <p>

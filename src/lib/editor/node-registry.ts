@@ -63,7 +63,7 @@ const TABS = {
 
 export const nodeRegistry: Record<EditorNodeKind, EditorNodeDefinition> = {
   text: { type: "text", label: "Tekst", kindLabel: "Tekst", tabs: TABS.text, ownerTabs: ["advanced"], canPlaceBeside: true },
-  richText: { type: "richText", label: "Tekst", kindLabel: "Tekst", tabs: TABS.text, ownerTabs: ["advanced"], canPlaceBeside: true },
+  richText: { type: "richText", label: "Lõik", kindLabel: "Lõik", tabs: TABS.text, ownerTabs: ["advanced"], canPlaceBeside: true },
   image: { type: "image", label: "Pilt", kindLabel: "Pilt", tabs: TABS.media, ownerTabs: ["advanced"], canPlaceBeside: true },
   list: { type: "list", label: "Loend", kindLabel: "Loend", tabs: TABS.structured, canPlaceBeside: true },
   buttons: { type: "buttons", label: "Nupud", kindLabel: "Nupud", tabs: ["content", "appearance", "layout", "animation"], canPlaceBeside: true },
@@ -90,6 +90,7 @@ export const nodeRegistry: Record<EditorNodeKind, EditorNodeDefinition> = {
 
 const CUSTOM_FIELD_KIND: Record<string, EditorNodeKind> = {
   text: "text",
+  paragraph: "richText",
   list: "list",
   image: "image",
   buttons: "buttons",
@@ -110,6 +111,7 @@ const CUSTOM_FIELD_KIND: Record<string, EditorNodeKind> = {
 };
 
 export function kindFromAddable(type: AddableElementType): EditorNodeKind {
+  if (type === "paragraph") return "richText";
   if (type === "links") return "links";
   if (type === "container") return "container";
   return type;
@@ -118,6 +120,7 @@ export function kindFromAddable(type: AddableElementType): EditorNodeKind {
 export function kindFromLayoutElement(node: LayoutElementNode): EditorNodeKind {
   if (node.elementType === "offering") return "offering";
   if (node.elementType === "link") return "links";
+  if (node.elementType === "paragraph") return "richText";
   if (node.elementType === "text") return "text";
   return node.elementType;
 }

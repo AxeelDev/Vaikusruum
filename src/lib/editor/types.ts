@@ -97,6 +97,7 @@ export type AddableSectionType = Extract<
 
 export type AddableElementType =
   | "text"
+  | "paragraph"
   | "list"
   | "image"
   | "buttons"
@@ -116,7 +117,8 @@ export type AddableElementType =
   | "control";
 
 export const ADDABLE_ELEMENTS: Array<{ type: AddableElementType; label: string; ownerOnly?: boolean }> = [
-  { type: "text", label: "Text" },
+  { type: "text", label: "Tekst" },
+  { type: "paragraph", label: "Lõik" },
   { type: "list", label: "List" },
   { type: "image", label: "Image" },
   { type: "buttons", label: "Buttons" },

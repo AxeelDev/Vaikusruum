@@ -49,7 +49,7 @@ import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { compressImage } from "@/lib/utils/compress-image";
 import { mediaPublicUrl } from "@/lib/utils/urls";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
-import { MARKDOWN_HELP_ITEMS, RICH_MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
+import { MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
 import { indexedFieldValue, parseIndexedField, readBoundSectionValue, readEditorContent } from "@/lib/editor/content-binding";
 import { assignImageMedia, IMAGE_SIZE_MAX, IMAGE_SIZE_MIN, patchImageAppearance, readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
@@ -139,31 +139,35 @@ export function Inspector() {
           ←
         </EditorIconButton>
         <span>{hasContext ? model.kicker : ""}</span>
-        {canMoveSelected(state.selected) ? (
-          <div className="vr-inspector-more">
-            <span ref={moreRef}>
-              <EditorIconButton ariaLabel="Rohkem" active={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
-                ⋯
-              </EditorIconButton>
-            </span>
-            <EditorPopover
-              open={moreOpen}
-              onClose={() => setMoreOpen(false)}
-              anchorRef={moreRef}
-              placement="bottom-end"
-              className="vr-editor-menu"
+        <div className="vr-inspector-actions">
+          {canDeleteSelection(state.selected, state.inspectorContext.kind) ? (
+            <EditorIconButton
+              ariaLabel="Kustuta"
+              className="vr-ed-iconbtn--danger"
+              onClick={() => editor.removeSelected()}
             >
-              <MoveActions asMenu />
-              {canDeleteSelection(state.selected, state.inspectorContext.kind) ? (
-                <button type="button" className="vr-ed-danger" onClick={() => editor.removeSelected()}>
-                  Kustuta
-                </button>
-              ) : null}
-            </EditorPopover>
-          </div>
-        ) : (
-          <span />
-        )}
+              <DeleteIcon />
+            </EditorIconButton>
+          ) : null}
+          {canMoveSelected(state.selected) ? (
+            <div className="vr-inspector-more">
+              <span ref={moreRef}>
+                <EditorIconButton ariaLabel="Rohkem" active={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
+                  ⋯
+                </EditorIconButton>
+              </span>
+              <EditorPopover
+                open={moreOpen}
+                onClose={() => setMoreOpen(false)}
+                anchorRef={moreRef}
+                placement="bottom-end"
+                className="vr-editor-menu"
+              >
+                <MoveActions asMenu />
+              </EditorPopover>
+            </div>
+          ) : null}
+        </div>
         <EditorIconButton
           ariaLabel="Sulge"
           onClick={() => {
@@ -688,9 +692,8 @@ function NodeContentInspector() {
   return (
     <div className="vr-inspector-body">
       {content.format === "rich" ? (
-        <EditorGroup label={content.label || "Tekst"}>
+        <EditorGroup label={content.label || "Lõik"}>
           <RichEditor value={content.value} onChange={(next) => writeRich(next, false)} onCommit={(next) => writeRich(next, true)} />
-          <MarkdownHelp items={RICH_MARKDOWN_HELP_ITEMS} />
         </EditorGroup>
       ) : content.format === "structured" ? (
         <StructuredContentPanel />
@@ -1866,6 +1869,14 @@ function TestimonialContent({ sectionId }: { sectionId: string }) {
         Lisa tsitaat
       </EditorButton>
     </div>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M3.5 5h9M6.2 5V3.8A1.3 1.3 0 0 1 7.5 2.5h1A1.3 1.3 0 0 1 9.8 3.8V5M5.2 5v7.3A1.2 1.2 0 0 0 6.4 13.5h3.2a1.2 1.2 0 0 0 1.2-1.2V5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

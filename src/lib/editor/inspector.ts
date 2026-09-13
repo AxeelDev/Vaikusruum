@@ -122,7 +122,9 @@ export function inspectorTitle(
   if (selection.field === "address") return "Aadress";
   if (selection.field === "moreInfoLabel") return "Link";
   if (selection.field === "heading") return "Pealkiri";
-  if (selection.field === "plain" || selection.field === "body") return "Tekst";
+  if (selection.field === "plain") return "Tekst";
+  if (selection.field === "body" || selection.field?.startsWith("custom.paragraph.")) return "Lõik";
+  if (selection.field?.startsWith("custom.text.")) return "Tekst";
   if (selection.field === "scheduleText") return "Aeg";
   if (selection.field === "bring") return "Kaasa";
   if (selection.field === "clothing") return "Riided";
