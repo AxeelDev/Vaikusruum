@@ -12,12 +12,8 @@ export async function submitPublicForm(input: unknown): Promise<SubmitResult> {
   }
 
   const value = parsed.data;
-  if (!value.consent) {
-    return { ok: false, error: "Palun kinnita, et võime sinu andmeid vastamiseks kasutada." };
-  }
 
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("form_submissions").insert({
+  const row = {
     kind: value.kind,
     offering_id: value.offeringId || null,
     name: value.name,
@@ -25,8 +21,17 @@ export async function submitPublicForm(input: unknown): Promise<SubmitResult> {
     phone: value.phone || null,
     message: value.message || null,
     preferred_date: value.preferredDate || null,
+    page_slug: value.pageSlug || null,
     consent: true,
-  });
+  };
+
+  const supabase = await createServerSupabase();
+  let { error } = await supabase.from("form_submissions").insert(row);
+  if (error) {
+    const { page_slug: _unused, ...withoutPage } = row;
+    void _unused;
+    ({ error } = await supabase.from("form_submissions").insert(withoutPage));
+  }
 
   if (error) {
     return { ok: false, error: "Saatmine ei õnnestunud. Proovi palun hetke pärast uuesti." };
@@ -46,7 +51,7 @@ export async function submitPublicForm(input: unknown): Promise<SubmitResult> {
           from: "Vaikusruum <onboarding@resend.dev>",
           to: [notifyTo],
           subject: `Uus ${value.kind} — ${value.name}`,
-          text: [`Nimi: ${value.name}`, `E-post: ${value.email}`, value.phone ? `Telefon: ${value.phone}` : "", value.message ?? ""]
+          text: [`Leht: ${value.pageSlug ?? "—"}`, `Nimi: ${value.name}`, `E-post: ${value.email}`, value.phone ? `Telefon: ${value.phone}` : "", value.message ?? ""]
             .filter(Boolean)
             .join("\n"),
         }),

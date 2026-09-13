@@ -16,12 +16,14 @@ export function ContactForm({
   email,
   social,
   showKindSelect = true,
+  pageSlug,
 }: {
   kind?: "contact" | "registration" | "private_lesson";
   offeringId?: string;
   email?: string | null;
   social?: SiteSettings["social"];
   showKindSelect?: boolean;
+  pageSlug?: string;
 }) {
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
   const [error, setError] = useState("");
@@ -47,7 +49,7 @@ export function ContactForm({
       phone: formData.get("phone") || null,
       message: formData.get("message") || null,
       preferredDate: formData.get("preferredDate") || null,
-      consent: formData.get("consent") === "on",
+      pageSlug: pageSlug || null,
     });
     if (!result.ok) {
       setStatus("error");
@@ -94,10 +96,6 @@ export function ContactForm({
         <label className="vr-field">
           Sõnum
           <textarea name="message" />
-        </label>
-        <label className="vr-check">
-          <input name="consent" type="checkbox" required />
-          <span>Nõustun, et minu andmeid kasutatakse vastamiseks.</span>
         </label>
         {error ? <p className="vr-form-error">{error}</p> : null}
         <button className="vr-cta" type="submit" disabled={status === "sending"}>

@@ -220,6 +220,12 @@ html.vr-editor-lock body {
   position: relative;
 }
 
+.vr-inspector-actions {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
 .vr-inspector-more .vr-editor-menu {
   right: 0;
   left: auto;
@@ -240,7 +246,7 @@ html.vr-editor-lock body {
   height: 40px;
   flex: 0 0 40px;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 40px 40px;
+  grid-template-columns: 40px minmax(0, 1fr) auto 40px;
   align-items: center;
   border-bottom: 1px solid var(--ed-border-soft);
   background: var(--ed-sidebar-bg);
@@ -418,7 +424,7 @@ html.vr-editor-lock body {
 }
 
 .vr-editor-status-dot[data-dirty="true"] {
-  background: var(--editor-accent);
+  background: #c4b07a;
 }
 
 .vr-editor-save-top {
@@ -564,7 +570,7 @@ html.vr-editor-lock body {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #c4b07a;
+  background: var(--editor-accent);
 }
 
 .vr-editor-error {
@@ -1918,8 +1924,7 @@ html.vr-editor-lock body {
 }
 
 .vr-md-help {
-  display: grid;
-  gap: 4px;
+  display: block;
   margin-top: 8px;
 }
 
@@ -1967,18 +1972,25 @@ html.vr-editor-lock body {
 .vr-inspector .vr-editor-toolbar {
   border-bottom: 1px solid var(--ed-border);
   gap: 2px;
-  padding: 6px;
+  padding: 4px;
 }
 
 .vr-inspector .vr-editor-toolbar button {
   appearance: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: 0;
   color: var(--ed-text-secondary);
   border-radius: 3px;
 }
 
-.vr-inspector .vr-editor-toolbar button:hover {
+.vr-inspector .vr-editor-toolbar button:hover,
+.vr-inspector .vr-editor-toolbar button[data-active="true"] {
   color: var(--ed-text);
   background: var(--ed-bg-control-hover);
 }

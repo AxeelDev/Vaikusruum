@@ -55,6 +55,7 @@ export type LayoutElementNode = {
   type: "element";
   elementType:
     | "text"
+    | "paragraph"
     | "image"
     | "link"
     | "offering"

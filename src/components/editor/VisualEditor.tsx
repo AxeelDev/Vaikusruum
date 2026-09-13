@@ -1032,6 +1032,13 @@ function addIcon(type: AddableElementType) {
           <path d="M3.5 3.5h9M8 3.5v9M5.5 12.5h5" />
         </svg>
       );
+    case "paragraph":
+      return (
+        <svg {...svg}>
+          <path d="M3 4h10M3 7.2h10M3 10.4h7.2" />
+          <path d="M12.2 10.2c0 1.3-.8 2.3-2 2.3h-.2" />
+        </svg>
+      );
     case "list":
       return (
         <svg {...svg}>

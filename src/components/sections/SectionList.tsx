@@ -435,6 +435,7 @@ function SectionView({
           kind={section.content.defaultKind === "private_lesson" ? "private_lesson" : "contact"}
           email={settings.contact_email}
           social={settings.social}
+          pageSlug={slug}
         />
       );
     }
@@ -774,6 +775,7 @@ function SectionView({
             <RegistrationBlock
               offering={offering}
               fallbackEmail={settings.default_registration_email ?? settings.contact_email}
+              pageSlug={slug}
               heading={
                 <EditableText
                   as="h2"

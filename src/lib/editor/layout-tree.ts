@@ -9,6 +9,7 @@ import type {
   SectionRow,
 } from "@/types/content";
 import type { AddableElementType } from "@/lib/editor/types";
+import { paragraphs } from "@/lib/content/rich-text";
 
 export type LayoutMoveTarget = {
   parentId: string;
@@ -425,10 +426,10 @@ function defaultTextElements(section: SectionRow, bodyField = "body"): LayoutNod
   if (typeof section.content.label === "string") items.push(text(`${base}.label`, "Silt", "label"));
   if (typeof section.content.actionLabel === "string") items.push(text(`${base}.actionLabel`, "Nupp", "actionLabel"));
   const hasBody = bodyField !== "plain" && (section.content[bodyField] !== undefined || section.content.body !== undefined || section.content.text !== undefined);
-  if (hasBody) items.push(text(`${base}.${bodyField}`, "Tekst", bodyField));
-  if (!items.length && section.section_type === "rich_text") items.push(text(`${base}.body`, "Tekst", "body"));
+  if (hasBody) items.push(text(`${base}.${bodyField}`, bodyField === "plain" ? "Tekst" : "Lõik", bodyField));
+  if (!items.length && section.section_type === "rich_text") items.push(text(`${base}.body`, "Lõik", "body"));
   if (!items.length && section.section_type === "split_media_text") items.push(text(`${base}.plain`, "Tekst", "plain"));
-  return items.length ? items : [text(`${base}.body`, "Tekst", "body")];
+  return items.length ? items : [text(`${base}.body`, "Lõik", "body")];
 }
 
 function offeringElements(section: SectionRow): LayoutNode[] {
@@ -508,7 +509,9 @@ function createElementNode(section: SectionRow, addType: AddableElementType, fie
 function elementLabel(addType: AddableElementType) {
   switch (addType) {
     case "text":
-      return "Text";
+      return "Tekst";
+    case "paragraph":
+      return "Lõik";
     case "list":
       return "List";
     case "image":
@@ -550,6 +553,8 @@ function defaultElementContent(addType: AddableElementType): unknown {
   switch (addType) {
     case "text":
       return "Uus tekst";
+    case "paragraph":
+      return paragraphs("Uus lõik");
     case "list":
       return { style: "bullet", items: ["Esimene punkt", "Teine punkt"] };
     case "buttons":

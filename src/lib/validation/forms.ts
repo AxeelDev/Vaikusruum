@@ -8,7 +8,7 @@ export const contactSchema = z.object({
   phone: z.string().trim().max(40).optional().nullable(),
   message: z.string().trim().max(4000).optional().nullable(),
   preferredDate: z.string().trim().max(80).optional().nullable(),
-  consent: z.boolean(),
+  pageSlug: z.string().trim().max(120).optional().nullable(),
 });
 
 export const bootstrapSchema = z.object({
