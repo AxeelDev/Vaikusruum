@@ -72,7 +72,7 @@ export function clientLayoutLabel(
   if (node.label === "Hero text group") return "Hero tekst";
   if (node.label === "Left column") return "Vasak pool";
   if (node.label === "Right column") return "Parem pool";
-  if (node.label === "Hero columns" || node.label === "Columns") return "Kaks veergu";
-  if (node.label === "Content group") return "Sisu";
+  if (node.label === "Hero columns" || node.label === "Columns" || node.label === "Tutvustus columns") return "Kaks veergu";
+  if (node.label === "Content group" || node.label === "Sisu") return "Sisu";
   return node.label;
 }

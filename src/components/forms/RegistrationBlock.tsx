@@ -1,12 +1,15 @@
 import { ContactForm } from "@/components/forms/ContactForm";
 import type { OfferingRow } from "@/types/content";
+import type { ReactNode } from "react";
 
 export function RegistrationBlock({
   offering,
   fallbackEmail,
+  heading,
 }: {
   offering: OfferingRow;
   fallbackEmail: string | null;
+  heading?: ReactNode;
 }) {
   const mode = offering.registration_mode;
   if (mode === "disabled") return null;
@@ -20,7 +23,7 @@ export function RegistrationBlock({
 
   return (
     <div>
-      <h2 className="vr-heading">Registreeri tundi</h2>
+      {heading ?? <h2 className="vr-heading">Registreeri tundi</h2>}
       {showForm ? (
         <ContactForm kind="registration" offeringId={offering.id} showKindSelect={false} email={showEmail ? email : null} />
       ) : null}
