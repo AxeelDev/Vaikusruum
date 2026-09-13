@@ -736,6 +736,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
               if (link) {
                 event.preventDefault();
                 if (event.shiftKey) return;
+                if (target.closest("[data-vr-editable]") && !state.preview) return;
                 const href = link.getAttribute("href");
                 if (!href) return;
                 const slug = hrefToSlug(href);

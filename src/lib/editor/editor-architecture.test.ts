@@ -139,6 +139,32 @@ describe("text content adapters", () => {
     expect(content.plainPreview).toContain("Olemasolev lõik");
   });
 
+  it("reads inner-page headings and practical copy", () => {
+    const heading = readEditorContent(
+      draft(section({ section_type: "rich_text", section_key: "what", content: { heading: "Mis on kundalini jooga?" } })),
+      { id: "kundalini-jooga.what.heading", type: "text", sectionId: "s1", field: "heading" },
+    );
+    expect(heading.format === "plain" && heading.value).toBe("Mis on kundalini jooga?");
+
+    const schedule = readEditorContent(
+      draft(section({ section_type: "offering_practical_info", content: { scheduleText: "Kolmapäeviti" } })),
+      { id: "kundalini-jooga.practical.scheduleText", type: "text", sectionId: "s1", field: "scheduleText" },
+    );
+    expect(schedule.format === "plain" && schedule.value).toBe("Kolmapäeviti");
+    expect(assertEditableTextBinding(
+      draft(section({ section_type: "offering_practical_info", content: { scheduleText: "Kolmapäeviti" } })),
+      { id: "kundalini-jooga.practical.scheduleText", type: "text", sectionId: "s1", field: "scheduleText" },
+    ).path).toEqual({ kind: "section-content", sectionId: "s1", key: "scheduleText" });
+  });
+
+  it("keeps default labels editable when the stored value is missing", () => {
+    const link = readEditorContent(
+      draft(section({ section_type: "offering_practical_info", content: {} })),
+      { id: "kundalini-jooga.practical.headTeadaLabel", type: "text", sectionId: "s1", field: "headTeadaLabel" },
+    );
+    expect(link.format === "plain" && link.value).toBe("Hea teada");
+  });
+
   it("reads faq and testimonial fields through adapters", () => {
     const faq = readEditorContent(
       draft(section({ content: { items: [{ question: "Mis?", answer: "Jah" }] } })),

@@ -42,10 +42,22 @@ export function clampRatio(value: number, min = 30, max = 70): number {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
+const COLLECTION_SECTION_TYPES = new Set([
+  "faq",
+  "important_info",
+  "testimonials",
+  "offering_practical_info",
+  "private_lessons",
+]);
+
 export function getSectionLayoutTree(section: SectionRow): SectionLayoutTree {
+  const generated = defaultLayoutTree(section);
   const existing = section.style?.layoutTree;
-  if (isLayoutTree(existing)) return existing;
-  return defaultLayoutTree(section);
+  if (!isLayoutTree(existing)) return generated;
+  if (COLLECTION_SECTION_TYPES.has(section.section_type)) {
+    return mergeCollectionTree(existing, generated);
+  }
+  return existing;
 }
 
 export function normalizeSectionLayout(section: SectionRow): SectionRow {
@@ -160,6 +172,27 @@ export function sectionLayoutSummary(section: SectionRow): string {
   return `${left} / ${100 - left}`;
 }
 
+export function isSplitLayout(section: SectionRow): boolean {
+  const layout = section.style?.layout;
+  if (layout === "text-only" || layout === "centered" || layout === "image-only") return false;
+  if (section.section_type === "hero") return true;
+  if (section.section_type === "split_media_text") return true;
+  if (section.section_key === "miina" || section.section_key === "offerings") return true;
+  if (section.section_type === "offering_overview") return layout === "image-left" || layout === "image-right";
+  if (section.section_type === "contact") return layout === "image-left" || layout === "image-right";
+  return false;
+}
+
+export function isReadingSection(section: SectionRow): boolean {
+  return (
+    section.section_type === "faq" ||
+    section.section_type === "important_info" ||
+    section.section_type === "testimonials" ||
+    section.section_type === "offering_practical_info" ||
+    (section.section_type === "rich_text" && !isSplitLayout(section))
+  );
+}
+
 export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
   const base = sectionNodePrefix(section);
   const fallbackRatio: ColumnBalance = section.section_type === "hero" ? "46-54" : "50-50";
@@ -182,15 +215,19 @@ export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
     };
   }
 
-  if (section.section_key === "miina") {
-    return splitTree(base, "Tutvustus columns", "Tutvustuse foto", "Tutvustuse tekst", section, "plain");
+  if (section.section_type === "spacer") {
+    return { version: 1, root: group(`${base}.content`, "Vahe", []) };
   }
 
-  if (section.section_key === "yoga") {
-    return splitTree(base, "Jooga tutvustus columns", "Jooga foto", "Jooga tekst", section, "body");
+  if (section.style?.layout === "image-only") {
+    return { version: 1, root: group(`${base}.content`, "Sisu", [image(`${base}.image`, "Pilt")]) };
   }
 
-  if (section.section_key === "offerings") {
+  if (section.section_key === "miina" || (section.section_type === "split_media_text" && isSplitLayout(section))) {
+    return splitTree(base, section.section_key === "miina" ? "Tutvustus columns" : "Columns", section.section_key === "miina" ? "Tutvustuse foto" : "Pilt", section.section_key === "miina" ? "Tutvustuse tekst" : "Tekst", section, "plain");
+  }
+
+  if (section.section_key === "offerings" || (section.section_type === "offering_overview" && isSplitLayout(section))) {
     return {
       version: 1,
       root: columns(`${base}.columns`, "Kaks veergu", ratio, customRatio, [
@@ -202,30 +239,139 @@ export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
     };
   }
 
-  if (section.section_type === "contact" || section.section_key === "contact") {
+  if (section.section_type === "offering_overview") {
+    return { version: 1, root: group(`${base}.offerings`, "Tundide tekst", offeringElements(section), "large") };
+  }
+
+  if ((section.section_type === "contact" || section.section_key === "contact") && isSplitLayout(section)) {
     return {
       version: 1,
       root: columns(`${base}.columns`, "Kaks veergu", ratio, customRatio, [
         column(`${base}.left`, "Vasak pool", [
-          group(`${base}.contactContent`, "Kontakti sisu", [
-            text(`${base}.heading`, "Kontakti pealkiri", "heading"),
-            text(`${base}.intro`, "Kontakti sissejuhatus", "intro"),
-            element(`${base}.form`, "form", "Kontaktivorm"),
-          ]),
+          group(`${base}.contactContent`, "Kontakti sisu", contactElements(base)),
         ]),
         column(`${base}.right`, "Parem pool", [image(`${base}.image`, "Kontakti foto")]),
       ]),
     };
   }
 
-  if (section.section_type === "split_media_text") {
-    return splitTree(base, "Columns", "Pilt", "Tekst", section, "plain");
+  if (section.section_type === "contact" || section.section_key === "contact") {
+    return { version: 1, root: group(`${base}.contactContent`, "Kontakti sisu", contactElements(base), "medium") };
+  }
+
+  if (section.section_type === "private_lessons") {
+    return {
+      version: 1,
+      root: group(`${base}.content`, "Eratunnid", [
+        text(`${base}.label`, "Silt", "label"),
+        text(`${base}.actionLabel`, "Nupp", "actionLabel"),
+      ], "medium"),
+    };
+  }
+
+  if (section.section_type === "faq") {
+    return { version: 1, root: group(`${base}.content`, "Sisu", faqElements(section), "medium", readingAlign()) };
+  }
+
+  if (section.section_type === "important_info") {
+    return { version: 1, root: group(`${base}.content`, "Sisu", listItemElements(section), "medium", readingAlign()) };
+  }
+
+  if (section.section_type === "testimonials") {
+    return { version: 1, root: group(`${base}.content`, "Sisu", testimonialElements(section), "large", readingAlign()) };
+  }
+
+  if (section.section_type === "offering_practical_info") {
+    return {
+      version: 1,
+      root: group(`${base}.content`, "Sisu", practicalElements(section), "medium", readingAlign()),
+    };
+  }
+
+  if (isSplitLayout(section) && (section.section_type === "rich_text" || section.section_type === "split_media_text")) {
+    return splitTree(base, "Columns", "Pilt", "Tekst", section, section.section_type === "split_media_text" ? "plain" : "body");
   }
 
   return {
     version: 1,
-    root: group(`${base}.content`, "Content group", defaultTextElements(section)),
+    root: group(`${base}.content`, "Sisu", defaultTextElements(section), "medium"),
   };
+}
+
+function readingAlign(): Partial<LayoutGroupNode> {
+  return { horizontalAlign: "left", textAlign: "left" };
+}
+
+function contactElements(base: string): LayoutNode[] {
+  return [
+    text(`${base}.heading`, "Kontakti pealkiri", "heading"),
+    text(`${base}.intro`, "Kontakti sissejuhatus", "intro"),
+    element(`${base}.form`, "form", "Kontaktivorm"),
+  ];
+}
+
+function faqElements(section: SectionRow): LayoutNode[] {
+  const base = sectionNodePrefix(section);
+  const items = Array.isArray(section.content.items) ? section.content.items : [];
+  const rows = items.length ? items : [{ question: "", answer: "" }];
+  return rows.map((_, index) =>
+    group(`${base}.faq.${index}`, `Küsimus ${index + 1}`, [
+      text(`${base}.q.${index}`, "Küsimus", `q.${index}`),
+      text(`${base}.a.${index}`, "Vastus", `a.${index}`),
+    ], "small", readingAlign()),
+  );
+}
+
+function listItemElements(section: SectionRow): LayoutNode[] {
+  const base = sectionNodePrefix(section);
+  const items = Array.isArray(section.content.items) ? (section.content.items as unknown[]) : [];
+  const rows = items.length ? items : [""];
+  return rows.map((_, index) => text(`${base}.item.${index}`, "Punkt", `item.${index}`));
+}
+
+function testimonialElements(section: SectionRow): LayoutNode[] {
+  const base = sectionNodePrefix(section);
+  const items = Array.isArray(section.content.items) ? section.content.items : [];
+  const rows = items.length ? items : [{ quote: "", name: "" }];
+  return rows.map((_, index) =>
+    group(`${base}.quote-group.${index}`, `Tsitaat ${index + 1}`, [
+      text(`${base}.quote.${index}`, "Tsitaat", `quote.${index}`),
+      text(`${base}.name.${index}`, "Nimi", `name.${index}`),
+    ], "small", readingAlign()),
+  );
+}
+
+function practicalElements(section: SectionRow): LayoutNode[] {
+  const base = sectionNodePrefix(section);
+  return [
+    text(`${base}.scheduleText`, "Aeg", "scheduleText"),
+    text(`${base}.bring`, "Kaasa", "bring"),
+    text(`${base}.clothing`, "Riided", "clothing"),
+    text(`${base}.notes`, "Märkus", "notes"),
+    text(`${base}.tasakaalLabel`, "Tasakaal", "tasakaalLabel"),
+    text(`${base}.datesLabel`, "Kuupäevad", "datesLabel"),
+    text(`${base}.registerHeading`, "Registreerimine", "registerHeading"),
+    text(`${base}.headTeadaLabel`, "Link", "headTeadaLabel"),
+  ];
+}
+
+function mergeCollectionTree(existing: SectionLayoutTree, generated: SectionLayoutTree): SectionLayoutTree {
+  const extras = collectElements(existing.root).filter((node) => node.field?.startsWith("custom."));
+  if (!extras.length || generated.root.type !== "group") return generated;
+  const generatedIds = new Set(collectElements(generated.root).map((node) => node.id));
+  const extraNodes = extras.filter((node) => !generatedIds.has(node.id));
+  if (!extraNodes.length) return generated;
+  return {
+    ...generated,
+    root: { ...generated.root, children: [...generated.root.children, ...extraNodes] },
+  };
+}
+
+function collectElements(node: LayoutNode): LayoutElementNode[] {
+  if (node.type === "element") return [node];
+  if (node.type === "columns") return node.columns.flatMap(collectElements);
+  if (node.type === "column" || node.type === "group") return node.children.flatMap(collectElements);
+  return [];
 }
 
 function splitTree(
@@ -253,13 +399,21 @@ function splitTree(
 }
 
 function defaultTextElements(section: SectionRow, bodyField = "body"): LayoutNode[] {
+  const base = sectionNodePrefix(section);
   const items: LayoutNode[] = [];
-  if (typeof section.content.heading === "string") items.push(text(sectionNodePrefix(section) + ".heading", "Pealkiri", "heading"));
-  if (typeof section.content.title === "string") items.push(text(sectionNodePrefix(section) + ".title", "Pealkiri", "title"));
-  if (typeof section.content.intro === "string") items.push(text(sectionNodePrefix(section) + ".intro", "Sissejuhatus", "intro"));
-  if (typeof section.content.plain === "string") items.push(text(sectionNodePrefix(section) + ".plain", "Tekst", "plain"));
-  if (bodyField !== "plain" && section.content[bodyField]) items.push(text(sectionNodePrefix(section) + `.${bodyField}`, "Tekst", bodyField));
-  return items.length ? items : [text(sectionNodePrefix(section) + ".body", "Tekst", "body")];
+  if (typeof section.content.heading === "string" || section.content.heading === "") {
+    items.push(text(`${base}.heading`, "Pealkiri", "heading"));
+  }
+  if (typeof section.content.title === "string") items.push(text(`${base}.title`, "Pealkiri", "title"));
+  if (typeof section.content.intro === "string") items.push(text(`${base}.intro`, "Sissejuhatus", "intro"));
+  if (typeof section.content.plain === "string") items.push(text(`${base}.plain`, "Tekst", "plain"));
+  if (typeof section.content.label === "string") items.push(text(`${base}.label`, "Silt", "label"));
+  if (typeof section.content.actionLabel === "string") items.push(text(`${base}.actionLabel`, "Nupp", "actionLabel"));
+  const hasBody = bodyField !== "plain" && (section.content[bodyField] !== undefined || section.content.body !== undefined || section.content.text !== undefined);
+  if (hasBody) items.push(text(`${base}.${bodyField}`, "Tekst", bodyField));
+  if (!items.length && section.section_type === "rich_text") items.push(text(`${base}.body`, "Tekst", "body"));
+  if (!items.length && section.section_type === "split_media_text") items.push(text(`${base}.plain`, "Tekst", "plain"));
+  return items.length ? items : [text(`${base}.body`, "Tekst", "body")];
 }
 
 function offeringElements(section: SectionRow): LayoutNode[] {
