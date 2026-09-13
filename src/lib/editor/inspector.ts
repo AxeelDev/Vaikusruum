@@ -123,6 +123,16 @@ export function inspectorTitle(
   if (selection.field === "moreInfoLabel") return "Link";
   if (selection.field === "heading") return "Pealkiri";
   if (selection.field === "plain" || selection.field === "body") return "Tekst";
+  if (selection.field === "scheduleText") return "Aeg";
+  if (selection.field === "bring") return "Kaasa";
+  if (selection.field === "clothing") return "Riided";
+  if (selection.field === "notes") return "Märkus";
+  if (selection.field === "datesLabel") return "Kuupäevad";
+  if (selection.field === "headTeadaLabel") return "Link";
+  if (selection.field === "tasakaalLabel" || selection.field === "tasakaal") return "Tasakaal";
+  if (selection.field === "registerHeading") return "Pealkiri";
+  if (selection.field === "label") return "Silt";
+  if (selection.field === "actionLabel") return "Nupp";
   if (fallback && fallback !== nodeKindLabel(kind)) return fallback;
   return nodeKindLabel(kind);
 }

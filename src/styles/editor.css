@@ -594,6 +594,7 @@ html.vr-editor-lock body {
   min-height: 100%;
   --vr-site-viewport-height: 100%;
   container-type: inline-size;
+  container-name: vr-page;
 }
 
 .vr-editor-canvas--tablet,
@@ -609,6 +610,7 @@ html.vr-editor-lock body {
   min-height: calc(100% - 1.25rem);
   box-shadow: 0 0 0 1px var(--editor-border-soft);
   container-type: inline-size;
+  container-name: vr-page;
 }
 
 .vr-editor-canvas-busy {

@@ -45,6 +45,37 @@ describe("section layout primitives", () => {
     expect(ratioToLeftPercent(tree.root.ratio, tree.root.customRatio)).toBe(46);
   });
 
+  it("keeps centered homepage copy as a single group, not a phantom split", () => {
+    const yoga = section({
+      section_key: "yoga",
+      section_type: "rich_text",
+      content: { body: { type: "doc", content: [] } },
+      style: { layout: "centered" },
+    });
+    expect(getSectionLayoutTree(yoga).root.type).toBe("group");
+  });
+
+  it("exposes faq questions in the layout tree", () => {
+    const faq = section({
+      section_key: "faq",
+      section_type: "faq",
+      content: { items: [{ question: "Mis?", answer: "Jah" }] },
+    });
+    const ids = JSON.stringify(getSectionLayoutTree(faq));
+    expect(ids).toContain("\"field\":\"q.0\"");
+    expect(ids).toContain("\"field\":\"a.0\"");
+  });
+
+  it("does not invent an image column for text-only contact", () => {
+    const contact = section({
+      section_key: "contact",
+      section_type: "contact",
+      content: { heading: "VÕTA ÜHENDUST" },
+      style: { layout: "text-only" },
+    });
+    expect(getSectionLayoutTree(contact).root.type).toBe("group");
+  });
+
   it("emits real grid tracks instead of custom-property fr values", () => {
     expect(splitGridColumns(46)).toBe("minmax(0, 46fr) minmax(0, 54fr)");
     expect(splitGridColumns(50)).toBe("minmax(0, 50fr) minmax(0, 50fr)");

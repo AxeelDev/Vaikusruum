@@ -50,7 +50,7 @@ import { compressImage } from "@/lib/utils/compress-image";
 import { mediaPublicUrl } from "@/lib/utils/urls";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
 import { MARKDOWN_HELP_ITEMS, RICH_MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
-import { readEditorContent } from "@/lib/editor/content-binding";
+import { indexedFieldValue, parseIndexedField, readBoundSectionValue, readEditorContent } from "@/lib/editor/content-binding";
 import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
 import type { EditorSelection, InspectorTabId } from "@/lib/editor/types";
 import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
@@ -635,10 +635,14 @@ function layoutElementRow(section: SectionRow, node: Extract<LayoutNode, { type:
       },
     };
   }
+  const indexed = parseIndexedField(node.field);
+  const bound = node.field ? readBoundSectionValue(section, node.field) : undefined;
+  const previewText =
+    indexed ? indexedFieldValue(section, indexed) : typeof bound === "string" ? bound : undefined;
   return {
     icon: node.elementType === "link" ? "↗" : "A",
     label: clientLayoutLabel(section, node, slug),
-    preview: node.field && typeof section.content[node.field] === "string" ? String(section.content[node.field]).slice(0, 42) : undefined,
+    preview: previewText ? previewText.slice(0, 42) : undefined,
     selection: { id: `${prefix}.${node.field ?? node.id}`, type: "text" as const, sectionId: section.id, field: node.field, layoutNodeId: node.id },
   };
 }
@@ -689,6 +693,8 @@ function NodeContentInspector() {
       )}
       {selected.type === "nav" ? <NavTarget /> : null}
       {selected.field?.startsWith("q.") || selected.field?.startsWith("a.") ? <FaqItemControls /> : null}
+      {selected.field?.startsWith("item.") ? <IndexedItemControls kind="item" /> : null}
+      {selected.field?.startsWith("quote.") || selected.field?.startsWith("name.") ? <IndexedItemControls kind="testimonial" /> : null}
     </div>
   );
 }
@@ -898,6 +904,8 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
     <div className="vr-inspector-body">
       <EditorContext kicker="Sektsioon" title={semanticSectionName(section)} />
       {mode === "content" && section.section_type === "faq" ? <FaqSectionContent sectionId={section.id} /> : null}
+      {mode === "content" && section.section_type === "important_info" ? <ImportantInfoContent sectionId={section.id} /> : null}
+      {mode === "content" && section.section_type === "testimonials" ? <TestimonialContent sectionId={section.id} /> : null}
       {mode === "appearance" ? (
         <>
       <EditorGroup label="Taust">
@@ -1670,12 +1678,19 @@ function NavTarget() {
 }
 
 function FaqItemControls() {
+  return <IndexedItemControls kind="faq" />;
+}
+
+function IndexedItemControls({ kind }: { kind: "faq" | "item" | "testimonial" }) {
   const editor = useEditor();
   const selected = editor.state.selected;
   if (!selected?.sectionId || !selected.field) return null;
-  const index = Number(selected.field.slice(2));
+  const match = selected.field.match(/^(q|a|item|quote|name)\.(\d+)$/);
+  if (!match) return null;
+  const index = Number(match[2]);
   const section = findSection(editor.state.draft, selected.sectionId);
   if (!section) return null;
+  const label = kind === "faq" ? "Kustuta küsimus" : kind === "testimonial" ? "Kustuta tsitaat" : "Kustuta punkt";
   return (
     <>
       <EditorButton
@@ -1687,7 +1702,7 @@ function FaqItemControls() {
           editor.deselect();
         }}
       >
-        Kustuta küsimus
+        {label}
       </EditorButton>
     </>
   );
@@ -1696,6 +1711,8 @@ function FaqItemControls() {
 function FaqSectionContent({ sectionId }: { sectionId: string }) {
   const editor = useEditor();
   const section = findSection(editor.state.draft, sectionId);
+  const page = editor.state.draft.pages.find((item) => item.id === section?.page_id);
+  const prefix = `${page?.slug ?? "page"}.${section?.section_key ?? "faq"}`;
   const items = Array.isArray(section?.content.items) ? (section.content.items as Array<{ question?: string }>) : [];
   return (
     <div className="vr-ed-pages">
@@ -1705,7 +1722,7 @@ function FaqSectionContent({ sectionId }: { sectionId: string }) {
           type="button"
           onClick={() =>
             editor.select({
-              id: `faq.${sectionId}.q.${index}`,
+              id: `${prefix}.q.${index}`,
               type: "text",
               sectionId,
               field: `q.${index}`,
@@ -1724,6 +1741,82 @@ function FaqSectionContent({ sectionId }: { sectionId: string }) {
         }}
       >
         Lisa küsimus
+      </EditorButton>
+    </div>
+  );
+}
+
+function ImportantInfoContent({ sectionId }: { sectionId: string }) {
+  const editor = useEditor();
+  const section = findSection(editor.state.draft, sectionId);
+  const page = editor.state.draft.pages.find((item) => item.id === section?.page_id);
+  const prefix = `${page?.slug ?? "page"}.${section?.section_key ?? "notes"}`;
+  const items = Array.isArray(section?.content.items) ? (section.content.items as string[]) : [];
+  return (
+    <div className="vr-ed-pages">
+      {items.map((item, index) => (
+        <button
+          key={index}
+          type="button"
+          onClick={() =>
+            editor.select({
+              id: `${prefix}.item.${index}`,
+              type: "text",
+              sectionId,
+              field: `item.${index}`,
+            })
+          }
+        >
+          {item.slice(0, 42) || `Punkt ${index + 1}`}
+        </button>
+      ))}
+      <EditorButton
+        variant="secondary"
+        onClick={() => {
+          if (!section) return;
+          const next = [...((section.content.items as string[]) ?? []), ""];
+          editor.patchSection(section.id, (row) => ({ ...row, content: { ...row.content, items: next } }));
+        }}
+      >
+        Lisa punkt
+      </EditorButton>
+    </div>
+  );
+}
+
+function TestimonialContent({ sectionId }: { sectionId: string }) {
+  const editor = useEditor();
+  const section = findSection(editor.state.draft, sectionId);
+  const page = editor.state.draft.pages.find((item) => item.id === section?.page_id);
+  const prefix = `${page?.slug ?? "page"}.${section?.section_key ?? "list"}`;
+  const items = Array.isArray(section?.content.items) ? (section.content.items as Array<{ quote?: string; name?: string }>) : [];
+  return (
+    <div className="vr-ed-pages">
+      {items.map((item, index) => (
+        <button
+          key={index}
+          type="button"
+          onClick={() =>
+            editor.select({
+              id: `${prefix}.quote.${index}`,
+              type: "text",
+              sectionId,
+              field: `quote.${index}`,
+            })
+          }
+        >
+          {item.quote?.slice(0, 42) || `Tsitaat ${index + 1}`}
+        </button>
+      ))}
+      <EditorButton
+        variant="secondary"
+        onClick={() => {
+          if (!section) return;
+          const next = [...((section.content.items as unknown[]) ?? []), { quote: "Tsitaat", name: "" }];
+          editor.patchSection(section.id, (row) => ({ ...row, content: { ...row.content, items: next } }));
+        }}
+      >
+        Lisa tsitaat
       </EditorButton>
     </div>
   );
