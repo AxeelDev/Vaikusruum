@@ -71,8 +71,12 @@ describe("inspector tabs", () => {
     expect(resolveInspectorTab("text", "layout")).toBe("content");
   });
 
-  it("offers content and appearance tabs for containers", () => {
+  it("keeps container content and appearance as separate tabs", () => {
     expect(tabsForKind("container")).toEqual(["content", "appearance"]);
+    expect(resolveInspectorTab("container", "content")).toBe("content");
+    expect(resolveInspectorTab("container", "appearance")).toBe("appearance");
+    expect(resolveInspectorTab("text", "content")).toBe("content");
+    expect(resolveInspectorTab("image", "appearance")).toBe("appearance");
   });
 
   it("maps the old layout tab to content", () => {

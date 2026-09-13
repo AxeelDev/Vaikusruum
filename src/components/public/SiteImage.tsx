@@ -24,7 +24,11 @@ export function SiteImage({
       className={className ?? "vr-photo"}
       sizes={sizes}
       draggable={draggable}
-      style={{ objectPosition: `${media.focal_x}% ${media.focal_y}%` }}
+      style={{
+        width: "100%",
+        height: "auto",
+        objectPosition: `${media.focal_x}% ${media.focal_y}%`,
+      }}
     />
   );
 }

@@ -171,31 +171,30 @@ export function ReadingColumn({ children, className }: { children: ReactNode; cl
 export function MediaFrame({
   children,
   crop,
-  width,
-  radius,
+  size,
   align,
 }: {
   children: ReactNode;
   crop?: "original" | "landscape" | "portrait" | "square";
-  width?: number;
-  radius?: number;
+  size?: number;
   align?: "left" | "right" | "center";
 }) {
+  const resolved = Math.min(100, Math.max(10, Math.round(size ?? 100)));
   const justify = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
   return (
     <div
       className="vr-media-frame"
+      data-crop={crop ?? "landscape"}
+      data-align={align ?? "center"}
       style={{
-        display: "flex",
-        justifyContent: justify,
-        width: width ? `${width}%` : "100%",
-        marginInline: align === "left" ? 0 : align === "right" ? "0 0 auto" : "auto",
+        width: `${resolved}%`,
         maxWidth: "100%",
+        marginInline: align === "left" ? "0 auto 0 0" : align === "right" ? "0 0 0 auto" : "auto",
+        ["--vr-image-size" as string]: `${resolved}%`,
+        justifyContent: justify,
       }}
     >
-      <div style={{ width: "100%", borderRadius: radius, overflow: radius ? "hidden" : undefined }} data-crop={crop}>
-        {children}
-      </div>
+      {children}
     </div>
   );
 }

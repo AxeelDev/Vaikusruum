@@ -33,7 +33,7 @@
   letter-spacing: var(--node-letter-spacing, var(--vr-heading-tracking));
   line-height: var(--node-line-height, 1.15);
   margin: 0 0 var(--vr-space-5);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .vr-heading {
@@ -43,7 +43,7 @@
   letter-spacing: var(--node-letter-spacing, 0.02em);
   line-height: var(--node-line-height, 1.25);
   margin: 0 0 var(--vr-space-4);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .vr-heading-sm {

@@ -89,6 +89,23 @@ describe("section list copy", () => {
     expect(markup).toContain("Jah.");
   });
 
+  it("renders offering titles as whole phrases", () => {
+    const markup = html("avaleht", [
+      row({
+        section_key: "offerings",
+        section_type: "offering_overview",
+        content: {
+          offeringIds: [SEED_IDS.offerings.kundalini],
+          moreInfoLabel: "rohkem infot",
+        },
+        style: { layout: "image-right" },
+      }),
+    ]);
+    expect(markup).toContain("Kundalini jooga");
+    expect(markup).toContain("rohkem infot");
+    expect(markup).toContain("vr-layout-element--card");
+  });
+
   it("keeps hea teada and practical labels in the page copy", () => {
     const markup = html("kundalini-jooga", [
       row({
