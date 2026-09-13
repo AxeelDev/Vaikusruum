@@ -147,6 +147,21 @@ export function insertLayoutElement(section: SectionRow, addType: AddableElement
   return { section: next, node };
 }
 
+export function updateLayoutNode(
+  section: SectionRow,
+  nodeId: string,
+  patch: Partial<LayoutColumnNode> & Partial<LayoutGroupNode> & Partial<LayoutColumnsNode>,
+): SectionRow {
+  const tree = structuredClone(getSectionLayoutTree(section));
+  const node = findLayoutNode(tree.root, nodeId);
+  if (!node || node.type === "element") return section;
+  Object.assign(node, patch);
+  return {
+    ...section,
+    style: { ...section.style, layoutTree: tree },
+  };
+}
+
 export function resizeLayoutColumns(section: SectionRow, leftPercent: number): SectionRow {
   const tree = structuredClone(getSectionLayoutTree(section));
   if (tree.root.type !== "columns") return section;
@@ -568,7 +583,7 @@ function defaultElementContent(addType: AddableElementType): unknown {
     case "container":
       return "Uus container";
     case "image":
-      return { mediaId: "", alt: "" };
+      return { mediaId: "", alt: "", size: 100, crop: "landscape", align: "center" };
   }
 }
 

@@ -7,6 +7,7 @@ import { placeFloating } from "@/lib/editor/popover-position";
 import { insertLayoutElement } from "@/lib/editor/layout-tree";
 import { addableNodesForRole } from "@/lib/editor/node-registry";
 import { getSectionLayoutTree, ratioToLeftPercent } from "@/lib/editor/layout-tree";
+import { patchImageAppearance, readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import type { SectionRow } from "@/types/content";
 
 function section(partial: Partial<SectionRow>): SectionRow {
@@ -112,8 +113,8 @@ describe("editor draft helpers", () => {
 describe("text appearance", () => {
   it("maps visual sliders to element styles without raw CSS keywords", () => {
     const style = appearanceToStyle({ size: 56, letterSpacing: 0.22, align: "center" });
-    expect(style.fontSize).toBe("min(56px, var(--node-font-size-max, 12cqi))");
-    expect(style.letterSpacing).toBe("min(0.22em, var(--node-letter-spacing-max, 0.16em))");
+    expect(style.fontSize).toBe("56px");
+    expect(style.letterSpacing).toBe("0.22em");
     expect(style.textAlign).toBe("center");
     expect((style as Record<string, string>)["--node-font-size"]).toBe("56px");
   });
@@ -144,11 +145,17 @@ describe("text appearance", () => {
     expect((css as Record<string, string>)["--node-max-width"]).toBe("100%");
   });
 
-  it("clamps configured width to the parent with min()", () => {
+  it("caps configured width without shrinking the text box to that width", () => {
     const css = appearanceToStyle({ maxWidth: 1000 });
-    expect(css.width).toBe("min(1000px, 100%)");
+    expect(css.width).toBeUndefined();
     expect(css.maxWidth).toBe("min(1000px, 100%)");
     expect((css as Record<string, string>)["--node-max-width"]).toBe("1000px");
+  });
+
+  it("ignores leftover percent-like text widths that collapse to one letter", () => {
+    expect(readTextStyle({ width: 24 }).maxWidth).toBeUndefined();
+    expect(readTextStyle({ maxWidth: 80 }).maxWidth).toBeUndefined();
+    expect(readTextStyle({ maxWidth: 420 }).maxWidth).toBe(420);
   });
 
   it("stores field styles on the section", () => {
@@ -180,6 +187,35 @@ describe("component creation", () => {
     const field = inserted.node.type === "element" ? inserted.node.field : undefined;
     expect(field).toMatch(/^custom\.text\./);
     expect(inserted.section.content[field!]).toBe("Uus tekst");
+  });
+});
+
+describe("image size", () => {
+  it("uses one size percent per image and keeps old width as a fallback", () => {
+    const withWidth = section({
+      section_type: "split_media_text",
+      style: { image: { width: 40, crop: "square" }, mediaId: "m1" },
+    });
+    expect(readImageAppearance(withWidth).size).toBe(40);
+    expect(readImageAppearance(withWidth).crop).toBe("square");
+    expect(resolveImageMediaId(withWidth)).toBe("m1");
+
+    const resized = patchImageAppearance(withWidth, "image", { size: 90 });
+    expect(resized.style.image?.size).toBe(90);
+    expect(resized.style.image?.width).toBeUndefined();
+    expect(resized.style.image?.radius).toBeUndefined();
+  });
+
+  it("stores size on the custom image field, not on the section photo", () => {
+    const row = section({
+      content: { "custom.image.a": { mediaId: "m2" } },
+      style: { image: { size: 30 } },
+    });
+    const next = patchImageAppearance(row, "custom.image.a", { size: 75, crop: "portrait" });
+    const custom = next.content["custom.image.a"] as { size?: number; crop?: string };
+    expect(custom.size).toBe(75);
+    expect(custom.crop).toBe("portrait");
+    expect(next.style.image?.size).toBe(30);
   });
 });
 

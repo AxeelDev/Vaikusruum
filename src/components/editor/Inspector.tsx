@@ -25,7 +25,7 @@ import {
 import { findSection, pageSections } from "@/lib/editor/draft";
 import { fieldStyle, clearFieldStyleKeys } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
-import { findLayoutNode, getSectionLayoutTree, listLayoutElements, parentOfNode, ratioToLeftPercent, resolveLayoutNodeId, sectionLayoutSummary } from "@/lib/editor/layout-tree";
+import { findLayoutNode, getSectionLayoutTree, listLayoutElements, parentOfNode, ratioToLeftPercent, resolveLayoutNodeId, sectionLayoutSummary, updateLayoutNode } from "@/lib/editor/layout-tree";
 import { pageLabel } from "@/lib/editor/pages";
 import { ADDABLE_SECTIONS } from "@/lib/editor/types";
 import { ALL_FONTS, BODY_FONTS, DISPLAY_FONTS } from "@/lib/theme/theme";
@@ -51,9 +51,10 @@ import { mediaPublicUrl } from "@/lib/utils/urls";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
 import { MARKDOWN_HELP_ITEMS, RICH_MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
 import { indexedFieldValue, parseIndexedField, readBoundSectionValue, readEditorContent } from "@/lib/editor/content-binding";
+import { assignImageMedia, IMAGE_SIZE_MAX, IMAGE_SIZE_MIN, patchImageAppearance, readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
 import type { EditorSelection, InspectorTabId } from "@/lib/editor/types";
-import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
+import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
 import type { TiptapNode } from "@/types/content";
 
 const FONT_OPTIONS = ALL_FONTS.map((font) => ({
@@ -311,19 +312,31 @@ function SelectionPanels({ tab }: { tab: InspectorTabId }) {
   if (!selected) return <PageOverview />;
   if (tab === "animation") return <AnimationPanel />;
   if (tab === "advanced") return <SettingsPanel />;
-  if (tab === "appearance") return <NodeAppearanceInspector />;
-  if (tab === "layout") {
-    if (selected.type === "container") return <ContainerPanel />;
-    if (selected.type === "section") return <SectionPanel mode="layout" />;
-    return <SectionPanel mode="layout" />;
-  }
-  if (selected.type === "container") return <ContainerPanel />;
+  if (tab === "appearance" || tab === "layout") return <AppearancePanel />;
+  return <ContentPanel />;
+}
+
+function ContentPanel() {
+  const editor = useEditor();
+  const selected = editor.state.selected!;
   if (selected.type === "image") return <ImagePanel mode="content" />;
   if (selected.type === "section") return <SectionPanel mode="content" />;
-  if (selected.type === "header") return <HeaderPanel />;
+  if (selected.type === "container") return <ContainerPanel mode="content" />;
+  if (selected.type === "header") return <HeaderPanel mode="content" />;
   if (selected.type === "nav") return <NavItemPanel />;
   if (isStructuredContentSelection(editor)) return <StructuredContentPanel />;
   return <NodeContentInspector />;
+}
+
+function AppearancePanel() {
+  const editor = useEditor();
+  const selected = editor.state.selected!;
+  if (selected.type === "image") return <ImagePanel mode="appearance" />;
+  if (selected.type === "section") return <SectionPanel mode="appearance" />;
+  if (selected.type === "container") return <ContainerPanel mode="appearance" />;
+  if (selected.type === "header") return <HeaderPanel mode="appearance" />;
+  if (selected.type === "nav") return <NavItemPanel />;
+  return <NodeAppearanceInspector />;
 }
 
 function isStructuredContentSelection(editor: ReturnType<typeof useEditor>) {
@@ -613,12 +626,13 @@ function LayoutTreeNodeWithDrop({
 function layoutElementRow(section: SectionRow, node: Extract<LayoutNode, { type: "element" }>, slug: string) {
   const prefix = `${slug}.${section.section_key}`;
   if (node.elementType === "image") {
-    const mediaId = resolveSectionMediaId(section);
+    const field = node.field ?? "image";
+    const mediaId = resolveImageMediaId(section, field);
     return {
       icon: "◫",
       label: clientLayoutLabel(section, node, slug),
       preview: mediaId ? "Pilt" : section.section_type === "hero" ? "emblem-source.svg" : undefined,
-    selection: { id: `${section.id}.image`, type: "image" as const, sectionId: section.id, mediaId, field: "image", layoutNodeId: node.id },
+      selection: { id: `${section.id}.${field}`, type: "image" as const, sectionId: section.id, mediaId, field, layoutNodeId: node.id },
     };
   }
   if (node.elementType === "offering") {
@@ -647,21 +661,23 @@ function layoutElementRow(section: SectionRow, node: Extract<LayoutNode, { type:
   };
 }
 
-function resolveSectionMediaId(section: SectionRow): string | undefined {
-  if (Object.prototype.hasOwnProperty.call(section.style ?? {}, "mediaId")) {
-    return typeof section.style?.mediaId === "string" && section.style.mediaId ? section.style.mediaId : undefined;
-  }
-  return typeof section.content.mediaId === "string" && section.content.mediaId ? section.content.mediaId : undefined;
-}
-
 function NodeContentInspector() {
   const editor = useEditor();
   const selected = editor.state.selected!;
   const content = readEditorContent(editor.state.draft, selected);
 
   function writePlain(next: string, record: boolean) {
-    if (!content.path) return;
-    editor.setPath(content.path, next, record);
+    if (content.path) {
+      editor.setPath(content.path, next, record);
+      return;
+    }
+    if (selected.offeringId && selected.field) {
+      editor.setPath({ kind: "offering", offeringId: selected.offeringId, key: selected.field as keyof OfferingRow }, next, record);
+      return;
+    }
+    if (selected.sectionId && selected.field) {
+      editor.setPath({ kind: "section-content", sectionId: selected.sectionId, key: selected.field }, next, record);
+    }
   }
 
   function writeRich(next: TiptapNode, record: boolean) {
@@ -705,8 +721,8 @@ function NodeAppearanceInspector() {
   if (!selected) return <PageOverview />;
   if (selected.type === "image") return <ImagePanel mode="appearance" />;
   if (selected.type === "section") return <SectionPanel mode="appearance" />;
-  if (selected.type === "container") return <ContainerPanel />;
-  if (selected.type === "header") return <HeaderPanel />;
+  if (selected.type === "container") return <ContainerPanel mode="appearance" />;
+  if (selected.type === "header") return <HeaderPanel mode="appearance" />;
   const styleKey = textStyleKey(selected);
   if (!selected.sectionId || !styleKey) {
     return (
@@ -896,6 +912,7 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
   if (!section) return <HeaderPanel />;
 
   const style = section.style ?? {};
+  const page = editor.state.draft.pages.find((item) => item.id === section.page_id);
   function patchStyle(next: Partial<SectionStyle>, record = true) {
     editor.patchSection(section!.id, (row) => ({ ...row, style: { ...row.style, ...next } }), record);
   }
@@ -906,6 +923,15 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
       {mode === "content" && section.section_type === "faq" ? <FaqSectionContent sectionId={section.id} /> : null}
       {mode === "content" && section.section_type === "important_info" ? <ImportantInfoContent sectionId={section.id} /> : null}
       {mode === "content" && section.section_type === "testimonials" ? <TestimonialContent sectionId={section.id} /> : null}
+      {mode === "content" &&
+      section.section_type !== "faq" &&
+      section.section_type !== "important_info" &&
+      section.section_type !== "testimonials" ? (
+        <>
+          <p className="vr-ed-help">Vali element, et muuta selle teksti või pilti.</p>
+          <ContainerChildrenList section={section} node={getSectionLayoutTree(section).root} slug={page?.slug ?? ""} />
+        </>
+      ) : null}
       {mode === "appearance" ? (
         <>
       <EditorGroup label="Taust">
@@ -942,10 +968,6 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
               onChange={(verticalAlign) => patchStyle({ verticalAlign: verticalAlign as VerticalAlign })}
             />
           </EditorGroup>
-        </>
-      ) : null}
-      {mode === "layout" || mode === "content" ? (
-        <>
           <EditorGroup label="Paigutus">
             <EditorSelect
               value={style.layout ?? ""}
@@ -1039,28 +1061,44 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
   );
 }
 
-function ContainerPanel() {
+function ContainerPanel({ mode = "appearance" }: { mode?: "content" | "appearance" }) {
   const editor = useEditor();
   const sectionId = editor.state.selected?.sectionId;
-  const nodeId = editor.state.selected?.id;
+  const nodeId = editor.state.selected?.layoutNodeId ?? editor.state.selected?.id;
   const section = sectionId ? findSection(editor.state.draft, sectionId) : undefined;
   const tree = section ? getSectionLayoutTree(section) : undefined;
   const node = tree && nodeId ? findLayoutNode(tree.root, nodeId) : null;
-  if (!section || !tree || !node) return <SectionPanel />;
+  if (!section || !tree || !node) return <SectionPanel mode={mode === "content" ? "content" : "appearance"} />;
   const selectedSection = section;
-
-  const root = tree.root.type === "columns" ? tree.root : null;
-  const currentRatio = root ? ratioToLeftPercent(root.ratio, root.customRatio ?? selectedSection.style?.columnRatio) : 50;
+  const page = editor.state.draft.pages.find((item) => item.id === selectedSection.page_id);
+  const slug = page?.slug ?? "";
+  const columnsNode = node.type === "columns" ? node : tree.root.type === "columns" && node.type !== "column" && node.type !== "group" ? tree.root : null;
+  const currentRatio = columnsNode ? ratioToLeftPercent(columnsNode.ratio, columnsNode.customRatio ?? selectedSection.style?.columnRatio) : 50;
   const style = selectedSection.style ?? {};
 
   function patchStyle(next: Partial<SectionStyle>, record = true) {
-    const selectedSectionId = selectedSection.id;
-    editor.patchSection(selectedSectionId, (row) => ({ ...row, style: { ...row.style, ...next } }), record);
+    editor.patchSection(selectedSection.id, (row) => ({ ...row, style: { ...row.style, ...next } }), record);
   }
+
+  if (mode === "content") {
+    return (
+      <div className="vr-inspector-body">
+        <EditorContext kicker="Konteiner" title={clientLayoutLabel(selectedSection, node, slug)} />
+        <p className="vr-ed-help">Vali element, et muuta selle teksti või pilti.</p>
+        <ContainerChildrenList section={selectedSection} node={node} slug={slug} />
+      </div>
+    );
+  }
+
+  const nodeAlign =
+    node.type === "column" || node.type === "group" || node.type === "columns"
+      ? node.horizontalAlign ?? ("textAlign" in node ? node.textAlign : undefined) ?? style.textAlign ?? "center"
+      : style.textAlign ?? "center";
 
   return (
     <div className="vr-inspector-body">
-      {root ? (
+      <EditorContext kicker="Konteiner" title={clientLayoutLabel(selectedSection, node, slug)} />
+      {node.type === "columns" || (node.type !== "column" && node.type !== "group" && columnsNode) ? (
         <>
           <p className="vr-ed-section-label">Paigutus</p>
           <EditorGroup label="Tüüp">
@@ -1115,17 +1153,6 @@ function ContainerPanel() {
               onChange={(verticalAlign) => patchStyle({ verticalAlign: verticalAlign as VerticalAlign })}
             />
           </EditorGroup>
-          <EditorGroup label="Sisu joondus">
-            <EditorSelect
-              value={style.textAlign ?? "center"}
-              options={[
-                { value: "left", label: "Vasakul" },
-                { value: "center", label: "Keskel" },
-                { value: "right", label: "Paremal" },
-              ]}
-              onChange={(textAlign) => patchStyle({ textAlign: textAlign as SectionStyle["textAlign"] })}
-            />
-          </EditorGroup>
           <EditorGroup label="Mobiilis">
             <EditorSelect
               value="stack"
@@ -1145,27 +1172,88 @@ function ContainerPanel() {
           </EditorGroup>
         </>
       ) : null}
+      <EditorGroup label="Sisu joondus">
+        <EditorSelect
+          value={nodeAlign ?? "center"}
+          options={[
+            { value: "left", label: "Vasakul" },
+            { value: "center", label: "Keskel" },
+            { value: "right", label: "Paremal" },
+          ]}
+          onChange={(textAlign) => {
+            const align = textAlign as "left" | "center" | "right";
+            if (node.type === "column" || node.type === "group" || node.type === "columns") {
+              editor.patchSection(selectedSection.id, (row) =>
+                updateLayoutNode(row, node.id, { horizontalAlign: align, textAlign: align }),
+              );
+              return;
+            }
+            patchStyle({ textAlign: align });
+          }}
+        />
+      </EditorGroup>
     </div>
   );
 }
 
-function HeaderPanel() {
+function ContainerChildrenList({ section, node, slug }: { section: SectionRow; node: LayoutNode; slug: string }) {
   const editor = useEditor();
-  const theme = editor.state.draft.theme;
-  const swatches = themeColorSwatches(theme);
+  const children =
+    node.type === "columns" ? node.columns : node.type === "column" || node.type === "group" ? node.children : [];
+  if (!children.length) {
+    return <p className="vr-ed-help">Selles konteineris ei ole veel elemente.</p>;
+  }
+  return (
+    <div className="vr-ed-pages">
+      {children.map((child) => {
+        const row = child.type === "element" ? layoutElementRow(section, child, slug) : null;
+        return (
+          <button
+            key={child.id}
+            type="button"
+            onClick={() =>
+              editor.select(
+                row?.selection ?? {
+                  id: child.id,
+                  type: "container",
+                  sectionId: section.id,
+                  layoutNodeId: child.id,
+                },
+              )
+            }
+          >
+            {row?.label ?? clientLayoutLabel(section, child, slug)}
+            {row?.preview ? <span className="vr-ed-muted">{row.preview}</span> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function HeaderPanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
+  const editor = useEditor();
   const pages = [...editor.state.draft.pages].sort((a, b) => a.nav_order - b.nav_order);
+
+  if (mode === "appearance") {
+    const theme = editor.state.draft.theme;
+    const swatches = themeColorSwatches(theme);
+    return (
+      <div className="vr-inspector-body">
+        <EditorContext kicker="Päis" title="Vaikusruum" />
+        <EditorColor label="Taust" value={theme.bgMain} fallback={theme.bgMain} swatches={swatches} onChange={(bgMain) => editor.patchTheme({ bgMain })} />
+        <EditorSlider label="Kõrgus" min={56} max={140} value={theme.headerHeight} onChange={(headerHeight) => editor.patchTheme({ headerHeight })} unit="px" exact={editor.state.advanced} />
+        <EditorSlider label="Logo suurus" min={24} max={96} value={theme.wordmarkSize} onChange={(wordmarkSize) => editor.patchTheme({ wordmarkSize })} unit="px" exact={editor.state.advanced} />
+        <EditorSlider label="Logo tähevahe" min={0.08} max={0.4} step={0.01} value={theme.wordmarkTracking} onChange={(wordmarkTracking) => editor.patchTheme({ wordmarkTracking })} unit="em" exact={editor.state.advanced} />
+        <EditorSlider label="Sisu laius" min={320} max={2000} value={theme.contentMaxWidth} onChange={(contentMaxWidth) => editor.patchTheme({ contentMaxWidth })} unit="px" exact={editor.state.advanced} />
+        <EditorSwitch checked={theme.headerSticky} onChange={(headerSticky) => editor.patchTheme({ headerSticky }, true)} label="Sticky" />
+      </div>
+    );
+  }
 
   return (
     <div className="vr-inspector-body">
-      <EditorContext kicker="Päis" title="Vaikusruum" />
-      <EditorColor label="Taust" value={theme.bgMain} fallback={theme.bgMain} swatches={swatches} onChange={(bgMain) => editor.patchTheme({ bgMain })} />
-      <EditorSlider label="Kõrgus" min={56} max={140} value={theme.headerHeight} onChange={(headerHeight) => editor.patchTheme({ headerHeight })} unit="px" exact={editor.state.advanced} />
-      <EditorSlider label="Logo suurus" min={24} max={96} value={theme.wordmarkSize} onChange={(wordmarkSize) => editor.patchTheme({ wordmarkSize })} unit="px" exact={editor.state.advanced} />
-      <EditorSlider label="Logo tähevahe" min={0.08} max={0.4} step={0.01} value={theme.wordmarkTracking} onChange={(wordmarkTracking) => editor.patchTheme({ wordmarkTracking })} unit="em" exact={editor.state.advanced} />
-      <EditorSlider label="Sisu laius" min={320} max={2000} value={theme.contentMaxWidth} onChange={(contentMaxWidth) => editor.patchTheme({ contentMaxWidth })} unit="px" exact={editor.state.advanced} />
-      <EditorSwitch checked={theme.headerSticky} onChange={(headerSticky) => editor.patchTheme({ headerSticky }, true)} label="Sticky" />
-      <EditorDivider />
-      <EditorContext kicker="Menüü" title="Lingid" />
+      <EditorContext kicker="Päis" title="Menüü" />
       <div className="vr-ed-menu-list">
         {pages.map((item) => (
           <EditorGroup key={item.id} label={pageLabel(item)}>
@@ -1210,29 +1298,19 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
   const [uploadError, setUploadError] = useState("");
   const selected = editor.state.selected;
   const section = selected?.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
-  const customField = selected?.field?.startsWith("custom.") ? selected.field : undefined;
-  const customMedia = customField && section && typeof section.content[customField] === "object"
-    ? (section.content[customField] as { mediaId?: string })
-    : undefined;
-  const mediaId = customField
-    ? customMedia?.mediaId || ""
-    : section
-      ? resolveSectionMediaId(section) || selected?.mediaId || ""
-      : selected?.mediaId || "";
+  const imageField = selected?.field ?? "image";
+  const mediaId = section ? resolveImageMediaId(section, imageField) || selected?.mediaId || "" : selected?.mediaId || "";
   const media = mediaId ? editor.state.draft.media[mediaId] : undefined;
-  const image = section?.style?.image ?? {};
+  const image = section ? readImageAppearance(section, imageField) : { crop: "landscape" as const, size: 100, align: "center" as const };
 
   function assignMedia(nextId: string | null) {
     if (!section) return;
-    if (customField) {
-      editor.setPath(
-        { kind: "section-content", sectionId: section.id, key: customField },
-        { ...(customMedia ?? {}), mediaId: nextId ?? "" },
-        true,
-      );
-      return;
-    }
-    editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, mediaId: nextId } }));
+    editor.patchSection(section.id, (row) => assignImageMedia(row, imageField, nextId));
+  }
+
+  function patchImage(next: Partial<{ crop: typeof image.crop; size: number; align: typeof image.align }>, record = true) {
+    if (!section) return;
+    editor.patchSection(section.id, (row) => patchImageAppearance(row, imageField, next), record);
   }
 
   async function upload(fileList: FileList | null) {
@@ -1357,75 +1435,44 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
       ) : null}
       {mode === "appearance" ? (
         <>
-      <EditorDivider />
-      <EditorContext kicker="Välimus" title="Pilt" />
-      <EditorGroup label="Kärpimine">
-        <EditorSelect
-          value={image.crop ?? "landscape"}
-          options={[
-            { value: "original", label: "Algne" },
-            { value: "landscape", label: "Rõhtne" },
-            { value: "portrait", label: "Püstine" },
-            { value: "square", label: "Ruut" },
-          ]}
-          onChange={(crop) =>
-            section &&
-            editor.patchSection(section.id, (row) => ({
-              ...row,
-              style: { ...row.style, image: { ...row.style?.image, crop: crop as NonNullable<SectionStyle["image"]>["crop"] } },
-            }))
-          }
-        />
-      </EditorGroup>
-      <EditorSlider
-        label="Laius"
-        min={10}
-        max={100}
-        value={image.width ?? 100}
-        onChange={(width) =>
-          section &&
-          editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, image: { ...row.style?.image, width } } }), false)
-        }
-        unit="%"
-        exact={editor.state.advanced}
-      />
-      <EditorSlider
-        label="Raadius"
-        min={0}
-        max={40}
-        value={image.radius ?? 0}
-        onChange={(radius) =>
-          section &&
-          editor.patchSection(section.id, (row) => ({ ...row, style: { ...row.style, image: { ...row.style?.image, radius } } }), false)
-        }
-        unit="px"
-        exact={editor.state.advanced}
-      />
-      <EditorGroup label="Joondus">
-        <EditorSegmented
-          value={image.align ?? "center"}
-          options={[
-            { value: "left", label: "Vasakul" },
-            { value: "center", label: "Keskel" },
-            { value: "right", label: "Paremal" },
-          ]}
-          onChange={(align) =>
-            section &&
-            editor.patchSection(section.id, (row) => ({
-              ...row,
-              style: { ...row.style, image: { ...row.style?.image, align: align as "left" | "right" | "center" } },
-            }))
-          }
-        />
-      </EditorGroup>
-      {mediaId ? (
-        <EditorButton
-          variant="danger"
-          onClick={() => section && assignMedia(null)}
-        >
-          Eemalda pilt
-        </EditorButton>
-      ) : null}
+          <EditorContext kicker="Välimus" title="Pilt" />
+          <EditorSlider
+            label="Suurus"
+            min={IMAGE_SIZE_MIN}
+            max={IMAGE_SIZE_MAX}
+            value={image.size}
+            onChange={(size) => patchImage({ size }, false)}
+            unit="%"
+            exact={editor.state.advanced}
+          />
+          <EditorGroup label="Kärpimine">
+            <EditorSelect
+              value={image.crop}
+              options={[
+                { value: "original", label: "Algne" },
+                { value: "landscape", label: "Rõhtne" },
+                { value: "portrait", label: "Püstine" },
+                { value: "square", label: "Ruut" },
+              ]}
+              onChange={(crop) => patchImage({ crop: crop as typeof image.crop })}
+            />
+          </EditorGroup>
+          <EditorGroup label="Joondus">
+            <EditorSegmented
+              value={image.align}
+              options={[
+                { value: "left", label: "Vasakul" },
+                { value: "center", label: "Keskel" },
+                { value: "right", label: "Paremal" },
+              ]}
+              onChange={(align) => patchImage({ align: align as "left" | "right" | "center" })}
+            />
+          </EditorGroup>
+          {mediaId ? (
+            <EditorButton variant="danger" onClick={() => assignMedia(null)}>
+              Eemalda pilt
+            </EditorButton>
+          ) : null}
         </>
       ) : null}
     </div>

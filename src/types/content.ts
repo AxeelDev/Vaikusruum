@@ -154,7 +154,11 @@ export type TextAppearance = {
 
 export type ImageAppearance = {
   crop?: ImageCrop;
+  /** Percent of the containing column, 10–100. */
+  size?: number;
+  /** @deprecated Use `size`. Kept so older drafts still load. */
   width?: number;
+  /** @deprecated Per-image radius was removed; ignored at render. */
   radius?: number;
   align?: "left" | "right" | "center";
 };

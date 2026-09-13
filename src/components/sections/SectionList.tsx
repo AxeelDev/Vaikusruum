@@ -14,29 +14,12 @@ import { MediaFrame, ScreenSection, SectionInner, SplitLayout, isHomeSceneSectio
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
 import { fieldStyle, photoClassName } from "@/lib/editor/appearance";
 import { PAGE_COPY_DEFAULTS, indexedFieldValue, parseIndexedField, readBoundSectionValue, textSelection } from "@/lib/editor/content-binding";
+import { readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import { textStyleKey } from "@/lib/editor/text-style";
 import { getSectionLayoutTree, isReadingSection, isSplitLayout, ratioToLeftPercent } from "@/lib/editor/layout-tree";
 import { pageHref } from "@/lib/utils/urls";
 import { docHasText, isTiptapDoc } from "@/lib/content/rich-text";
 import type { EventRow, LayoutColumnNode, LayoutElementNode, LayoutGroupNode, LayoutNode, MediaRow, OfferingRow, SectionRow, SiteSettings } from "@/types/content";
-
-function resolveNodeMediaId(section: SectionRow, node: { field?: string }, fallback?: string): string | undefined {
-  if (node.field && node.field.startsWith("custom.")) {
-    const raw = section.content[node.field];
-    if (raw && typeof raw === "object" && typeof (raw as { mediaId?: unknown }).mediaId === "string") {
-      return (raw as { mediaId: string }).mediaId || undefined;
-    }
-    return undefined;
-  }
-  return fallback;
-}
-
-function resolveSectionMediaId(section: SectionRow): string | undefined {
-  if (Object.prototype.hasOwnProperty.call(section.style ?? {}, "mediaId")) {
-    return typeof section.style?.mediaId === "string" && section.style.mediaId ? section.style.mediaId : undefined;
-  }
-  return typeof section.content.mediaId === "string" && section.content.mediaId ? section.content.mediaId : undefined;
-}
 
 function SectionShell({
   section,
@@ -88,31 +71,29 @@ function SectionShell({
 function SectionImage({
   section,
   image,
+  field = "image",
   fallback,
   className,
 }: {
   section: SectionRow;
   image?: MediaRow;
+  field?: string;
   fallback?: ReactNode;
   className?: string;
 }) {
   const editor = useOptionalEditor();
-  const crop = section.style?.image?.crop ?? (section.section_type === "hero" ? "original" : "landscape");
+  const appearance = readImageAppearance(section, field);
+  const crop = appearance.crop;
   const selection = {
-    id: `${section.id}.image`,
+    id: `${section.id}.${field}`,
     type: "image" as const,
     sectionId: section.id,
     mediaId: image?.id,
-    field: "image",
+    field,
   };
 
   const frame = (
-    <MediaFrame
-      crop={crop}
-      width={section.section_type === "hero" ? undefined : section.style?.image?.width}
-      radius={section.style?.image?.radius}
-      align={section.style?.image?.align}
-    >
+    <MediaFrame crop={crop} size={appearance.size} align={appearance.align}>
       {image ? (
         <SiteImage media={image} className={photoClassName(crop)} draggable={editor && !editor.state.preview ? false : undefined} />
       ) : (
@@ -280,7 +261,7 @@ function SectionView({
 }) {
   const editor = useOptionalEditor();
   const specksOn = section.style?.specks !== false;
-  const mediaId = resolveSectionMediaId(section);
+  const mediaId = resolveImageMediaId(section);
   const image = mediaId ? media[mediaId] : undefined;
   const layout = section.style?.layout;
   const align = section.style?.textAlign;
@@ -403,7 +384,7 @@ function SectionView({
     if (node.type === "column" || node.type === "group" || node.type === "columns") {
       return { id: node.id, type: "container" };
     }
-    if (node.elementType === "image") return { id: `${section.id}.${node.field ?? "image"}`, type: "image", field: node.field ?? "image", mediaId: resolveNodeMediaId(section, node, mediaId) };
+    if (node.elementType === "image") return { id: `${section.id}.${node.field ?? "image"}`, type: "image", field: node.field ?? "image", mediaId: resolveImageMediaId(section, node.field) };
     if (node.elementType === "text" && node.field) {
       return { id: node.field === "body" ? `${prefix}.body` : `${prefix}.${node.field}`, type: "text", field: node.field };
     }
@@ -414,14 +395,15 @@ function SectionView({
 
   function renderLayoutElement(node: LayoutElementNode): ReactNode {
     if (node.elementType === "image") {
-      const nodeMediaId = resolveNodeMediaId(section, node, image?.id);
-      const nodeImage = nodeMediaId ? media[nodeMediaId] : node.field?.startsWith("custom.") ? undefined : image;
-      const implicit = !node.field?.startsWith("custom.");
+      const field = node.field ?? "image";
+      const nodeMediaId = resolveImageMediaId(section, field);
+      const nodeImage = nodeMediaId ? media[nodeMediaId] : field.startsWith("custom.") ? undefined : image;
+      const implicit = !field.startsWith("custom.");
       if (section.section_type === "hero" && !nodeImage && implicit) {
         if (section.content.showEmblem === false) return null;
         return (
           <div className="vr-layout-element vr-layout-element--hero-art">
-            <SectionImage section={section} fallback={<Emblem className="vr-emblem" />} className="vr-hero-artwork" />
+            <SectionImage section={section} field={field} fallback={<Emblem className="vr-emblem" />} className="vr-hero-artwork" />
           </div>
         );
       }
@@ -430,15 +412,15 @@ function SectionView({
         if (!editor || editor.state.preview || hideImplicit) return null;
         return (
           <div className="vr-layout-element vr-layout-element--media">
-            <EditableNode selection={{ id: `${section.id}.${node.field ?? "image"}`, type: "image", sectionId: section.id, field: node.field ?? "image", layoutNodeId: node.id }} className="vr-editorial-placeholder vr-editorial-placeholder--image" as="div">
+            <EditableNode selection={{ id: `${section.id}.${field}`, type: "image", sectionId: section.id, field, layoutNodeId: node.id }} className="vr-editorial-placeholder vr-editorial-placeholder--image" as="div">
               Pilt
             </EditableNode>
           </div>
         );
       }
       return (
-        <div className={["vr-layout-element vr-layout-element--media", section.section_type === "hero" && !node.field?.startsWith("custom.") ? "vr-layout-element--hero-art" : ""].filter(Boolean).join(" ")}>
-          <SectionImage section={section} image={nodeImage} className={section.section_type === "hero" && !node.field?.startsWith("custom.") ? "vr-hero-artwork" : undefined} />
+        <div className={["vr-layout-element vr-layout-element--media", section.section_type === "hero" && implicit ? "vr-layout-element--hero-art" : ""].filter(Boolean).join(" ")}>
+          <SectionImage section={section} image={nodeImage} field={field} className={section.section_type === "hero" && implicit ? "vr-hero-artwork" : undefined} />
         </div>
       );
     }

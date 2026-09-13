@@ -73,7 +73,7 @@ export function readTextStyle(raw?: TextAppearance | null): CanonicalTextStyle {
   const fontSize = firstNumber(raw.fontSize, raw.size);
   const fontWeight = firstNumber(raw.fontWeight, raw.weight);
   const textAlign = raw.textAlign ?? raw.align;
-  const maxWidth = raw.maxWidth === null ? null : firstNumber(raw.maxWidth, raw.width);
+  const maxWidth = sanitizeMaxWidth(raw.maxWidth === null ? null : firstNumber(raw.maxWidth, raw.width));
   return {
     role: raw.role,
     color: raw.color,
@@ -236,7 +236,7 @@ export function textStyleToCss(style: CanonicalTextStyle): CSSProperties {
   }
   if (typeof style.fontSize === "number") {
     css["--node-font-size"] = `${style.fontSize}px`;
-    css.fontSize = `min(${style.fontSize}px, var(--node-font-size-max, 12cqi))`;
+    css.fontSize = `${style.fontSize}px`;
   }
   if (typeof style.fontWeight === "number") {
     css.fontWeight = style.fontWeight;
@@ -248,7 +248,7 @@ export function textStyleToCss(style: CanonicalTextStyle): CSSProperties {
   }
   if (typeof style.letterSpacing === "number") {
     css["--node-letter-spacing"] = `${style.letterSpacing}em`;
-    css.letterSpacing = `min(${style.letterSpacing}em, var(--node-letter-spacing-max, 0.16em))`;
+    css.letterSpacing = `${style.letterSpacing}em`;
   }
   if (typeof style.paragraphSpacing === "number") {
     css["--node-paragraph-spacing"] = `${style.paragraphSpacing}px`;
@@ -264,11 +264,8 @@ export function textStyleToCss(style: CanonicalTextStyle): CSSProperties {
     css.width = "100%";
     css.maxWidth = "none";
     css["--node-max-width"] = "100%";
-    css["--node-width"] = "100%";
   } else if (typeof style.maxWidth === "number") {
-    const width = `min(${style.maxWidth}px, 100%)`;
-    css.width = width;
-    css.maxWidth = width;
+    css.maxWidth = `min(${style.maxWidth}px, 100%)`;
     css["--node-max-width"] = `${style.maxWidth}px`;
   }
   applyBreakpointVars(css, "tablet", style.tablet);
@@ -293,6 +290,14 @@ function applyBreakpointVars(
   if (style.maxWidth === WIDTH_FULL) css[`--node-max-width-${breakpoint}`] = "100%";
   else if (typeof style.maxWidth === "number") css[`--node-max-width-${breakpoint}`] = `${style.maxWidth}px`;
   else if (style.maxWidth === null) css[`--node-max-width-${breakpoint}`] = "100%";
+}
+
+function sanitizeMaxWidth(value?: number | null): number | null | undefined {
+  if (value === null) return null;
+  if (value === WIDTH_FULL) return WIDTH_FULL;
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  if (value > 0 && value < TEXT_STYLE_BOUNDS.maxWidth.min) return undefined;
+  return value;
 }
 
 function firstNumber(...values: Array<number | null | undefined>): number | undefined {
