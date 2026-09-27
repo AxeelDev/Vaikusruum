@@ -2,43 +2,27 @@
 
 import { useState } from "react";
 import { deleteMediaAction, updateMediaAction } from "@/lib/actions/admin";
-import { createBrowserSupabase } from "@/lib/supabase/browser";
-import { compressImage } from "@/lib/utils/compress-image";
+import { uploadProgressLabel, uploadSiteMedia } from "@/lib/utils/upload-site-media";
 import { mediaPublicUrl } from "@/lib/utils/urls";
 import type { MediaRow } from "@/types/content";
 
 export function MediaLibrary({ items }: { items: MediaRow[] }) {
   const [mediaItems, setMediaItems] = useState(items);
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
   async function onUpload(fileList: FileList | null) {
     const file = fileList?.[0];
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setMessage("Kasuta JPEG, PNG või WebP pilti.");
+    setBusy(true);
+    setMessage(uploadProgressLabel("checking"));
+    const result = await uploadSiteMedia(file, (progress) => setMessage(uploadProgressLabel(progress)));
+    setBusy(false);
+    if (!result.ok) {
+      setMessage(result.error);
       return;
     }
-    setMessage("Laen üles…");
-    const blob = await compressImage(file);
-    const ext = blob.type === "image/webp" ? "webp" : file.name.split(".").pop() || "jpg";
-    const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const supabase = createBrowserSupabase();
-    const { error: uploadError } = await supabase.storage.from("site-media").upload(path, blob, {
-      contentType: blob.type || file.type,
-    });
-    if (uploadError) {
-      setMessage("Üleslaadimine ebaõnnestus.");
-      return;
-    }
-    const { data, error } = await supabase.from("media").insert({
-      storage_path: path,
-      alt_text: file.name.replace(/\.[^.]+$/, ""),
-    }).select("*").single();
-    if (error || !data) {
-      setMessage("Salvestamine ebaõnnestus.");
-      return;
-    }
-    setMediaItems((current) => [data as MediaRow, ...current]);
+    setMediaItems((current) => [result.item, ...current]);
     setMessage("Pilt on lisatud.");
   }
 
@@ -47,11 +31,12 @@ export function MediaLibrary({ items }: { items: MediaRow[] }) {
       <div className="vr-admin-page-head">
         <h1 className="vr-admin-title">Pildid</h1>
         <label className="vr-admin-upload">
-          Laadi üles
-          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => onUpload(e.target.files)} />
+          {busy ? "Laen üles…" : "Laadi üles"}
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" onChange={(e) => void onUpload(e.target.files)} />
         </label>
       </div>
       {message ? <p>{message}</p> : null}
+      <p className="vr-admin-note">Sobivad JPEG, PNG, WebP ja HEIC. Kui telefoni HEIC ei avane, salvesta pilt JPEG-na.</p>
       <div className="vr-media-grid">
         {mediaItems.map((item) => (
           <MediaCard key={item.id} item={item} onDeleted={() => setMediaItems((current) => current.filter((row) => row.id !== item.id))} />

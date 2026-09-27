@@ -13,16 +13,38 @@
   letter-spacing: var(--node-letter-spacing, 0.2em);
 }
 
+.vr-wordmark--split {
+  display: flex;
+  flex-direction: column;
+  align-items: inherit;
+  gap: 0.08em;
+}
+
+.vr-wordmark--hero.vr-wordmark--split {
+  align-items: center;
+  text-align: center;
+}
+
+.vr-wordmark--header.vr-wordmark--split {
+  flex-direction: row;
+  gap: 0.4em;
+}
+
+.vr-wordmark-line {
+  display: block;
+  white-space: nowrap;
+}
+
 .vr-wordmark--hero {
   --node-font-size-max: 11cqi;
   --node-letter-spacing-max: 0.12em;
   font-size: min(var(--node-font-size, 56px), var(--node-font-size-max));
   letter-spacing: min(var(--node-letter-spacing, 0.12em), var(--node-letter-spacing-max));
-  line-height: var(--node-line-height, 1);
+  line-height: var(--node-line-height, 1.05);
   margin: 0;
   max-width: 100%;
   min-width: 0;
-  white-space: nowrap;
+  white-space: normal;
   overflow-wrap: normal;
 }
 
@@ -34,6 +56,7 @@
   line-height: var(--node-line-height, 1.15);
   margin: 0 0 var(--vr-space-5);
   overflow-wrap: break-word;
+  color: var(--node-color, var(--vr-accent-gold));
 }
 
 .vr-heading {
@@ -44,6 +67,7 @@
   line-height: var(--node-line-height, 1.25);
   margin: 0 0 var(--vr-space-4);
   overflow-wrap: break-word;
+  color: var(--node-color, var(--vr-accent-gold));
 }
 
 .vr-heading-sm {

@@ -127,7 +127,7 @@ function OfferingForm({ offering, events }: { offering: OfferingRow; events: Eve
         <button
           type="button"
           onClick={async () => {
-            await createEventAction(offering.id, newDate, newIso ? new Date(newIso).toISOString() : null);
+            await createEventAction(offering.id, newDate, newIso || null);
             setNewDate("");
             setNewIso("");
           }}

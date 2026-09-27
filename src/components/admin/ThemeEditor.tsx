@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { saveThemeAction } from "@/lib/actions/admin";
+import { applyThemePreset } from "@/lib/theme/presets";
 import { BODY_FONTS, DEFAULT_THEME, DISPLAY_FONTS, parseTheme, themeToCssVars, type ThemeTokens } from "@/lib/theme/theme";
 import { Emblem } from "@/components/public/Emblem";
 import { Specks } from "@/components/public/Specks";
@@ -46,11 +47,13 @@ export function ThemeEditor({ initial }: { initial: ThemeTokens }) {
         <ColorField label="Põhitaust" value={theme.bgMain} onChange={(v) => set("bgMain", v)} />
         <ColorField label="Soe taust" value={theme.bgWarm} onChange={(v) => set("bgWarm", v)} />
         <ColorField label="Pehme taust" value={theme.bgSoft} onChange={(v) => set("bgSoft", v)} />
+        <ColorField label="Tume aktsenttaust" value={theme.bgContrast} onChange={(v) => set("bgContrast", v)} />
         <ColorField label="Tekst" value={theme.text} onChange={(v) => set("text", v)} />
         <ColorField label="Vaiksem tekst" value={theme.textMuted} onChange={(v) => set("textMuted", v)} />
-        <ColorField label="Oranž" value={theme.accentOrange} onChange={(v) => set("accentOrange", v)} />
+        <ColorField label="Aktsent" value={theme.accentOrange} onChange={(v) => set("accentOrange", v)} />
         <ColorField label="Kuld" value={theme.accentGold} onChange={(v) => set("accentGold", v)} />
-        <ColorField label="Sinakashall" value={theme.accentBluegray} onChange={(v) => set("accentBluegray", v)} />
+        <ColorField label="Tume pinna tekst" value={theme.contrastText} onChange={(v) => set("contrastText", v)} />
+        <ColorField label="Tume pinna pealkiri" value={theme.contrastHeading} onChange={(v) => set("contrastHeading", v)} />
         <ColorField label="Joone värv" value={theme.line} onChange={(v) => set("line", v)} />
       </div>
       <h2 className="vr-heading">Kirjatüübid</h2>
@@ -124,6 +127,12 @@ export function ThemeEditor({ initial }: { initial: ThemeTokens }) {
       </label>
       <ColorField label="Täpikeste värv" value={theme.specksColor} onChange={(v) => set("specksColor", v)} />
       <div className="vr-admin-actions">
+        <button type="button" onClick={() => setTheme(applyThemePreset(theme, "a"))}>
+          Eelvaade A, hele
+        </button>
+        <button type="button" onClick={() => setTheme(applyThemePreset(theme, "b"))}>
+          Eelvaade B, tugevam
+        </button>
         <button className="vr-cta" type="button" onClick={save}>
           Salvesta
         </button>
@@ -133,19 +142,29 @@ export function ThemeEditor({ initial }: { initial: ThemeTokens }) {
         {message ? <span>{message}</span> : null}
       </div>
       <div className="vr-preview vr-site" style={preview}>
-        <p className="vr-muted">Eelvaade</p>
+        <p className="vr-muted">Eelvaade. A on praegu avalik. B jääb siia, kuni kontaktisektsiooni taustaks valitakse Tume aktsent.</p>
         <section className="vr-section vr-section--warm" style={{ position: "relative", padding: "3rem 1rem" }}>
           <Specks enabled={theme.specksEnabled} density={theme.specksDensity} />
           <div className="vr-split">
             <div className="vr-hero-copy">
-              <p className="vr-wordmark vr-wordmark--hero">VAIKUSRUUM</p>
-              <p>Vaikusruum on kutse aeglustuda, hingata ja olla.</p>
+              <p className="vr-wordmark vr-wordmark--hero vr-wordmark--split">
+                <span className="vr-wordmark-line">Vaikus</span>
+                <span className="vr-wordmark-line">ruum</span>
+              </p>
+              <p>Sama palett, beež kontakt.</p>
               <p>
                 <span className="vr-cta">Võta ühendust</span>
               </p>
             </div>
             <Emblem />
           </div>
+        </section>
+        <section className="vr-section vr-section--contrast" style={{ padding: "3rem 1rem" }}>
+          <h2 className="vr-page-title">Võta kontakti</h2>
+          <p>Sama palett, tume aktsent. Seda ei salvestata avalikuks, kui ainult siin vaatad.</p>
+          <p>
+            <span className="vr-cta">Saada</span>
+          </p>
         </section>
       </div>
     </div>

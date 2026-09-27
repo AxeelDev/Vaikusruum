@@ -19,8 +19,13 @@ function draft(section: SectionRow): EditorDraft {
     settings: {
       id: 1,
       site_name: "VAIKUSRUUM",
+      contact_name: null,
       contact_email: null,
       contact_phone: null,
+      company_name: null,
+      registry_code: null,
+      iban: null,
+      bank: null,
       default_registration_email: null,
       social: {},
       footer_text: "Jalus",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ContactDetails } from "@/components/public/ContactDetails";
 import { submitPublicForm } from "@/lib/actions/submit-form";
 import type { SiteSettings } from "@/types/content";
 
@@ -15,6 +16,7 @@ export function ContactForm({
   offeringId,
   email,
   social,
+  settings,
   showKindSelect = true,
   pageSlug,
 }: {
@@ -22,6 +24,7 @@ export function ContactForm({
   offeringId?: string;
   email?: string | null;
   social?: SiteSettings["social"];
+  settings?: SiteSettings;
   showKindSelect?: boolean;
   pageSlug?: string;
 }) {
@@ -65,6 +68,7 @@ export function ContactForm({
 
   return (
     <div>
+      {settings ? <ContactDetails settings={settings} /> : null}
       <form className="vr-form" action={onSubmit}>
         {showKindSelect ? (
           <label className="vr-field">
@@ -102,7 +106,7 @@ export function ContactForm({
           {status === "sending" ? "Saadan…" : "Saada"}
         </button>
       </form>
-      {email ? (
+      {!settings && email ? (
         <p className="vr-muted vr-contact-email">
           Või kirjuta: <a href={`mailto:${email}`}>{email}</a>
         </p>

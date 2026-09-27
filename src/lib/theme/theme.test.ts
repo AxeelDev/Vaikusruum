@@ -21,6 +21,7 @@ describe("parseTheme", () => {
   it("accepts curated fonts only", () => {
     expect(parseTheme({ displayFont: "comic-sans" }).displayFont).toBe("cormorant");
     expect(parseTheme({ displayFont: "bodoni-moda" }).displayFont).toBe("bodoni-moda");
+    expect(parseTheme({ bodyFont: "cormorant" }).bodyFont).toBe("cormorant");
   });
 });
 

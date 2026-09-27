@@ -8,6 +8,9 @@ export const DISPLAY_FONTS = [
 ] as const;
 
 export const BODY_FONTS = [
+  { id: "cormorant", label: "Cormorant Garamond", css: "var(--font-cormorant), 'Times New Roman', serif" },
+  { id: "eb-garamond", label: "EB Garamond", css: "var(--font-eb-garamond), 'Times New Roman', serif" },
+  { id: "bodoni-moda", label: "Bodoni Moda", css: "var(--font-bodoni), 'Times New Roman', serif" },
   { id: "source-sans-3", label: "Source Sans 3", css: "var(--font-source-sans), system-ui, sans-serif" },
   { id: "lato", label: "Lato", css: "var(--font-lato), system-ui, sans-serif" },
 ] as const;
@@ -20,6 +23,9 @@ export type ThemeTokens = {
   bgMain: string;
   bgWarm: string;
   bgSoft: string;
+  bgContrast: string;
+  contrastText: string;
+  contrastHeading: string;
   text: string;
   textMuted: string;
   accentOrange: string;
@@ -65,6 +71,9 @@ export const DEFAULT_THEME: ThemeTokens = {
   bgMain: "#FCFAEE",
   bgWarm: "#FBF5DC",
   bgSoft: "#F8F4DF",
+  bgContrast: "#7A2148",
+  contrastText: "#FBF8F3",
+  contrastHeading: "#E6C985",
   text: "#3D3A35",
   textMuted: "#6D6960",
   accentOrange: "#B8642F",
@@ -135,6 +144,9 @@ export function parseTheme(input: unknown): ThemeTokens {
     bgMain: hex(raw.bgMain, DEFAULT_THEME.bgMain),
     bgWarm: hex(raw.bgWarm, DEFAULT_THEME.bgWarm),
     bgSoft: hex(raw.bgSoft, DEFAULT_THEME.bgSoft),
+    bgContrast: hex(raw.bgContrast, DEFAULT_THEME.bgContrast),
+    contrastText: hex(raw.contrastText, DEFAULT_THEME.contrastText),
+    contrastHeading: hex(raw.contrastHeading, DEFAULT_THEME.contrastHeading),
     text: hex(raw.text, DEFAULT_THEME.text),
     textMuted: hex(raw.textMuted, DEFAULT_THEME.textMuted),
     accentOrange: hex(raw.accentOrange, DEFAULT_THEME.accentOrange),
@@ -181,7 +193,10 @@ function fontCss(id: string, list: readonly { id: string; css: string }[]): stri
   return list.find((f) => f.id === id)?.css ?? list[0].css;
 }
 
-export const ALL_FONTS = [...DISPLAY_FONTS, ...BODY_FONTS];
+export const ALL_FONTS = [
+  ...DISPLAY_FONTS,
+  ...BODY_FONTS.filter((font) => !DISPLAY_FONTS.some((item) => item.id === font.id)),
+];
 
 export function fontCssById(id: string | undefined): string | undefined {
   if (!id) return undefined;
@@ -194,6 +209,9 @@ export function themeToCssVars(theme: ThemeTokens): CSSProperties {
     "--vr-bg-main": t.bgMain,
     "--vr-bg-warm": t.bgWarm,
     "--vr-bg-soft": t.bgSoft,
+    "--vr-bg-contrast": t.bgContrast,
+    "--vr-contrast-text": t.contrastText,
+    "--vr-contrast-heading": t.contrastHeading,
     "--vr-text": t.text,
     "--vr-text-muted": t.textMuted,
     "--vr-accent-orange": t.accentOrange,

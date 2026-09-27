@@ -234,6 +234,41 @@
   background: var(--vr-bg-soft);
 }
 
+.vr-section--contrast,
+.vr-screen-section--contrast {
+  background: var(--vr-bg-contrast);
+  color: var(--vr-contrast-text);
+}
+
+.vr-section--contrast .vr-heading,
+.vr-section--contrast .vr-heading-sm,
+.vr-section--contrast .vr-page-title,
+.vr-section--contrast .vr-wordmark {
+  color: var(--node-color, var(--vr-contrast-heading));
+}
+
+.vr-section--contrast .vr-muted,
+.vr-section--contrast .vr-contact-company,
+.vr-section--contrast .vr-contact-label {
+  color: color-mix(in srgb, var(--vr-contrast-text) 78%, transparent);
+}
+
+.vr-section--contrast .vr-field input,
+.vr-section--contrast .vr-field textarea,
+.vr-section--contrast .vr-field select {
+  color: var(--vr-contrast-text);
+  border-color: color-mix(in srgb, var(--vr-contrast-text) 35%, transparent);
+}
+
+.vr-section--contrast .vr-cta {
+  background: var(--vr-contrast-heading);
+  color: var(--vr-bg-contrast);
+}
+
+.vr-section--contrast .vr-form-error {
+  color: #f3c6b8;
+}
+
 .vr-section-inner {
   width: 100%;
   max-width: none;
@@ -961,12 +996,97 @@
 }
 
 .vr-dates {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1rem;
+  display: grid;
+  gap: 0.7rem;
   margin: var(--vr-space-2) 0 0;
   padding: 0;
   list-style: none;
+}
+
+.vr-dates li {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.vr-date-time {
+  color: var(--vr-text-muted);
+}
+
+.vr-event-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.vr-contact-details {
+  display: grid;
+  gap: var(--vr-space-3);
+  margin: 0 0 var(--vr-space-4);
+  text-align: left;
+}
+
+.vr-contact-personal,
+.vr-contact-company {
+  margin: 0;
+  font-style: normal;
+}
+
+.vr-contact-personal p,
+.vr-contact-company p {
+  margin: 0 0 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.vr-contact-name {
+  font-weight: 600;
+}
+
+.vr-contact-label {
+  color: var(--vr-text-muted);
+}
+
+.vr-iban {
+  font-variant-numeric: lining-nums;
+  letter-spacing: 0.02em;
+  user-select: all;
+}
+
+.vr-private-lessons,
+.vr-private-prices {
+  display: grid;
+  gap: var(--vr-space-3);
+  width: min(100%, 34rem);
+  margin-inline: auto;
+  text-align: left;
+}
+
+.vr-private-lesson h3 {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.vr-private-duration {
+  font-weight: 500;
+  color: var(--vr-text-muted);
+}
+
+.vr-private-prices ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.vr-private-prices li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--vr-line);
+  padding-bottom: 0.45rem;
 }
 
 .vr-footer {
@@ -1205,9 +1325,16 @@
   }
 
   .vr-wordmark--hero {
-    --node-font-size-max: 7.6cqi;
-    --node-letter-spacing-max: 0.06em;
-    white-space: nowrap;
+    --node-font-size-max: 16cqi;
+    --node-letter-spacing-max: 0.08em;
+    white-space: normal;
+  }
+
+  .vr-wordmark--header.vr-wordmark--split {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    line-height: 1.05;
   }
 
   .vr-page-title {

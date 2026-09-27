@@ -45,16 +45,17 @@ import {
   writeTextStylePatch,
   type CanonicalTextStyle,
 } from "@/lib/editor/text-style";
-import { createBrowserSupabase } from "@/lib/supabase/browser";
-import { compressImage } from "@/lib/utils/compress-image";
+import { uploadProgressLabel, uploadSiteMedia } from "@/lib/utils/upload-site-media";
 import { mediaPublicUrl } from "@/lib/utils/urls";
+import { PrivateLessonsFields } from "@/components/admin/PrivateLessonsFields";
+import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/content/private-lessons";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
 import { MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
 import { indexedFieldValue, parseIndexedField, readBoundSectionValue, readEditorContent } from "@/lib/editor/content-binding";
 import { assignImageMedia, IMAGE_SIZE_MAX, IMAGE_SIZE_MIN, patchImageAppearance, readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
 import type { EditorSelection, InspectorTabId } from "@/lib/editor/types";
-import type { AnimationAppearance, HeightPreset, LayoutNode, MediaRow, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
+import type { AnimationAppearance, HeightPreset, LayoutNode, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
 import type { TiptapNode } from "@/types/content";
 
 const FONT_OPTIONS = ALL_FONTS.map((font) => ({
@@ -63,8 +64,21 @@ const FONT_OPTIONS = ALL_FONTS.map((font) => ({
   fontFamily: font.css,
 }));
 
-function createMediaStoragePath(ext: string) {
-  return `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+function PrivateLessonsSectionContent({ sectionId }: { sectionId: string }) {
+  const editor = useEditor();
+  const section = findSection(editor.state.draft, sectionId);
+  if (!section) return null;
+  return (
+    <PrivateLessonsFields
+      heading={String(section.content.heading ?? "")}
+      label={String(section.content.label ?? "")}
+      actionLabel={String(section.content.actionLabel ?? "")}
+      actionHref={privateActionHref(section.content)}
+      lessons={readPrivateLessons(section.content)}
+      prices={readPrivatePrices(section.content)}
+      onChange={(next) => editor.patchSection(sectionId, (row) => ({ ...row, content: { ...row.content, ...next } }))}
+    />
+  );
 }
 
 export function Inspector() {
@@ -926,10 +940,12 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
       {mode === "content" && section.section_type === "faq" ? <FaqSectionContent sectionId={section.id} /> : null}
       {mode === "content" && section.section_type === "important_info" ? <ImportantInfoContent sectionId={section.id} /> : null}
       {mode === "content" && section.section_type === "testimonials" ? <TestimonialContent sectionId={section.id} /> : null}
+      {mode === "content" && section.section_type === "private_lessons" ? <PrivateLessonsSectionContent sectionId={section.id} /> : null}
       {mode === "content" &&
       section.section_type !== "faq" &&
       section.section_type !== "important_info" &&
-      section.section_type !== "testimonials" ? (
+      section.section_type !== "testimonials" &&
+      section.section_type !== "private_lessons" ? (
         <>
           <p className="vr-ed-help">Vali element, et muuta selle teksti või pilti.</p>
           <ContainerChildrenList section={section} node={getSectionLayoutTree(section).root} slug={page?.slug ?? ""} />
@@ -944,6 +960,7 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
             { value: "main", label: "Põhitaust" },
             { value: "warm", label: "Soe" },
             { value: "soft", label: "Pehme" },
+            { value: "contrast", label: "Tume aktsent" },
           ]}
           onChange={(background) => patchStyle({ background: background as SectionStyle["background"] })}
         />
@@ -1299,6 +1316,7 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
   const editor = useEditor();
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [uploadStatus, setUploadStatus] = useState("");
   const selected = editor.state.selected;
   const section = selected?.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
   const imageField = selected?.field ?? "image";
@@ -1319,37 +1337,19 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
   async function upload(fileList: FileList | null) {
     const file = fileList?.[0];
     if (!file || !section) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setUploadError("Kasuta JPEG, PNG või WebP pilti.");
-      return;
-    }
     setUploading(true);
     setUploadError("");
-    const blob = await compressImage(file);
-    const ext = blob.type === "image/webp" ? "webp" : file.name.split(".").pop() || "jpg";
-    const path = createMediaStoragePath(ext);
-    const supabase = createBrowserSupabase();
-    const { error: uploadErr } = await supabase.storage.from("site-media").upload(path, blob, {
-      contentType: blob.type || file.type,
-    });
-    if (uploadErr) {
-      setUploading(false);
-      setUploadError("Üleslaadimine ebaõnnestus.");
-      return;
-    }
-    const { data, error } = await supabase
-      .from("media")
-      .insert({ storage_path: path, alt_text: file.name.replace(/\.[^.]+$/, "") })
-      .select("*")
-      .single();
+    setUploadStatus(uploadProgressLabel("checking"));
+    const result = await uploadSiteMedia(file, (progress) => setUploadStatus(uploadProgressLabel(progress)));
     setUploading(false);
-    if (error || !data) {
-      setUploadError("Pildi salvestamine ebaõnnestus.");
+    if (!result.ok) {
+      setUploadError(result.error);
+      setUploadStatus("");
       return;
     }
-    const item = data as MediaRow;
-    editor.addMedia(item);
-    assignMedia(item.id);
+    editor.addMedia(result.item);
+    assignMedia(result.item.id);
+    setUploadStatus("Pilt on lisatud.");
   }
 
   return (
@@ -1372,8 +1372,8 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
           <EditorDivider />
           <EditorContext kicker="Pildid" title="Vaheta pilti" />
           <label className="vr-ed-upload">
-            {uploading ? "Laen üles…" : "Laadi üles"}
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void upload(event.target.files)} />
+            {uploading ? uploadStatus || "Laen üles…" : "Laadi üles"}
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" onChange={(event) => void upload(event.target.files)} />
           </label>
           {uploadError ? <p className="vr-form-error">{uploadError}</p> : null}
           <div className="vr-media-picker-grid">
@@ -1414,8 +1414,8 @@ function ImagePanel({ mode = "content" }: { mode?: "content" | "appearance" }) {
             {section?.section_type === "hero" && section.content.showEmblem !== false ? <span>Vaikimisi hero kujund</span> : "Pilt puudub"}
           </div>
           <label className="vr-ed-upload">
-            {uploading ? "Laen üles…" : "Laadi üles"}
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void upload(event.target.files)} />
+            {uploading ? uploadStatus || "Laen üles…" : "Laadi üles"}
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" onChange={(event) => void upload(event.target.files)} />
           </label>
           {uploadError ? <p className="vr-form-error">{uploadError}</p> : null}
           <div className="vr-media-picker-grid">
@@ -1640,10 +1640,13 @@ function SiteDesignInspector() {
       <EditorCollapse title="Värvid" defaultOpen>
         <EditorColor label="Põhitaust" value={theme.bgMain} fallback={theme.bgMain} swatches={swatches} onChange={(bgMain) => editor.patchTheme({ bgMain })} />
         <EditorColor label="Soe taust" value={theme.bgWarm} fallback={theme.bgWarm} swatches={swatches} onChange={(bgWarm) => editor.patchTheme({ bgWarm })} />
+        <EditorColor label="Tume aktsenttaust" value={theme.bgContrast} fallback={theme.bgContrast} swatches={swatches} onChange={(bgContrast) => editor.patchTheme({ bgContrast })} />
         <EditorColor label="Tekst" value={theme.text} fallback={theme.text} swatches={swatches} onChange={(text) => editor.patchTheme({ text })} />
         <EditorColor label="Sekundaarne tekst" value={theme.textMuted} fallback={theme.textMuted} swatches={swatches} onChange={(textMuted) => editor.patchTheme({ textMuted })} />
-        <EditorColor label="Oranž aktsent" value={theme.accentOrange} fallback={theme.accentOrange} swatches={swatches} onChange={(accentOrange) => editor.patchTheme({ accentOrange })} />
-        <EditorColor label="Sinakashall aktsent" value={theme.accentBluegray} fallback={theme.accentBluegray} swatches={swatches} onChange={(accentBluegray) => editor.patchTheme({ accentBluegray })} />
+        <EditorColor label="Aktsent" value={theme.accentOrange} fallback={theme.accentOrange} swatches={swatches} onChange={(accentOrange) => editor.patchTheme({ accentOrange })} />
+        <EditorColor label="Kuld" value={theme.accentGold} fallback={theme.accentGold} swatches={swatches} onChange={(accentGold) => editor.patchTheme({ accentGold })} />
+        <EditorColor label="Tume pinna tekst" value={theme.contrastText} fallback={theme.contrastText} swatches={swatches} onChange={(contrastText) => editor.patchTheme({ contrastText })} />
+        <EditorColor label="Tume pinna pealkiri" value={theme.contrastHeading} fallback={theme.contrastHeading} swatches={swatches} onChange={(contrastHeading) => editor.patchTheme({ contrastHeading })} />
         <EditorColor label="Jooned" value={theme.line} fallback={theme.line} swatches={swatches} onChange={(line) => editor.patchTheme({ line })} />
         <EditorColor label="Taustatäpid" value={theme.specksColor} fallback={theme.specksColor} swatches={swatches} onChange={(specksColor) => editor.patchTheme({ specksColor })} />
       </EditorCollapse>

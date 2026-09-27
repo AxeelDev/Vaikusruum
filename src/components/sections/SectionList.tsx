@@ -8,6 +8,8 @@ import { SiteImage } from "@/components/public/SiteImage";
 import { Specks } from "@/components/public/Specks";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { RegistrationBlock } from "@/components/forms/RegistrationBlock";
+import { EventDates } from "@/components/public/EventDates";
+import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/content/private-lessons";
 import { EditableNode, EditableText } from "@/components/site/Editable";
 import { EditableRichText } from "@/components/site/EditableRichText";
 import { MediaFrame, ScreenSection, SectionInner, SplitLayout, isHomeSceneSection } from "@/components/layout/primitives";
@@ -95,7 +97,12 @@ function SectionImage({
   const frame = (
     <MediaFrame crop={crop} size={appearance.size} align={appearance.align}>
       {image ? (
-        <SiteImage media={image} className={photoClassName(crop)} draggable={editor && !editor.state.preview ? false : undefined} />
+        <SiteImage
+          media={image}
+          className={photoClassName(crop)}
+          priority={section.section_type === "hero"}
+          draggable={editor && !editor.state.preview ? false : undefined}
+        />
       ) : (
         fallback
       )}
@@ -435,10 +442,13 @@ function SectionView({
           kind={section.content.defaultKind === "private_lesson" ? "private_lesson" : "contact"}
           email={settings.contact_email}
           social={settings.social}
+          settings={settings}
           pageSlug={slug}
         />
       );
     }
+    if (node.field === "lessons") return renderPrivateLessonList();
+    if (node.field === "prices") return renderPrivatePriceList();
     if (node.elementType === "list") return renderListElement(node);
     if (node.elementType === "buttons") return renderButtonsElement(node);
     if (node.elementType === "link") return renderLinksElement(node);
@@ -464,6 +474,41 @@ function SectionView({
       sectionId: section.id,
       field: node.field,
     };
+  }
+
+  function renderPrivateLessonList(): ReactNode {
+    const lessons = readPrivateLessons(section.content);
+    if (!lessons.length && (!editor || editor.state.preview)) return null;
+    return (
+      <div className="vr-layout-element vr-private-lessons">
+        {lessons.map((lesson, index) => (
+          <article key={`${lesson.title}-${index}`} className="vr-private-lesson">
+            <h3 className="vr-heading-sm">
+              {lesson.title}
+              {lesson.duration ? <span className="vr-private-duration">{lesson.duration}</span> : null}
+            </h3>
+            {lesson.description ? <p>{lesson.description}</p> : null}
+          </article>
+        ))}
+      </div>
+    );
+  }
+
+  function renderPrivatePriceList(): ReactNode {
+    const prices = readPrivatePrices(section.content);
+    if (!prices.length && (!editor || editor.state.preview)) return null;
+    return (
+      <div className="vr-layout-element vr-private-prices">
+        <ul>
+          {prices.map((price, index) => (
+            <li key={`${price.label}-${index}`}>
+              <span>{price.label}</span>
+              <strong>{price.amount}</strong>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   }
 
   function renderListElement(node: LayoutElementNode): ReactNode {
@@ -739,13 +784,7 @@ function SectionView({
             value={value}
             appearance={appearance}
           />
-          {events.length > 0 ? (
-            <ul className="vr-dates">
-              {events.map((event) => (
-                <li key={event.id}>{event.display_date}</li>
-              ))}
-            </ul>
-          ) : null}
+          {events.length > 0 ? <EventDates events={events} /> : null}
         </div>
       );
     }
@@ -800,10 +839,30 @@ function SectionView({
         </div>
       );
     }
+    if (field === "eventLinkLabel") {
+      const offeringId = String(section.content.offeringId ?? "");
+      const offering = offeringId ? offerings[offeringId] : undefined;
+      const href = String(section.content.eventLinkUrl ?? offering?.registration_url ?? "");
+      if (!href && !editing) return null;
+      return (
+        <div className="vr-layout-element">
+          <a className="vr-text-link vr-event-link" href={href || "#"} target="_blank" rel="noreferrer">
+            <EditableText
+              as="span"
+              className="vr-text-link"
+              selection={{ ...selection, type: "link" }}
+              path={{ kind: "section-content", sectionId: section.id, key: field }}
+              value={value}
+              clickMode="defer"
+            />
+          </a>
+        </div>
+      );
+    }
     if (field === "actionLabel") {
       return (
         <div className="vr-layout-element">
-          <Link className="vr-cta" href="/kontakt?teema=eratund">
+          <Link className="vr-cta" href={privateActionHref(section.content)}>
             <EditableText
               as="span"
               selection={{ ...selection, type: "link" }}
@@ -822,11 +881,12 @@ function SectionView({
     }
 
     const isHeroTitle = field === "title" && section.section_type === "hero";
+    const isHeroWordmark = section.section_type === "hero" && (field === "title" || appearance?.role === "h1");
     const isHeading = field === "heading" || field === "title";
-    const Tag = options.as ?? (isHeroTitle ? "h1" : isHeading ? (section.section_type === "contact" ? "h1" : "h2") : "div");
+    const Tag = options.as ?? (isHeroWordmark || isHeroTitle ? "h1" : isHeading ? (section.section_type === "contact" ? "h1" : "h2") : "div");
     const className =
       options.className ??
-      (isHeroTitle ? "vr-wordmark vr-wordmark--hero" : isHeading ? (section.section_type === "contact" ? "vr-page-title" : "vr-heading") : "vr-body");
+      (isHeroWordmark || isHeroTitle ? "vr-wordmark vr-wordmark--hero" : isHeading ? (section.section_type === "contact" ? "vr-page-title" : "vr-heading") : "vr-body");
 
     return (
       <div className={["vr-layout-element", Tag === "span" ? "" : "vr-layout-element--text"].filter(Boolean).join(" ")}>
@@ -904,6 +964,15 @@ function SectionView({
             value={offering.address ?? ""}
             appearance={fieldStyle(section, textStyleKey({ field: "address", offeringId: offering.id }) ?? `${offering.id}.address`)}
           />
+        ) : null}
+        {offering.registration_url && (offering.slug === "pehme-jooga-ja-gong" || typeof section.content.eventLinkLabel === "string") ? (
+          <p>
+            <a className="vr-text-link vr-event-link" href={offering.registration_url} target="_blank" rel="noreferrer">
+              {typeof section.content.eventLinkLabel === "string" && section.content.eventLinkLabel
+                ? section.content.eventLinkLabel
+                : "Vaata sündmust Üks Maja lehel"}
+            </a>
+          </p>
         ) : null}
         <p>
           <Link className="vr-text-link" href={pageHref(offering.slug)}>

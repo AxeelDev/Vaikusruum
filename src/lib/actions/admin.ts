@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAdminUser } from "@/lib/auth/admin";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { tallinnLocalToIso } from "@/lib/content/events";
 import { parseTheme } from "@/lib/theme/theme";
 import { loginSchema } from "@/lib/validation/forms";
 
@@ -93,7 +94,7 @@ export async function createEventAction(offeringId: string, displayDate: string,
   const { error } = await supabase.from("events").insert({
     offering_id: offeringId,
     display_date: displayDate || null,
-    starts_at: startsAt,
+    starts_at: startsAt ? tallinnLocalToIso(startsAt) ?? startsAt : null,
     active: true,
     sort_order: 99,
   });

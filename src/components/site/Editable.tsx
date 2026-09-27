@@ -9,6 +9,7 @@ import {
 import { useOptionalEditor, type EditPath } from "@/components/editor/EditorProvider";
 import { appearanceToStyle } from "@/lib/editor/appearance";
 import { looksLikeMarkdown, renderMarkdown } from "@/lib/content/markdown";
+import { splitWordmark } from "@/lib/content/wordmark";
 import type { EditorSelection } from "@/lib/editor/types";
 import type { TextAppearance } from "@/types/content";
 
@@ -58,8 +59,11 @@ export function EditableText({
   const editor = useOptionalEditor();
   void _path;
   const selected = editor?.state.selected?.id === selection.id && !editor.state.preview;
-  const allowMarkdown = !String(className ?? "").includes("vr-wordmark");
+  const wordmark = String(className ?? "").includes("vr-wordmark");
+  const lines = wordmark ? splitWordmark(value) : null;
+  const allowMarkdown = !wordmark;
   const rendered = allowMarkdown && looksLikeMarkdown(value) ? renderMarkdown(value) : value;
+  const classNames = [className, lines ? "vr-wordmark--split" : ""].filter(Boolean).join(" ");
 
   const mergedStyle: CSSProperties = {
     ...appearanceToStyle(appearance),
@@ -67,10 +71,19 @@ export function EditableText({
     ...(multiline ? { whiteSpace: "pre-wrap" } : null),
   };
 
+  const inner = lines ? (
+    <>
+      <span className="vr-wordmark-line">{lines[0]}</span>
+      <span className="vr-wordmark-line">{lines[1]}</span>
+    </>
+  ) : (
+    rendered
+  );
+
   if (!editor) {
     return (
-      <Tag className={className} style={mergedStyle}>
-        {rendered}
+      <Tag className={classNames} style={mergedStyle}>
+        {inner}
       </Tag>
     );
   }
@@ -88,12 +101,12 @@ export function EditableText({
 
   return (
     <Tag
-      className={className}
+      className={classNames}
       style={mergedStyle}
       {...editProps(selection, Boolean(selected), editor.state.preview)}
       onClick={onClick}
     >
-      {rendered}
+      {inner}
     </Tag>
   );
 }

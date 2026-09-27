@@ -11,8 +11,13 @@ export function ContactSettings({ settings }: { settings: SiteSettings }) {
   async function save() {
     const result = await saveSiteSettingsAction({
       site_name: row.site_name,
+      contact_name: row.contact_name || null,
       contact_email: row.contact_email || null,
       contact_phone: row.contact_phone || null,
+      company_name: row.company_name || null,
+      registry_code: row.registry_code || null,
+      iban: row.iban || null,
+      bank: row.bank || null,
       default_registration_email: row.default_registration_email || null,
       footer_text: row.footer_text || null,
       social: {
@@ -42,12 +47,35 @@ export function ContactSettings({ settings }: { settings: SiteSettings }) {
       <section className="vr-admin-section">
         <h2>Kontakt</h2>
       <label className="vr-field">
+        Nimi
+        <input value={row.contact_name ?? ""} onChange={(e) => setRow({ ...row, contact_name: e.target.value })} />
+      </label>
+      <label className="vr-field">
         E-post
         <input value={row.contact_email ?? ""} onChange={(e) => setRow({ ...row, contact_email: e.target.value })} />
       </label>
       <label className="vr-field">
         Telefon
         <input value={row.contact_phone ?? ""} onChange={(e) => setRow({ ...row, contact_phone: e.target.value })} />
+      </label>
+      </section>
+      <section className="vr-admin-section">
+        <h2>Ettevõte ja maksmine</h2>
+      <label className="vr-field">
+        Ettevõte
+        <input value={row.company_name ?? ""} onChange={(e) => setRow({ ...row, company_name: e.target.value })} />
+      </label>
+      <label className="vr-field">
+        Registrikood
+        <input value={row.registry_code ?? ""} onChange={(e) => setRow({ ...row, registry_code: e.target.value })} />
+      </label>
+      <label className="vr-field">
+        Arvelduskonto
+        <input value={row.iban ?? ""} onChange={(e) => setRow({ ...row, iban: e.target.value })} />
+      </label>
+      <label className="vr-field">
+        Pank
+        <input value={row.bank ?? ""} onChange={(e) => setRow({ ...row, bank: e.target.value })} />
       </label>
       </section>
       <section className="vr-admin-section">

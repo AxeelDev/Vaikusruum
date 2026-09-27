@@ -9,8 +9,13 @@ import { SEED_IDS } from "@/lib/content/ids";
 const settings: SiteSettings = {
   id: 1,
   site_name: "Vaikusruum",
+  contact_name: null,
   contact_email: null,
   contact_phone: null,
+  company_name: null,
+  registry_code: null,
+  iban: null,
+  bank: null,
   default_registration_email: null,
   social: {},
   footer_text: "Vaikusruum",
@@ -125,5 +130,32 @@ describe("section list copy", () => {
     expect(markup).toContain("Selga mugavad riided.");
     expect(markup).toContain("Hea teada");
     expect(markup).toContain("Registreeri tundi");
+  });
+
+  it("renders private lesson options and shared prices", () => {
+    const markup = html("eratunnid", [
+      row({
+        section_key: "lessons",
+        section_type: "private_lessons",
+        content: {
+          heading: "Individuaalne joogatund",
+          lessons: [
+            { title: "Kundalini jooga", duration: "1,5 h", description: "" },
+            { title: "Individuaaltund rasedale", duration: "1,5 h", description: "Õrn, toetav, sünnituseks ettevalmistav." },
+          ],
+          prices: [
+            { label: "Individuaaltund", amount: "80 €" },
+            { label: "Tule koos sõbraga!", amount: "120 €" },
+          ],
+          actionLabel: "Võta ühendust",
+        },
+      }),
+    ]);
+    expect(markup).toContain("Individuaalne joogatund");
+    expect(markup).toContain("1,5 h");
+    expect(markup).toContain("Õrn, toetav, sünnituseks ettevalmistav.");
+    expect(markup).toContain("80 €");
+    expect(markup).toContain("Tule koos sõbraga!");
+    expect(markup).toContain("120 €");
   });
 });

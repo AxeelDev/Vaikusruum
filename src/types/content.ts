@@ -173,7 +173,7 @@ export type AnimationAppearance = {
 };
 
 export type SectionStyle = {
-  background?: "main" | "warm" | "soft";
+  background?: "main" | "warm" | "soft" | "contrast";
   layout?: "image-left" | "image-right" | "text-only" | "image-only" | "centered";
   verticalAlign?: VerticalAlign;
   textAlign?: TextAlign;
@@ -233,8 +233,13 @@ export type MediaRow = {
 export type SiteSettings = {
   id: 1;
   site_name: string;
+  contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  company_name: string | null;
+  registry_code: string | null;
+  iban: string | null;
+  bank: string | null;
   default_registration_email: string | null;
   social: {
     instagram?: string | null;

@@ -200,8 +200,10 @@ function readSectionField(
   if (field === "plain" && typeof content.copy === "string") return content.copy;
   if (field === "title" && sectionType === "hero") return content.title ?? draft?.settings.site_name ?? PAGE_COPY_DEFAULTS.heroTitle;
   if (field === "heading" && sectionType === "contact") return content.heading ?? PAGE_COPY_DEFAULTS.contactHeading;
+  if (field === "heading" && sectionType === "private_lessons") return content.heading ?? "";
   if (field === "label" && sectionType === "private_lessons") return content.label ?? PAGE_COPY_DEFAULTS.privateLabel;
   if (field === "actionLabel" && sectionType === "private_lessons") return content.actionLabel ?? PAGE_COPY_DEFAULTS.privateAction;
+  if (field === "eventLinkLabel") return content.eventLinkLabel ?? "Vaata sündmust Üks Maja lehel";
   if (field === "moreInfoLabel") return content.moreInfoLabel ?? PAGE_COPY_DEFAULTS.moreInfoLabel;
   if (field === "datesLabel") return content.datesLabel ?? PAGE_COPY_DEFAULTS.datesLabel;
   if (field === "headTeadaLabel") return content.headTeadaLabel ?? PAGE_COPY_DEFAULTS.headTeadaLabel;
@@ -232,7 +234,11 @@ export function fieldLabel(field: string, sectionType?: string) {
   if (field.startsWith("custom.paragraph.")) return "Lõik";
   if (field.startsWith("custom.text.")) return "Tekst";
   if (field === "label") return "Silt";
+  if (field === "heading" && sectionType === "private_lessons") return "Teenuse pealkiri";
   if (field === "actionLabel") return "Nupp";
+  if (field === "lessons") return "Tunnid";
+  if (field === "prices") return "Hinnad";
+  if (field === "eventLinkLabel") return "Väline link";
   if (field === "moreInfoLabel") return "Link";
   if (field === "scheduleText") return "Aeg";
   if (field === "bring") return "Kaasa";

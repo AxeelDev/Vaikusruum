@@ -112,7 +112,9 @@ export function themeColorSwatches(theme: {
   textMuted: string;
   bgWarm: string;
   bgMain: string;
+  bgContrast?: string;
   accentOrange: string;
+  accentGold?: string;
   accentBluegray: string;
 }): ThemeSwatch[] {
   return [
@@ -120,8 +122,10 @@ export function themeColorSwatches(theme: {
     { id: "textMuted", label: "Summutatud tekst", hex: canonicalizeHex(theme.textMuted) ?? "#6D6960" },
     { id: "bgWarm", label: "Soe taust", hex: canonicalizeHex(theme.bgWarm) ?? "#FBF5DC" },
     { id: "bgMain", label: "Hele taust", hex: canonicalizeHex(theme.bgMain) ?? "#FCFAEE" },
-    { id: "accentOrange", label: "Oranž aktsent", hex: canonicalizeHex(theme.accentOrange) ?? "#B8642F" },
-    { id: "accentBluegray", label: "Sinakashall aktsent", hex: canonicalizeHex(theme.accentBluegray) ?? "#A8BAC3" },
+    { id: "bgContrast", label: "Tume aktsent", hex: canonicalizeHex(theme.bgContrast ?? "#7A2148") ?? "#7A2148" },
+    { id: "accentOrange", label: "Aktsent", hex: canonicalizeHex(theme.accentOrange) ?? "#B8642F" },
+    { id: "accentGold", label: "Kuld", hex: canonicalizeHex(theme.accentGold ?? "#6B5018") ?? "#6B5018" },
+    { id: "accentBluegray", label: "Teine aktsent", hex: canonicalizeHex(theme.accentBluegray) ?? "#A8BAC3" },
   ];
 }
 

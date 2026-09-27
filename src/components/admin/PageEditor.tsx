@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { savePageMetaAction, saveSectionAction } from "@/lib/actions/admin";
+import { PrivateLessonsFields } from "@/components/admin/PrivateLessonsFields";
 import { RichEditor } from "@/components/admin/RichEditor";
+import { readPrivateLessons, readPrivatePrices } from "@/lib/content/private-lessons";
 import type { MediaRow, PageRow, SectionRow } from "@/types/content";
 
 export function PageEditor({
@@ -179,19 +181,26 @@ function SectionEditor({
             Märkus
             <input value={String(content.notes ?? "")} onChange={(e) => patchContent({ notes: e.target.value })} />
           </label>
+          <label className="vr-field">
+            Välise lingi tekst
+            <input value={String(content.eventLinkLabel ?? "")} onChange={(e) => patchContent({ eventLinkLabel: e.target.value })} />
+          </label>
+          <label className="vr-field">
+            Väline link
+            <input value={String(content.eventLinkUrl ?? "")} onChange={(e) => patchContent({ eventLinkUrl: e.target.value })} />
+          </label>
         </>
       ) : null}
       {section.section_type === "private_lessons" ? (
-        <>
-          <label className="vr-field">
-            Tekst
-            <input value={String(content.label ?? "")} onChange={(e) => patchContent({ label: e.target.value })} />
-          </label>
-          <label className="vr-field">
-            Nupu tekst
-            <input value={String(content.actionLabel ?? "")} onChange={(e) => patchContent({ actionLabel: e.target.value })} />
-          </label>
-        </>
+        <PrivateLessonsFields
+          heading={String(content.heading ?? "")}
+          label={String(content.label ?? "")}
+          actionLabel={String(content.actionLabel ?? "")}
+          actionHref={String(content.actionHref ?? "/kontakt?teema=eratund")}
+          lessons={readPrivateLessons(content)}
+          prices={readPrivatePrices(content)}
+          onChange={(next) => patchContent(next)}
+        />
       ) : null}
       {section.section_type === "contact" ? (
         <label className="vr-field">

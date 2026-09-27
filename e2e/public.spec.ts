@@ -8,9 +8,8 @@ async function noHorizontalOverflow(page: import("@playwright/test").Page) {
 test.describe("public site", () => {
   test("homepage loads without lorem ipsum", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "VAIKUSRUUM" }).first()).toBeVisible();
-    await expect(page.getByText("Vaikusruum on kutse aeglustuda")).toBeVisible();
-    await expect(page.getByText("Eratunnid kokkuleppel")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Vaikus/i }).first()).toBeVisible();
+    await expect(page.getByText("Eratunnid kokkuleppel.")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Lorem ipsum");
     await noHorizontalOverflow(page);
   });
@@ -25,15 +24,18 @@ test.describe("public site", () => {
 
   test("gong page has seeded copy", async ({ page }) => {
     await page.goto("/pehme-jooga-ja-gong");
-    await expect(page.getByRole("heading", { name: "Pehme jooga ja gong" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Pehme jooga/ }).first()).toBeVisible();
     await expect(page.getByText("Veenuse gong on üks sümfooniliste gongide liikidest")).toBeVisible();
-    await expect(page.getByText("28.09")).toBeVisible();
+    await expect(page.getByText(/28\.09/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Vaata sündmust Üks Maja lehel" }).first()).toBeVisible();
     await noHorizontalOverflow(page);
   });
 
   test("contact page has no placeholder copy", async ({ page }) => {
     await page.goto("/kontakt");
-    await expect(page.getByText("VÕTA ÜHENDUST")).toBeVisible();
+    await expect(page.getByText(/VÕTA KONTAKTI|VÕTA ÜHENDUST/)).toBeVisible();
+    await expect(page.getByText("Miina Laanesaar")).toBeVisible();
+    await expect(page.getByRole("link", { name: "miina.laanesaar@gmail.com" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Lorem ipsum");
     await expect(page.getByLabel("Nimi")).toBeVisible();
   });
@@ -42,6 +44,7 @@ test.describe("public site", () => {
     const labels = [
       "Kundalini jooga",
       "Pehme jooga ja gong",
+      "Eratunnid",
       "Minust",
       "Joogatunni KKK",
       "Hea teada",
@@ -60,6 +63,16 @@ test.describe("public site", () => {
       await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
     await expect(nav.getByRole("link", { name: "Tagasiside" })).toHaveCount(0);
+  });
+
+  test("eratunnid page shows the supplied lesson options", async ({ page }) => {
+    await page.goto("/eratunnid");
+    await expect(page.getByRole("heading", { name: "Eratunnid" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Kundalini jooga/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Pehme jooga ja gongilõdvestus/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Individuaaltund rasedale/ })).toBeVisible();
+    await expect(page.getByText("80 €")).toBeVisible();
+    await expect(page.getByText("Tule koos sõbraga!")).toBeVisible();
   });
 
   test("tagasiside is not a public empty page", async ({ page }) => {

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { tallinnLocalToIso } from "../src/lib/content/events";
 import { DEFAULT_THEME } from "../src/lib/theme/theme";
 import { SEED_IDS } from "../src/lib/content/ids";
 import { bulletList, paragraphWithItalics, paragraphs, richDoc } from "../src/lib/content/rich-text";
@@ -188,8 +189,8 @@ async function main() {
     {
       id: "c1000000-0000-4000-8000-000000000001",
       offering_id: O.kundalini,
-      starts_at: "2026-09-16T19:30:00+03:00",
-      ends_at: "2026-09-16T21:00:00+03:00",
+      starts_at: tallinnLocalToIso("2026-09-16T19:30"),
+      ends_at: tallinnLocalToIso("2026-09-16T21:00"),
       display_date: "16.09",
       sort_order: 0,
       active: true,
@@ -197,8 +198,8 @@ async function main() {
     ...gongDates.map(([iso, display], i) => ({
       id: `c1000000-0000-4000-8000-${String(i + 2).padStart(12, "0")}`,
       offering_id: O.gong,
-      starts_at: `${iso}T19:00:00+03:00`,
-      ends_at: `${iso}T20:30:00+03:00`,
+      starts_at: tallinnLocalToIso(`${iso}T19:00`),
+      ends_at: tallinnLocalToIso(`${iso}T20:30`),
       display_date: display,
       sort_order: i,
       active: true,

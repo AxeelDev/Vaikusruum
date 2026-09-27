@@ -7,11 +7,13 @@ export function SiteImage({
   className,
   sizes = "(min-width: 960px) 50vw, 100vw",
   draggable,
+  priority = false,
 }: {
   media: MediaRow;
   className?: string;
   sizes?: string;
   draggable?: boolean;
+  priority?: boolean;
 }) {
   const src = mediaPublicUrl(media.storage_path);
   if (!src) return null;
@@ -23,6 +25,7 @@ export function SiteImage({
       height={1200}
       className={className ?? "vr-photo"}
       sizes={sizes}
+      priority={priority}
       draggable={draggable}
       style={{
         width: "100%",

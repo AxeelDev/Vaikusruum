@@ -98,7 +98,21 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
   );
   useEffect(() => {
     document.documentElement.classList.add("vr-editor-lock");
-    return () => document.documentElement.classList.remove("vr-editor-lock");
+    function syncViewport() {
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--editor-frame-height", `${Math.round(height)}px`);
+    }
+    syncViewport();
+    window.visualViewport?.addEventListener("resize", syncViewport);
+    window.visualViewport?.addEventListener("scroll", syncViewport);
+    window.addEventListener("resize", syncViewport);
+    return () => {
+      document.documentElement.classList.remove("vr-editor-lock");
+      document.documentElement.style.removeProperty("--editor-frame-height");
+      window.visualViewport?.removeEventListener("resize", syncViewport);
+      window.visualViewport?.removeEventListener("scroll", syncViewport);
+      window.removeEventListener("resize", syncViewport);
+    };
   }, []);
 
   function escapeSelector(value: string) {

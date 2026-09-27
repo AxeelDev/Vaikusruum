@@ -41,6 +41,7 @@ export function sectionClassName(section: SectionRow, extra = ""): string {
   const parts = ["vr-section", "vr-screen-section", `vr-screen-section--${height}`, `vr-screen-section--${align}`];
   if (bg === "warm") parts.push("vr-section--warm");
   if (bg === "soft") parts.push("vr-section--soft");
+  if (bg === "contrast") parts.push("vr-section--contrast");
   if (section.section_type === "hero") parts.push("vr-section--hero");
   if (extra) parts.push(extra);
   return parts.join(" ");

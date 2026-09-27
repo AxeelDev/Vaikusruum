@@ -71,7 +71,7 @@ html.vr-editor-lock body {
 }
 
 .vr-editor-app {
-  height: 100svh;
+  height: var(--editor-frame-height, 100svh);
   overflow: hidden;
   background: var(--editor-shell);
   color: var(--editor-text);
@@ -80,7 +80,7 @@ html.vr-editor-lock body {
 
 .vr-editor-root {
   width: 100%;
-  height: 100svh;
+  height: var(--editor-frame-height, 100svh);
   display: block;
   position: relative;
   background: var(--editor-shell);
@@ -103,7 +103,7 @@ html.vr-editor-lock body {
 .vr-inspector {
   min-width: 0;
   width: var(--editor-sidebar-width);
-  height: 100svh;
+  height: var(--editor-frame-height, 100svh);
   z-index: var(--z-editor-inspector);
   background: var(--ed-sidebar-bg);
   border-right: 1px solid var(--ed-border-soft);
@@ -356,7 +356,7 @@ html.vr-editor-lock body {
 
 .vr-editor-workspace {
   min-width: 0;
-  height: 100svh;
+  height: var(--editor-frame-height, 100svh);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -1892,7 +1892,7 @@ html.vr-editor-lock body {
     width: 100%;
     max-width: none;
     height: auto;
-    max-height: 62svh;
+    max-height: min(52svh, calc(var(--editor-frame-height, 100svh) * 0.48));
     border-right: 0;
     border-top: 1px solid var(--editor-border);
     border-radius: 0;

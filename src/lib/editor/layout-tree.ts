@@ -196,6 +196,7 @@ export function isSplitLayout(section: SectionRow): boolean {
   if (section.section_key === "miina" || section.section_key === "offerings") return true;
   if (section.section_type === "offering_overview") return layout === "image-left" || layout === "image-right";
   if (section.section_type === "contact") return layout === "image-left" || layout === "image-right";
+  if (section.section_type === "rich_text") return layout === "image-left" || layout === "image-right";
   return false;
 }
 
@@ -276,13 +277,12 @@ export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
   }
 
   if (section.section_type === "private_lessons") {
-    return {
-      version: 1,
-      root: group(`${base}.content`, "Eratunnid", [
-        text(`${base}.label`, "Silt", "label"),
-        text(`${base}.actionLabel`, "Nupp", "actionLabel"),
-      ], "medium"),
-    };
+    const items: LayoutNode[] = [];
+    if (typeof section.content.heading === "string") items.push(text(`${base}.heading`, "Teenuse pealkiri", "heading"));
+    if (Array.isArray(section.content.lessons)) items.push(element(`${base}.lessons`, "list", "Tunnid", { field: "lessons" }));
+    if (Array.isArray(section.content.prices)) items.push(element(`${base}.prices`, "table", "Hinnad", { field: "prices" }));
+    items.push(text(`${base}.label`, "Silt", "label"), text(`${base}.actionLabel`, "Nupp", "actionLabel"));
+    return { version: 1, root: group(`${base}.content`, "Eratunnid", items, "medium") };
   }
 
   if (section.section_type === "faq") {
@@ -366,6 +366,7 @@ function practicalElements(section: SectionRow): LayoutNode[] {
     text(`${base}.notes`, "Märkus", "notes"),
     text(`${base}.tasakaalLabel`, "Tasakaal", "tasakaalLabel"),
     text(`${base}.datesLabel`, "Kuupäevad", "datesLabel"),
+    text(`${base}.eventLinkLabel`, "Väline link", "eventLinkLabel"),
     text(`${base}.registerHeading`, "Registreerimine", "registerHeading"),
     text(`${base}.headTeadaLabel`, "Link", "headTeadaLabel"),
   ];
