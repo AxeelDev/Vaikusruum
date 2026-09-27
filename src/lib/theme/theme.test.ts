@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { applyThemePreset } from "@/lib/theme/presets";
 import { DEFAULT_THEME, parseTheme, sanitizeCustomCss } from "@/lib/theme/theme";
 import { paragraphWithItalics } from "@/lib/content/rich-text";
 
@@ -22,6 +23,19 @@ describe("parseTheme", () => {
     expect(parseTheme({ displayFont: "comic-sans" }).displayFont).toBe("cormorant");
     expect(parseTheme({ displayFont: "bodoni-moda" }).displayFont).toBe("bodoni-moda");
     expect(parseTheme({ bodyFont: "cormorant" }).bodyFont).toBe("cormorant");
+    expect(parseTheme(null).bodyFont).toBe("cormorant");
+  });
+});
+
+describe("theme presets", () => {
+  it("keeps A warm and B plum", () => {
+    const a = applyThemePreset(DEFAULT_THEME, "a");
+    const b = applyThemePreset(DEFAULT_THEME, "b");
+    expect(a.bgMain).toBe("#FBF8F3");
+    expect(a.bodyFont).toBe("cormorant");
+    expect(b.bgMain).toBe("#2A1520");
+    expect(b.accentGold).toBe("#E6C985");
+    expect(b.bgMain).not.toBe(a.bgMain);
   });
 });
 

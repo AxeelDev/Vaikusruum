@@ -71,10 +71,43 @@
 }
 
 .vr-heading-sm {
-  font-family: var(--vr-font-display);
+  font-family: var(--node-font-family, var(--vr-font-display));
   font-weight: 500;
-  font-size: calc(1.25rem * var(--vr-heading-scale));
+  font-size: var(--node-font-size, clamp(1.4375rem, 2vw, 1.875rem));
   margin: 0 0 var(--vr-space-3);
+}
+
+.vr-type-lead,
+.vr-hero-copy .vr-body,
+.vr-hero-copy p,
+.vr-hero-layout .vr-body,
+.vr-hero-layout .vr-body p {
+  font-size: var(--node-font-size, clamp(1.3125rem, 1.4vw, 1.5625rem));
+  line-height: var(--node-line-height, 1.55);
+}
+
+.vr-type-meta,
+.vr-offering p,
+.vr-contact-label,
+.vr-contact-company,
+.vr-date-time,
+.vr-private-duration,
+.vr-footer {
+  font-size: var(--node-font-size, 1.0625rem);
+  line-height: 1.45;
+}
+
+.vr-type-control,
+.vr-nav a,
+.vr-nav-sheet a,
+.vr-cta,
+.vr-field input,
+.vr-field select,
+.vr-field textarea {
+  font-family: var(--vr-font-body);
+  font-size: clamp(1.125rem, 1.2vw, 1.25rem);
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .vr-body p,

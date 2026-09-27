@@ -9,13 +9,13 @@ import { SEED_IDS } from "@/lib/content/ids";
 const settings: SiteSettings = {
   id: 1,
   site_name: "Vaikusruum",
-  contact_name: null,
-  contact_email: null,
-  contact_phone: null,
-  company_name: null,
-  registry_code: null,
-  iban: null,
-  bank: null,
+  contact_name: "Miina Laanesaar",
+  contact_email: "miina.laanesaar@gmail.com",
+  contact_phone: "55585161",
+  company_name: "Kõlavõlu OÜ",
+  registry_code: "14342017",
+  iban: "EE827700771002774537",
+  bank: "LHV",
   default_registration_email: null,
   social: {},
   footer_text: "Vaikusruum",
@@ -157,5 +157,21 @@ describe("section list copy", () => {
     expect(markup).toContain("80 €");
     expect(markup).toContain("Tule koos sõbraga!");
     expect(markup).toContain("120 €");
+  });
+
+  it("uses a section heading on the homepage contact and a page heading on /kontakt", () => {
+    const section = row({
+      section_key: "contact",
+      section_type: "contact",
+      content: { heading: "VÕTA KONTAKTI" },
+      style: { layout: "text-only", background: "warm" },
+    });
+    const home = html("avaleht", [section]);
+    const page = html("kontakt", [section]);
+    expect(home).toContain("<h2");
+    expect(home).not.toContain("<h1");
+    expect(page).toContain("<h1");
+    expect(page.indexOf("vr-form")).toBeLessThan(page.indexOf("vr-contact-details"));
+    expect(page).toContain("Miina Laanesaar");
   });
 });

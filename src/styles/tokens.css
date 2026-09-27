@@ -15,10 +15,10 @@
   --vr-social-bg: #a8bac3;
   --vr-social-text: #3d3a35;
   --vr-font-display: var(--font-cormorant), "Times New Roman", serif;
-  --vr-font-body: var(--font-source-sans), system-ui, sans-serif;
+  --vr-font-body: var(--font-cormorant), "Times New Roman", serif;
   --vr-font-wordmark: var(--font-cormorant), "Times New Roman", serif;
-  --vr-body-size: 18px;
-  --vr-body-line-height: 1.7;
+  --vr-body-size: 21px;
+  --vr-body-line-height: 1.55;
   --vr-heading-scale: 1;
   --vr-page-title-size: 42px;
   --vr-wordmark-size: 56px;
@@ -97,6 +97,14 @@ body {
   background: var(--vr-bg-main);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+.vr-public,
+.vr-site {
+  font-family: var(--vr-font-body);
+  font-size: var(--vr-body-size);
+  line-height: var(--vr-body-line-height);
+  color: var(--vr-text);
 }
 
 img {

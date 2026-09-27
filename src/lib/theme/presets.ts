@@ -30,7 +30,28 @@ export const THEME_PRESET_A = {
 } satisfies Partial<ThemeTokens>;
 
 export const THEME_PRESET_B = {
-  ...SHARED_COLOUR,
+  bgMain: "#2A1520",
+  bgSoft: "#351A28",
+  bgWarm: "#3D1C2C",
+  bgContrast: "#7A2148",
+  contrastText: "#FBF8F3",
+  contrastHeading: "#E6C985",
+  text: "#F7F1EA",
+  textMuted: "#D2C0C6",
+  accentOrange: "#C45A7A",
+  accentGold: "#E6C985",
+  accentBluegray: "#C45A7A",
+  line: "#5C3344",
+  speck: "#8A5A6A",
+  socialBg: "#E6C985",
+  socialText: "#2A1520",
+  buttonBg: "#E6C985",
+  buttonText: "#2A1520",
+  specksColor: "#8A5A6A",
+  bodyFont: "cormorant",
+  displayFont: "cormorant",
+  wordmarkFont: "cormorant",
+  bodyLineHeight: 1.55,
 } satisfies Partial<ThemeTokens>;
 
 export function applyThemePreset(base: ThemeTokens, preset: "a" | "b"): ThemeTokens {

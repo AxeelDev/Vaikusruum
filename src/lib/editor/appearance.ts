@@ -70,3 +70,15 @@ export function clearFieldStyleKeys(section: SectionRow, field: string, keys: Ar
     },
   };
 }
+
+export function clearFieldStyle(section: SectionRow, field: string): SectionRow {
+  const fieldStyles = { ...(section.style?.fieldStyles ?? {}) };
+  delete fieldStyles[field];
+  return {
+    ...section,
+    style: {
+      ...section.style,
+      fieldStyles,
+    },
+  };
+}

@@ -19,6 +19,7 @@ import { PAGE_COPY_DEFAULTS, indexedFieldValue, parseIndexedField, readBoundSect
 import { readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import { textStyleKey } from "@/lib/editor/text-style";
 import { getSectionLayoutTree, isReadingSection, isSplitLayout, ratioToLeftPercent } from "@/lib/editor/layout-tree";
+import { contactHeadingClass, contactHeadingTag } from "@/lib/content/headings";
 import { pageHref } from "@/lib/utils/urls";
 import { docHasText, isTiptapDoc } from "@/lib/content/rich-text";
 import type { EventRow, LayoutColumnNode, LayoutElementNode, LayoutGroupNode, LayoutNode, MediaRow, OfferingRow, SectionRow, SiteSettings } from "@/types/content";
@@ -883,10 +884,11 @@ function SectionView({
     const isHeroTitle = field === "title" && section.section_type === "hero";
     const isHeroWordmark = section.section_type === "hero" && (field === "title" || appearance?.role === "h1");
     const isHeading = field === "heading" || field === "title";
-    const Tag = options.as ?? (isHeroWordmark || isHeroTitle ? "h1" : isHeading ? (section.section_type === "contact" ? "h1" : "h2") : "div");
+    const isContactHeading = isHeading && section.section_type === "contact";
+    const Tag = options.as ?? (isHeroWordmark || isHeroTitle ? "h1" : isContactHeading ? contactHeadingTag(slug) : isHeading ? "h2" : "div");
     const className =
       options.className ??
-      (isHeroWordmark || isHeroTitle ? "vr-wordmark vr-wordmark--hero" : isHeading ? (section.section_type === "contact" ? "vr-page-title" : "vr-heading") : "vr-body");
+      (isHeroWordmark || isHeroTitle ? "vr-wordmark vr-wordmark--hero" : isContactHeading ? contactHeadingClass(slug) : isHeading ? "vr-heading" : "vr-body");
 
     return (
       <div className={["vr-layout-element", Tag === "span" ? "" : "vr-layout-element--text"].filter(Boolean).join(" ")}>

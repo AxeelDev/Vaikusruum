@@ -7,7 +7,7 @@ export default async function PublicLayout({ children }: { children: React.React
   const [theme, customCss] = await Promise.all([getTheme(), getCustomCss()]);
 
   return (
-    <div style={themeToCssVars(theme)}>
+    <div className="vr-public" style={themeToCssVars(theme)}>
       {customCss ? <style>{sanitizeCustomCss(customCss)}</style> : null}
       {children}
     </div>

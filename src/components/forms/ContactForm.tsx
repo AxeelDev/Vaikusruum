@@ -67,8 +67,7 @@ export function ContactForm({
   }
 
   return (
-    <div>
-      {settings ? <ContactDetails settings={settings} /> : null}
+    <div className="vr-contact-copy">
       <form className="vr-form" action={onSubmit}>
         {showKindSelect ? (
           <label className="vr-field">
@@ -106,6 +105,7 @@ export function ContactForm({
           {status === "sending" ? "Saadan…" : "Saada"}
         </button>
       </form>
+      {settings ? <ContactDetails settings={settings} /> : null}
       {!settings && email ? (
         <p className="vr-muted vr-contact-email">
           Või kirjuta: <a href={`mailto:${email}`}>{email}</a>

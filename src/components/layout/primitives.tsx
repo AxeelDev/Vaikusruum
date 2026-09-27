@@ -43,6 +43,7 @@ export function sectionClassName(section: SectionRow, extra = ""): string {
   if (bg === "soft") parts.push("vr-section--soft");
   if (bg === "contrast") parts.push("vr-section--contrast");
   if (section.section_type === "hero") parts.push("vr-section--hero");
+  if (section.section_type === "contact") parts.push("vr-section--contact");
   if (extra) parts.push(extra);
   return parts.join(" ");
 }

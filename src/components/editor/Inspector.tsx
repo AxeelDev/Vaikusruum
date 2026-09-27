@@ -23,7 +23,7 @@ import {
   MarkdownHelp,
 } from "@/components/editor/ui";
 import { findSection, pageSections } from "@/lib/editor/draft";
-import { fieldStyle, clearFieldStyleKeys } from "@/lib/editor/appearance";
+import { fieldStyle, clearFieldStyle, clearFieldStyleKeys } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
 import { findLayoutNode, getSectionLayoutTree, listLayoutElements, parentOfNode, ratioToLeftPercent, resolveLayoutNodeId, sectionLayoutSummary, updateLayoutNode } from "@/lib/editor/layout-tree";
 import { pageLabel } from "@/lib/editor/pages";
@@ -809,6 +809,12 @@ function NodeAppearanceInspector() {
           previewFont
           onChange={(fontId) => patch({ fontId }, true)}
         />
+        <EditorButton
+          variant="ghost"
+          onClick={() => editor.patchSection(sectionId, (row) => clearFieldStyle(row, styleKey), true)}
+        >
+          Kasuta saidi stiili
+        </EditorButton>
       </EditorGroup>
       <EditorSlider
         label="Suurus"
