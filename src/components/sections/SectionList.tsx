@@ -311,7 +311,7 @@ function SectionView({
           <SplitLayout
             section={section}
             hasMedia
-            className={section.section_type === "hero" ? "vr-hero-layout" : undefined}
+            className={[section.section_type === "hero" ? "vr-hero-layout" : "", node.mobile?.order === "right-first" ? "vr-split--mobile-right-first" : ""].filter(Boolean).join(" ") || undefined}
             data-vr-edit-id={editor && !editor.state.preview ? node.id : undefined}
             data-vr-editable={editor && !editor.state.preview ? "" : undefined}
             data-vr-selected={columnsSelected ? "" : undefined}

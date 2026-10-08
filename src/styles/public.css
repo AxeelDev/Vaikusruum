@@ -1316,6 +1316,10 @@
     order: unset;
   }
 
+  .vr-split--mobile-right-first > .vr-layout-column:first-child {
+    order: 2;
+  }
+
   .vr-split--text-first .vr-split-text {
     order: 1;
   }

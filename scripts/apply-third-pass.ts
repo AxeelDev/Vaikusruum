@@ -3,6 +3,7 @@
  *
  *   pnpm tsx --env-file=.env scripts/apply-third-pass.ts           # dry run, writes tmp/third-pass/
  *   pnpm tsx --env-file=.env scripts/apply-third-pass.ts --apply   # writes to the database
+ *   ... --hero-from tmp/third-pass/backup-<stamp>.json             # rebuild the hero from its original row
  *
  * Rows are found by page slug + section_key. Every run writes a backup of the
  * touched rows and a before/after manifest. Steps that already match are skipped.
@@ -18,6 +19,8 @@ function env(name: string): string {
 }
 
 const APPLY = process.argv.includes("--apply");
+// Re-run the hero step from the original row in a backup file (e.g. after an earlier layout).
+const HERO_FROM = process.argv.includes("--hero-from") ? process.argv[process.argv.indexOf("--hero-from") + 1] : null;
 
 const supabase = createClient(env("NEXT_PUBLIC_SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -47,8 +50,22 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+// jsonb does not keep key order, so compare with sorted keys.
+function stable(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stable);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value as Json).sort().map((key) => [key, stable((value as Json)[key])]));
+}
+
 function same(a: unknown, b: unknown) {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+}
+
+function heroFromBackup(file: string): Section {
+  const data = JSON.parse(readFileSync(resolve(process.cwd(), file), "utf8")) as Record<string, Section>;
+  const row = data["sections:avaleht/hero"];
+  if (!row) throw new Error(`No hero row in ${file}`);
+  return row;
 }
 
 async function section(slug: string, key: string): Promise<Section> {
@@ -142,33 +159,27 @@ async function home() {
   if (!swing || !bridge) throw new Error("Home photos are missing from media");
   const logoId = await ensureLogo();
 
-  // Hero: logo above the one-word title, no photo.
+  // Hero: same two-column layout as before, the logo takes the photo's place.
+  // The photo moves to the next screen. On phones the logo comes first.
   const hero = await section("avaleht", "hero");
-  const heroRoot = layoutRoot(hero);
-  const titleNode =
-    (heroRoot && findNode(heroRoot, (n) => n.type === "element" && n.elementType === "text" && String(n.field ?? "").length > 0 && /vaikus/i.test(String(hero.content[String(n.field)] ?? "")))) ??
-    { id: `layout.${hero.id}.title`, type: "element", field: "title", label: "Pealkiri", elementType: "text" };
-  const titleField = String(titleNode.field);
-  const heroContent: Json = { ...hero.content, title: BRAND_NAME, [titleField]: BRAND_NAME };
-  heroContent["custom.image.logo"] = { mediaId: logoId, crop: "original", size: 18, align: "center" };
-  for (const [key, value] of Object.entries(hero.content)) {
-    if (key.startsWith("custom.text.") && key !== titleField && /^[\s*]+$/.test(String(value))) delete heroContent[key];
-  }
+  const source = HERO_FROM ? heroFromBackup(HERO_FROM) : hero;
+  const root = layoutRoot(source);
+  if (!root || root.type !== "columns") throw new Error("Hero layout is not two columns; pass --hero-from <backup.json> with the original row");
+  const columns = root.columns as Json[];
+  const titleFields = ((columns[0].children as Json[]) ?? []).map((n) => String(n.field ?? "")).filter((field) => /vaikus/i.test(String(source.content[field] ?? "")));
+  const heroContent: Json = { ...source.content, title: BRAND_NAME };
+  for (const field of titleFields) heroContent[field] = BRAND_NAME;
+  heroContent["custom.image.logo"] = { mediaId: logoId, crop: "original", size: 60, align: "center" };
   const heroStyle: Json = {
-    ...hero.style,
-    layout: "centered",
+    ...source.style,
     layoutTree: {
-      version: 1,
+      ...(source.style.layoutTree as Json),
       root: {
-        id: `layout.${hero.id}.content`,
-        type: "group",
-        label: "Logo ja pealkiri",
-        gap: "medium",
-        textAlign: "center",
-        horizontalAlign: "center",
-        children: [
-          { id: `layout.${hero.id}.custom.image.logo`, type: "element", field: "custom.image.logo", label: "Logo", elementType: "image" },
-          titleNode,
+        ...root,
+        mobile: { mode: "stack", order: "right-first" },
+        columns: [
+          columns[0],
+          { ...columns[1], children: [{ id: `layout.${hero.id}.custom.image.logo`, type: "element", field: "custom.image.logo", label: "Logo", elementType: "image" }] },
         ],
       },
     },
