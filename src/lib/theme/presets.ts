@@ -40,6 +40,7 @@ export const THEME_PRESET_B = {
   textMuted: "#D2C0C6",
   accentOrange: "#C45A7A",
   accentGold: "#E6C985",
+  headingColor: "#E6C985",
   accentBluegray: "#C45A7A",
   line: "#5C3344",
   speck: "#8A5A6A",
@@ -54,9 +55,25 @@ export const THEME_PRESET_B = {
   bodyLineHeight: 1.55,
 } satisfies Partial<ThemeTokens>;
 
-export function applyThemePreset(base: ThemeTokens, preset: "a" | "b"): ThemeTokens {
+/** Same palette as A on pure white surfaces, for comparing against the cream backgrounds. */
+export const THEME_PRESET_WHITE = {
+  ...SHARED_COLOUR,
+  bgMain: "#FFFFFF",
+  bgSoft: "#FFFFFF",
+  bgWarm: "#F7F2F4",
+} satisfies Partial<ThemeTokens>;
+
+export type ThemePresetId = "a" | "b" | "white";
+
+const PRESETS: Record<ThemePresetId, Partial<ThemeTokens>> = {
+  a: THEME_PRESET_A,
+  b: THEME_PRESET_B,
+  white: THEME_PRESET_WHITE,
+};
+
+export function applyThemePreset(base: ThemeTokens, preset: ThemePresetId): ThemeTokens {
   return parseTheme({
     ...base,
-    ...(preset === "a" ? THEME_PRESET_A : THEME_PRESET_B),
+    ...PRESETS[preset],
   });
 }

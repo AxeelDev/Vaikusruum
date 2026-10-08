@@ -2009,3 +2009,26 @@ html.vr-editor-lock body {
   text-transform: none;
   font-size: 0.78rem;
 }
+
+/* Elements that render only in the editor because they are empty or switched off. */
+.vr-editor-canvas .vr-editor-hidden {
+  position: relative;
+  opacity: 0.5;
+  outline: 1px dashed currentColor;
+  outline-offset: 4px;
+}
+
+.vr-editor-canvas .vr-editor-hidden::before {
+  content: "Peidetud";
+  position: absolute;
+  top: -10px;
+  right: 0;
+  padding: 1px 6px;
+  font: 600 10px/1.4 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #555963;
+  border-radius: 2px;
+  pointer-events: none;
+}

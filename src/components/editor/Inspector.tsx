@@ -947,6 +947,20 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
       {mode === "content" && section.section_type === "important_info" ? <ImportantInfoContent sectionId={section.id} /> : null}
       {mode === "content" && section.section_type === "testimonials" ? <TestimonialContent sectionId={section.id} /> : null}
       {mode === "content" && section.section_type === "private_lessons" ? <PrivateLessonsSectionContent sectionId={section.id} /> : null}
+      {mode === "content" && section.section_type === "offering_practical_info" ? (
+        <>
+          <EditorSwitch
+            checked={Boolean(section.content.showDates)}
+            onChange={(showDates) => editor.patchSection(section.id, (row) => ({ ...row, content: { ...row.content, showDates } }))}
+            label="Näita kuupäevi"
+          />
+          <EditorSwitch
+            checked={Boolean(section.content.headTeadaLink)}
+            onChange={(headTeadaLink) => editor.patchSection(section.id, (row) => ({ ...row, content: { ...row.content, headTeadaLink } }))}
+            label="Näita „Hea teada“ linki"
+          />
+        </>
+      ) : null}
       {mode === "content" &&
       section.section_type !== "faq" &&
       section.section_type !== "important_info" &&
@@ -1646,11 +1660,13 @@ function SiteDesignInspector() {
       <EditorCollapse title="Värvid" defaultOpen>
         <EditorColor label="Põhitaust" value={theme.bgMain} fallback={theme.bgMain} swatches={swatches} onChange={(bgMain) => editor.patchTheme({ bgMain })} />
         <EditorColor label="Soe taust" value={theme.bgWarm} fallback={theme.bgWarm} swatches={swatches} onChange={(bgWarm) => editor.patchTheme({ bgWarm })} />
+        <EditorColor label="Pehme taust" value={theme.bgSoft} fallback={theme.bgSoft} swatches={swatches} onChange={(bgSoft) => editor.patchTheme({ bgSoft })} />
         <EditorColor label="Tume aktsenttaust" value={theme.bgContrast} fallback={theme.bgContrast} swatches={swatches} onChange={(bgContrast) => editor.patchTheme({ bgContrast })} />
         <EditorColor label="Tekst" value={theme.text} fallback={theme.text} swatches={swatches} onChange={(text) => editor.patchTheme({ text })} />
         <EditorColor label="Sekundaarne tekst" value={theme.textMuted} fallback={theme.textMuted} swatches={swatches} onChange={(textMuted) => editor.patchTheme({ textMuted })} />
         <EditorColor label="Aktsent" value={theme.accentOrange} fallback={theme.accentOrange} swatches={swatches} onChange={(accentOrange) => editor.patchTheme({ accentOrange })} />
         <EditorColor label="Kuld" value={theme.accentGold} fallback={theme.accentGold} swatches={swatches} onChange={(accentGold) => editor.patchTheme({ accentGold })} />
+        <EditorColor label="Pealkirjad" value={theme.headingColor} fallback={theme.headingColor} swatches={swatches} onChange={(headingColor) => editor.patchTheme({ headingColor })} />
         <EditorColor label="Tume pinna tekst" value={theme.contrastText} fallback={theme.contrastText} swatches={swatches} onChange={(contrastText) => editor.patchTheme({ contrastText })} />
         <EditorColor label="Tume pinna pealkiri" value={theme.contrastHeading} fallback={theme.contrastHeading} swatches={swatches} onChange={(contrastHeading) => editor.patchTheme({ contrastHeading })} />
         <EditorColor label="Jooned" value={theme.line} fallback={theme.line} swatches={swatches} onChange={(line) => editor.patchTheme({ line })} />

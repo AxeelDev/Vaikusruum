@@ -39,6 +39,19 @@ describe("theme presets", () => {
   });
 });
 
+describe("heading colour", () => {
+  it("falls back to the stored gold until a heading colour is saved", () => {
+    expect(parseTheme({ accentGold: "#112233" }).headingColor).toBe("#112233");
+    expect(parseTheme({ accentGold: "#112233", headingColor: "#5a1836" }).headingColor).toBe("#5A1836");
+  });
+
+  it("offers a white preset that keeps the heading colour", () => {
+    const white = applyThemePreset({ ...DEFAULT_THEME, headingColor: "#5A1836" }, "white");
+    expect(white.bgMain).toBe("#FFFFFF");
+    expect(white.headingColor).toBe("#5A1836");
+  });
+});
+
 describe("sanitizeCustomCss", () => {
   it("strips style-tag breakouts", () => {
     expect(sanitizeCustomCss("body{}</style><script>alert(1)</script>")).not.toContain("</style");

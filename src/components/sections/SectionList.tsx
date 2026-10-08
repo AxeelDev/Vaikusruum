@@ -14,7 +14,7 @@ import { EditableNode, EditableText } from "@/components/site/Editable";
 import { EditableRichText } from "@/components/site/EditableRichText";
 import { MediaFrame, ScreenSection, SectionInner, SplitLayout, isHomeSceneSection } from "@/components/layout/primitives";
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
-import { fieldStyle, photoClassName } from "@/lib/editor/appearance";
+import { appearanceToStyle, fieldStyle, photoClassName } from "@/lib/editor/appearance";
 import { PAGE_COPY_DEFAULTS, indexedFieldValue, parseIndexedField, readBoundSectionValue, textSelection } from "@/lib/editor/content-binding";
 import { readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import { textStyleKey } from "@/lib/editor/text-style";
@@ -22,6 +22,7 @@ import { getSectionLayoutTree, isReadingSection, isSplitLayout, ratioToLeftPerce
 import { contactHeadingClass, contactHeadingTag } from "@/lib/content/headings";
 import { pageHref } from "@/lib/utils/urls";
 import { docHasText, isTiptapDoc } from "@/lib/content/rich-text";
+import type { EditorSelection } from "@/lib/editor/types";
 import type { EventRow, LayoutColumnNode, LayoutElementNode, LayoutGroupNode, LayoutNode, MediaRow, OfferingRow, SectionRow, SiteSettings } from "@/types/content";
 
 function SectionShell({
@@ -477,11 +478,14 @@ function SectionView({
     };
   }
 
+  // Lesson and price rows are edited as a list in the section inspector.
+  const privateLessonsSelection: EditorSelection = { id: `section.${section.id}`, type: "section", sectionId: section.id };
+
   function renderPrivateLessonList(): ReactNode {
     const lessons = readPrivateLessons(section.content);
     if (!lessons.length && (!editor || editor.state.preview)) return null;
     return (
-      <div className="vr-layout-element vr-private-lessons">
+      <EditableNode selection={privateLessonsSelection} className="vr-layout-element vr-private-lessons" as="div">
         {lessons.map((lesson, index) => (
           <article key={`${lesson.title}-${index}`} className="vr-private-lesson">
             <h3 className="vr-heading-sm">
@@ -491,7 +495,7 @@ function SectionView({
             {lesson.description ? <p>{lesson.description}</p> : null}
           </article>
         ))}
-      </div>
+      </EditableNode>
     );
   }
 
@@ -499,7 +503,7 @@ function SectionView({
     const prices = readPrivatePrices(section.content);
     if (!prices.length && (!editor || editor.state.preview)) return null;
     return (
-      <div className="vr-layout-element vr-private-prices">
+      <EditableNode selection={privateLessonsSelection} className="vr-layout-element vr-private-prices" as="div">
         <ul>
           {prices.map((price, index) => (
             <li key={`${price.label}-${index}`}>
@@ -508,7 +512,7 @@ function SectionView({
             </li>
           ))}
         </ul>
-      </div>
+      </EditableNode>
     );
   }
 
@@ -721,6 +725,11 @@ function SectionView({
     const hideIfEmpty = options.hideIfEmpty ?? !editing;
     const raw = readBoundSectionValue(section, field);
     const appearance = fieldStyle(section, field);
+    const hiddenOnPublic = (node: ReactNode) => (
+      <div className="vr-editor-hidden" title="Avalikul lehel peidetud">
+        {node}
+      </div>
+    );
 
     if (field === "body" || isTiptapDoc(raw)) {
       const body = raw ?? section.content.body ?? section.content.text;
@@ -757,7 +766,7 @@ function SectionView({
       const tasakaal = offeringId ? offerings[offeringId]?.tasakaal : "";
       if (!tasakaal && !editing) return null;
       const label = value || PAGE_COPY_DEFAULTS.tasakaalLabel;
-      return (
+      const tasakaalNode = (
         <div className="vr-layout-element vr-layout-element--text">
           <p>
             <EditableText
@@ -771,12 +780,13 @@ function SectionView({
           </p>
         </div>
       );
+      return tasakaal ? tasakaalNode : hiddenOnPublic(tasakaalNode);
     }
     if (field === "datesLabel") {
       const offeringId = String(section.content.offeringId ?? "");
       const events = eventsByOffering[offeringId] ?? [];
       if (!events.length && !editing) return null;
-      return (
+      const datesNode = (
         <div className="vr-layout-element">
           <EditableText
             as="p"
@@ -788,9 +798,10 @@ function SectionView({
           {events.length > 0 ? <EventDates events={events} /> : null}
         </div>
       );
+      return section.content.showDates && events.length ? datesNode : hiddenOnPublic(datesNode);
     }
     if (field === "headTeadaLabel") {
-      return (
+      const linkNode = (
         <p>
           <Link className="vr-text-link" href="/hea-teada">
             <EditableText
@@ -804,6 +815,7 @@ function SectionView({
           </Link>
         </p>
       );
+      return section.content.headTeadaLink ? linkNode : hiddenOnPublic(linkNode);
     }
     if (field === "registerHeading") {
       const offeringId = String(section.content.offeringId ?? "");
@@ -843,9 +855,9 @@ function SectionView({
     if (field === "eventLinkLabel") {
       const offeringId = String(section.content.offeringId ?? "");
       const offering = offeringId ? offerings[offeringId] : undefined;
-      const href = String(section.content.eventLinkUrl ?? offering?.registration_url ?? "");
-      if (!href && !editing) return null;
-      return (
+      const href = String(section.content.eventLinkUrl || offering?.registration_url || "");
+      if ((!href || !value.trim()) && !editing) return null;
+      const eventNode = (
         <div className="vr-layout-element">
           <a className="vr-text-link vr-event-link" href={href || "#"} target="_blank" rel="noreferrer">
             <EditableText
@@ -859,6 +871,7 @@ function SectionView({
           </a>
         </div>
       );
+      return href && value.trim() ? eventNode : hiddenOnPublic(eventNode);
     }
     if (field === "actionLabel") {
       return (
@@ -967,12 +980,10 @@ function SectionView({
             appearance={fieldStyle(section, textStyleKey({ field: "address", offeringId: offering.id }) ?? `${offering.id}.address`)}
           />
         ) : null}
-        {offering.registration_url && (offering.slug === "pehme-jooga-ja-gong" || typeof section.content.eventLinkLabel === "string") ? (
+        {offering.registration_url && typeof section.content.eventLinkLabel === "string" && section.content.eventLinkLabel.trim() ? (
           <p>
             <a className="vr-text-link vr-event-link" href={offering.registration_url} target="_blank" rel="noreferrer">
-              {typeof section.content.eventLinkLabel === "string" && section.content.eventLinkLabel
-                ? section.content.eventLinkLabel
-                : "Vaata sündmust Üks Maja lehel"}
+              {section.content.eventLinkLabel}
             </a>
           </p>
         ) : null}
@@ -1018,10 +1029,17 @@ function SectionView({
     .filter(Boolean)
     .join(" ");
 
+  // A reading column follows the body text width when one is set, so the text can grow past the default paragraph width.
+  const bodyWidth = reading ? (appearanceToStyle(fieldStyle(section, "body")) as Record<string, unknown>)["--node-max-width"] : undefined;
+  const contentStyle = {
+    ...(align ? { textAlign: align } : null),
+    ...(typeof bodyWidth === "string" ? { "--node-max-width": bodyWidth } : null),
+  } as CSSProperties;
+
   return (
     <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
       <SectionInner className={innerClass || undefined}>
-        <div className={contentClass || undefined} style={align ? { textAlign: align } : undefined}>
+        <div className={contentClass || undefined} style={contentStyle}>
           {renderLayoutNode(tree.root)}
         </div>
       </SectionInner>

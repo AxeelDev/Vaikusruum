@@ -18,7 +18,8 @@ test.describe("public site", () => {
     await page.goto("/kundalini-jooga");
     await expect(page.getByRole("heading", { name: "Kundalini jooga" }).first()).toBeVisible();
     await expect(page.getByText("Kundalini jooga on terviklik joogapraktika")).toBeVisible();
-    await expect(page.getByText("Asikoht: Lauliku lasteaia saal")).toBeVisible();
+    await expect(page.getByText(/Lauliku lasteaia saal/)).toBeVisible();
+    await expect(page.locator("main")).not.toContainText("Kuupäevad");
     await noHorizontalOverflow(page);
   });
 
@@ -27,7 +28,7 @@ test.describe("public site", () => {
     await expect(page.getByRole("heading", { name: /Pehme jooga/ }).first()).toBeVisible();
     await expect(page.getByText("Veenuse gong on üks sümfooniliste gongide liikidest")).toBeVisible();
     await expect(page.getByText(/28\.09/)).toBeVisible();
-    await expect(page.getByRole("link", { name: "Vaata sündmust Üks Maja lehel" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Üks Maja/ })).toHaveCount(0);
     await noHorizontalOverflow(page);
   });
 

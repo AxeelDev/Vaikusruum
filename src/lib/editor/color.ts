@@ -115,6 +115,7 @@ export function themeColorSwatches(theme: {
   bgContrast?: string;
   accentOrange: string;
   accentGold?: string;
+  headingColor?: string;
   accentBluegray: string;
 }): ThemeSwatch[] {
   return [
@@ -126,6 +127,7 @@ export function themeColorSwatches(theme: {
     { id: "accentOrange", label: "Aktsent", hex: canonicalizeHex(theme.accentOrange) ?? "#B8642F" },
     { id: "accentGold", label: "Kuld", hex: canonicalizeHex(theme.accentGold ?? "#6B5018") ?? "#6B5018" },
     { id: "accentBluegray", label: "Teine aktsent", hex: canonicalizeHex(theme.accentBluegray) ?? "#A8BAC3" },
+    ...(theme.headingColor ? [{ id: "headingColor", label: "Pealkirjad", hex: canonicalizeHex(theme.headingColor) ?? theme.headingColor }] : []),
   ];
 }
 

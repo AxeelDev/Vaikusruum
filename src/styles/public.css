@@ -1348,7 +1348,7 @@
   }
 
   .vr-wordmark--hero {
-    --node-font-size-max: 16cqi;
+    --node-font-size-max: 10.5cqi;
     --node-letter-spacing-max: 0.08em;
     white-space: normal;
   }
@@ -1441,4 +1441,9 @@
   .vr-nav-sheet a {
     padding-inline: var(--vr-gutter-narrow);
   }
+}
+
+/* Images added to the hero (e.g. a logo) keep a readable size on narrow screens. */
+.vr-section--hero .vr-layout-element--media:not(.vr-layout-element--hero-art) .vr-media-frame {
+  min-width: min(200px, 60cqi);
 }

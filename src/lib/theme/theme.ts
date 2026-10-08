@@ -30,6 +30,7 @@ export type ThemeTokens = {
   textMuted: string;
   accentOrange: string;
   accentGold: string;
+  headingColor: string;
   accentBluegray: string;
   line: string;
   speck: string;
@@ -78,6 +79,7 @@ export const DEFAULT_THEME: ThemeTokens = {
   textMuted: "#5C4F55",
   accentOrange: "#7A2148",
   accentGold: "#6B5018",
+  headingColor: "#6B5018",
   accentBluegray: "#7A2148",
   line: "#E2D3C4",
   speck: "#C4B4A8",
@@ -151,6 +153,7 @@ export function parseTheme(input: unknown): ThemeTokens {
     textMuted: hex(raw.textMuted, DEFAULT_THEME.textMuted),
     accentOrange: hex(raw.accentOrange, DEFAULT_THEME.accentOrange),
     accentGold: hex(raw.accentGold, DEFAULT_THEME.accentGold),
+    headingColor: hex(raw.headingColor, hex(raw.accentGold, DEFAULT_THEME.headingColor)),
     accentBluegray: hex(raw.accentBluegray, DEFAULT_THEME.accentBluegray),
     line: hex(raw.line, DEFAULT_THEME.line),
     speck: hex(raw.speck, DEFAULT_THEME.speck),
@@ -216,6 +219,7 @@ export function themeToCssVars(theme: ThemeTokens): CSSProperties {
     "--vr-text-muted": t.textMuted,
     "--vr-accent-orange": t.accentOrange,
     "--vr-accent-gold": t.accentGold,
+    "--vr-heading-color": t.headingColor,
     "--vr-accent-bluegray": t.accentBluegray,
     "--vr-line": t.line,
     "--vr-speck": t.speck,

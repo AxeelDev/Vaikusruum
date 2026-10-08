@@ -52,6 +52,7 @@ export function ThemeEditor({ initial }: { initial: ThemeTokens }) {
         <ColorField label="Vaiksem tekst" value={theme.textMuted} onChange={(v) => set("textMuted", v)} />
         <ColorField label="Aktsent" value={theme.accentOrange} onChange={(v) => set("accentOrange", v)} />
         <ColorField label="Kuld" value={theme.accentGold} onChange={(v) => set("accentGold", v)} />
+        <ColorField label="Pealkirjad" value={theme.headingColor} onChange={(v) => set("headingColor", v)} />
         <ColorField label="Tume pinna tekst" value={theme.contrastText} onChange={(v) => set("contrastText", v)} />
         <ColorField label="Tume pinna pealkiri" value={theme.contrastHeading} onChange={(v) => set("contrastHeading", v)} />
         <ColorField label="Joone värv" value={theme.line} onChange={(v) => set("line", v)} />
@@ -132,6 +133,9 @@ export function ThemeEditor({ initial }: { initial: ThemeTokens }) {
         </button>
         <button type="button" onClick={() => setTheme(applyThemePreset(theme, "b"))}>
           Eelvaade B, tugevam
+        </button>
+        <button type="button" onClick={() => setTheme(applyThemePreset(theme, "white"))}>
+          Eelvaade, valge taust
         </button>
         <button className="vr-cta" type="button" onClick={save}>
           Salvesta

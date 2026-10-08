@@ -1,5 +1,6 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { parseTheme, DEFAULT_THEME, type ThemeTokens } from "@/lib/theme/theme";
+import { isCustomImageField } from "@/lib/editor/image-style";
 import { pageHref } from "@/lib/utils/urls";
 import type {
   EventRow,
@@ -225,6 +226,11 @@ export async function getEditorBundle() {
 export function collectMediaIds(sections: SectionRow[]): string[] {
   const ids: string[] = [];
   for (const section of sections) {
+    for (const [key, value] of Object.entries(section.content ?? {})) {
+      if (!isCustomImageField(key) || !value || typeof value !== "object") continue;
+      const customId = (value as { mediaId?: unknown }).mediaId;
+      if (typeof customId === "string" && customId) ids.push(customId);
+    }
     if (Object.prototype.hasOwnProperty.call(section.style ?? {}, "mediaId")) {
       const styleId = section.style?.mediaId;
       if (typeof styleId === "string" && styleId) ids.push(styleId);
