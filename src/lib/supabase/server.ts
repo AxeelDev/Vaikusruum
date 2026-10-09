@@ -11,6 +11,8 @@ export async function createServerSupabase() {
   const cookieStore = await cookies();
 
   return createServerClient(url, key, {
+    // No request may wait on Supabase forever; a stuck call fails after 15 s and the caller reports an error.
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(15_000) }) },
     cookies: {
       getAll() {
         return cookieStore.getAll();

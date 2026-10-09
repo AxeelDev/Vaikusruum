@@ -80,7 +80,12 @@ async function main() {
   try {
     await ensureMigrationsTable(client);
     const applied = await getAppliedVersions(client);
-    const pending = files.filter((file) => !applied.has(migrationVersion(file)));
+    // --until <version> stops after that migration, for changes that must wait for a deploy.
+    const untilIndex = process.argv.indexOf("--until");
+    const until = untilIndex >= 0 ? process.argv[untilIndex + 1] : null;
+    const pending = files.filter(
+      (file) => !applied.has(migrationVersion(file)) && (!until || BigInt(migrationVersion(file)) <= BigInt(until)),
+    );
 
     if (pending.length === 0) {
       console.log(`Database is up to date. ${applied.size} migration(s) applied.`);

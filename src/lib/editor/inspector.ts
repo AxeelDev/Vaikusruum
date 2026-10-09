@@ -135,6 +135,8 @@ export function inspectorTitle(
   if (selection.field === "registerHeading") return "Pealkiri";
   if (selection.field === "label") return "Silt";
   if (selection.field === "actionLabel") return "Nupp";
+  if (selection.field === "form" || selection.field === "formButtons" || selection.field?.startsWith("custom.form.")) return "Nupud";
+  if (selection.field?.startsWith("custom.buttons.")) return "Lingid";
   if (fallback && fallback !== nodeKindLabel(kind)) return fallback;
   return nodeKindLabel(kind);
 }

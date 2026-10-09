@@ -11,6 +11,7 @@ import {
   getSiteSettings,
   getTheme,
 } from "@/lib/content/queries";
+import { upcomingEventsNow } from "@/lib/content/events";
 import { pageHref } from "@/lib/utils/urls";
 import type { EventRow, OfferingRow } from "@/types/content";
 
@@ -23,7 +24,16 @@ export async function generateCmsMetadata(slug: string): Promise<Metadata> {
     title,
     description,
     alternates: { canonical: slug === "avaleht" ? "/" : `/${slug}` },
-    openGraph: { title, description, locale: "et_EE", type: "website" },
+    // A page's openGraph replaces the site-wide one rather than merging, so repeat the shared parts here.
+    openGraph: {
+      title,
+      description,
+      siteName: "Vaikusruum",
+      locale: "et_EE",
+      type: "website",
+      url: slug === "avaleht" ? "/" : `/${slug}`,
+      images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: "Vaikusruum" }],
+    },
   };
 }
 
@@ -49,10 +59,11 @@ export async function CmsPage({ slug }: { slug: string }) {
   const offerings: Record<string, OfferingRow> = {};
   for (const row of offeringRows) offerings[row.id] = row;
 
+  // Past classes drop off the page; cached pages refresh hourly, so a finished date disappears within the hour.
   const eventsByOffering: Record<string, EventRow[]> = {};
   await Promise.all(
     offeringRows.map(async (offering) => {
-      eventsByOffering[offering.id] = await getEventsForOffering(offering.id);
+      eventsByOffering[offering.id] = upcomingEventsNow(await getEventsForOffering(offering.id));
     }),
   );
 

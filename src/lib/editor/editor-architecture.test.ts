@@ -96,6 +96,12 @@ describe("inspector tabs", () => {
     expect(resolveNodeKind({ id: "avaleht.hero.title", type: "text", sectionId: "s1", field: "title" })).toBe("text");
   });
 
+  it("treats a contact form as a form so its button links open in the content tab", () => {
+    expect(resolveNodeKind({ id: "form", type: "text", sectionId: "s1", field: "form" })).toBe("form");
+    expect(resolveNodeKind({ id: "formButtons", type: "text", sectionId: "s1", field: "formButtons" })).toBe("form");
+    expect(inspectorTitle(draft(section()), { id: "form", type: "text", sectionId: "s1", field: "form" }, "form")).toBe("Nupud");
+  });
+
   it("names the hero title semantically instead of using its content", () => {
     expect(
       inspectorTitle(

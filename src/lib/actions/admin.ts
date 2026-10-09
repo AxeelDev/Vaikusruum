@@ -2,14 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { getAdminUser } from "@/lib/auth/admin";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { tallinnLocalToIso } from "@/lib/content/events";
+import { sanitizeHref } from "@/lib/content/markdown";
+import type { EditorChanges } from "@/lib/editor/save-payload";
 import { parseTheme } from "@/lib/theme/theme";
 import { loginSchema } from "@/lib/validation/forms";
 import type { RegistrationMode } from "@/types/content";
 
 const REGISTRATION_MODES: RegistrationMode[] = ["form", "email", "external_link", "form_and_email", "disabled"];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function cleanRegistrationUrl(value: string | null | undefined) {
   const trimmed = value?.trim();
@@ -26,6 +30,11 @@ async function requireAdmin() {
   const admin = await getAdminUser();
   if (!admin) throw new Error("Pole õigust.");
   return admin;
+}
+
+/** Public pages are cached; anything visible on them must refresh the cache. */
+function refreshPublicSite() {
+  revalidatePath("/", "layout");
 }
 
 export async function loginAction(_prev: { error?: string } | undefined, formData: FormData) {
@@ -54,145 +63,90 @@ export async function logoutAction() {
   redirect("/admin");
 }
 
-export async function saveSectionAction(id: string, content: Record<string, unknown>, style: Record<string, unknown>, enabled: boolean) {
+const optionalUrl = z.string().trim().url().max(300).nullable();
+
+const settingsSchema = z.object({
+  site_name: z.string().trim().min(1).max(120),
+  contact_name: z.string().trim().max(120).nullable(),
+  contact_email: z.string().trim().email().max(200).nullable(),
+  contact_phone: z.string().trim().max(40).nullable(),
+  company_name: z.string().trim().max(160).nullable(),
+  registry_code: z.string().trim().max(40).nullable(),
+  iban: z.string().trim().max(40).nullable(),
+  bank: z.string().trim().max(80).nullable(),
+  default_registration_email: z.string().trim().email().max(200).nullable(),
+  footer_text: z.string().trim().max(400).nullable(),
+  social: z.object({ instagram: optionalUrl, facebook: optionalUrl, pinterest: optionalUrl, youtube: optionalUrl }),
+});
+
+export async function saveSiteSettingsAction(fields: unknown) {
   await requireAdmin();
+  const parsed = settingsSchema.safeParse(fields);
+  if (!parsed.success) return { error: "Kontrolli välju: mõni e-post või link ei ole korrektne." };
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("sections").update({ content, style, enabled }).eq("id", id);
+  const { error } = await supabase.from("site_settings").update(parsed.data).eq("id", 1);
   if (error) return { error: "Salvestamine ebaõnnestus." };
-  revalidatePath("/", "layout");
+  refreshPublicSite();
   return { ok: true };
 }
 
-export async function savePageMetaAction(
-  id: string,
-  fields: {
-    title: string;
-    nav_label: string;
-    seo_title: string;
-    seo_description: string;
-    show_in_nav: boolean;
-    is_published: boolean;
-    nav_order: number;
-    slug?: string;
-  },
-) {
+export async function updateMediaAction(id: string, fields: { alt_text?: string | null; focal_x?: number; focal_y?: number }) {
   await requireAdmin();
+  if (!UUID.test(id)) return { error: "Pilti ei leitud." };
+  const next: Record<string, unknown> = {};
+  if (fields.alt_text !== undefined) next.alt_text = fields.alt_text?.trim().slice(0, 300) || null;
+  for (const key of ["focal_x", "focal_y"] as const) {
+    const value = fields[key];
+    if (value !== undefined) next[key] = Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
+  }
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("pages").update(fields).eq("id", id);
-  if (error) return { error: "Salvestamine ebaõnnestus." };
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
-export async function saveOfferingAction(id: string, fields: Record<string, unknown>) {
-  await requireAdmin();
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("offerings").update(fields).eq("id", id);
-  if (error) return { error: "Salvestamine ebaõnnestus." };
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
-export async function saveEventAction(id: string, fields: Record<string, unknown>) {
-  await requireAdmin();
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("events").update(fields).eq("id", id);
-  if (error) return { error: "Salvestamine ebaõnnestus." };
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
-export async function createEventAction(offeringId: string, displayDate: string, startsAt: string | null) {
-  await requireAdmin();
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("events").insert({
-    offering_id: offeringId,
-    display_date: displayDate || null,
-    starts_at: startsAt ? tallinnLocalToIso(startsAt) ?? startsAt : null,
-    active: true,
-    sort_order: 99,
-  });
-  if (error) return { error: "Kuupäeva lisamine ebaõnnestus." };
-  revalidatePath("/admin");
-  return { ok: true };
-}
-
-export async function deleteEventAction(id: string) {
-  await requireAdmin();
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("events").delete().eq("id", id);
-  if (error) return { error: "Kustutamine ebaõnnestus." };
-  revalidatePath("/admin");
-  return { ok: true };
-}
-
-export async function saveThemeAction(tokens: unknown) {
-  await requireAdmin();
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("theme_settings").update({ tokens: parseTheme(tokens) }).eq("id", 1);
-  if (error) return { error: "Salvestamine ebaõnnestus." };
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
-export async function saveCustomCssAction(customCss: string) {
-  const admin = await requireAdmin();
-  if (admin.role !== "owner") return { error: "Ainult omanik saab muuta täiendavat CSS-i." };
-  const supabase = await createServerSupabase();
-  const { error } = await supabase
-    .from("advanced_style_settings")
-    .update({ custom_css: customCss, updated_by: admin.id })
-    .eq("id", 1);
-  if (error) return { error: "Salvestamine ebaõnnestus." };
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
-export async function saveSiteSettingsAction(fields: Record<string, unknown>) {
-  await requireAdmin();
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("site_settings").update(fields).eq("id", 1);
-  if (error) return { error: "Salvestamine ebaõnnestus." };
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
-export async function updateMediaAction(id: string, fields: Record<string, unknown>) {
-  await requireAdmin();
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("media").update(fields).eq("id", id);
+  const { error } = await supabase.from("media").update(next).eq("id", id);
   if (error) return { error: "Salvestamine ebaõnnestus." };
   revalidatePath("/admin/media");
+  refreshPublicSite();
   return { ok: true };
 }
 
 export async function deleteMediaAction(id: string, storagePath: string) {
   await requireAdmin();
   const supabase = await createServerSupabase();
-  await supabase.storage.from("site-media").remove([storagePath]);
   const { error } = await supabase.from("media").delete().eq("id", id);
   if (error) return { error: "Kustutamine ebaõnnestus." };
+  await supabase.storage.from("site-media").remove([storagePath]);
   revalidatePath("/admin/media");
+  refreshPublicSite();
   return { ok: true };
 }
+
+const newAdminSchema = z.object({
+  email: z.string().trim().email("Kontrolli e-posti aadressi."),
+  password: z.string().min(10, "Parool peab olema vähemalt 10 märki."),
+  role: z.enum(["owner", "editor"]),
+});
 
 export async function createAdminAction(email: string, password: string, role: "owner" | "editor") {
   const admin = await requireAdmin();
   if (admin.role !== "owner") return { error: "Ainult omanik saab lisada haldureid." };
+  const parsed = newAdminSchema.safeParse({ email, password, role });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Kontrolli välju." };
   const { createServiceSupabase } = await import("@/lib/supabase/service");
   const service = createServiceSupabase();
   const { data, error } = await service.auth.admin.createUser({
-    email,
-    password,
+    email: parsed.data.email,
+    password: parsed.data.password,
     email_confirm: true,
   });
-  if (error || !data.user) return { error: "Kasutaja loomine ebaõnnestus." };
+  if (error || !data.user) return { error: "Kasutaja loomine ebaõnnestus. Võib-olla on see e-post juba kasutusel." };
   const { error: insertError } = await service.from("admin_users").insert({
     user_id: data.user.id,
-    role,
-    display_name: email,
+    role: parsed.data.role,
+    display_name: parsed.data.email,
   });
-  if (insertError) return { error: "Halduri lisamine ebaõnnestus." };
+  if (insertError) {
+    // Do not leave a login account behind that has no admin role.
+    await service.auth.admin.deleteUser(data.user.id);
+    return { error: "Halduri lisamine ebaõnnestus." };
+  }
   revalidatePath("/admin/settings");
   return { ok: true };
 }
@@ -201,8 +155,11 @@ export async function removeAdminAction(userId: string) {
   const admin = await requireAdmin();
   if (admin.role !== "owner") return { error: "Ainult omanik saab haldureid eemaldada." };
   if (admin.id === userId) return { error: "Iseennast ei saa eemaldada." };
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("admin_users").delete().eq("user_id", userId);
+  if (!UUID.test(userId)) return { error: "Kasutajat ei leitud." };
+  const { createServiceSupabase } = await import("@/lib/supabase/service");
+  const service = createServiceSupabase();
+  // Deleting the login account also removes the admin row (on delete cascade), so no sign-in remains.
+  const { error } = await service.auth.admin.deleteUser(userId);
   if (error) return { error: "Eemaldamine ebaõnnestus." };
   revalidatePath("/admin/settings");
   return { ok: true };
@@ -217,136 +174,153 @@ export async function deleteSubmissionAction(id: string) {
   return { ok: true };
 }
 
-export type EditorSavePayload = {
-  pages: Array<{
-    id: string;
-    title: string;
-    nav_label: string | null;
-    show_in_nav: boolean;
-    nav_order: number;
-    slug?: string;
-    is_published?: boolean;
-    seo_title?: string | null;
-    seo_description?: string | null;
-  }>;
-  sections: Array<{
-    id: string;
-    page_id: string;
-    section_key: string;
-    section_type: string;
-    sort_order: number;
-    enabled: boolean;
-    content: Record<string, unknown>;
-    style: Record<string, unknown>;
-  }>;
-  deletedSectionIds: string[];
-  offerings: Array<{
-    id: string;
-    title: string;
-    short_title: string | null;
-    location_name: string | null;
-    address: string | null;
-    schedule_summary: string | null;
-    registration_mode: RegistrationMode;
-    registration_url: string | null;
-    registration_email: string | null;
-  }>;
-  media: Array<{ id: string; alt_text: string | null; focal_x: number; focal_y: number }>;
-  settings: {
-    site_name: string;
-    contact_email: string | null;
-    contact_phone: string | null;
-    footer_text: string | null;
-    social: Record<string, string | null | undefined>;
-  };
-  theme: unknown;
-  customCss?: string;
-};
+export type SaveDraftResult = { ok: true; revision: number } | { error: string; conflict?: boolean };
 
-export async function saveEditorDraftAction(payload: EditorSavePayload) {
-  const admin = await requireAdmin();
-  const supabase = await createServerSupabase();
+function text(value: unknown, max: number): string | null {
+  if (value == null) return null;
+  return String(value).slice(0, max);
+}
 
-  if (payload.deletedSectionIds.length > 0) {
-    const { error } = await supabase.from("sections").delete().in("id", payload.deletedSectionIds);
-    if (error) return { error: "Sektsioonide eemaldamine ebaõnnestus." };
-  }
+/** Checks and normalises the changes before they reach the database, which applies them in one transaction. */
+function cleanChanges(changes: EditorChanges, role: "owner" | "editor"): EditorChanges | string {
+  const out: EditorChanges = {};
+  const ids = (list: string[] | undefined) => (list ?? []).filter((id) => UUID.test(id));
 
-  for (const page of payload.pages) {
-    const next: Record<string, unknown> = {
-      title: page.title,
-      nav_label: page.nav_label,
-      show_in_nav: page.show_in_nav,
-      nav_order: page.nav_order,
-    };
-    if (typeof page.is_published === "boolean") next.is_published = page.is_published;
-    if (page.seo_title !== undefined) next.seo_title = page.seo_title;
-    if (page.seo_description !== undefined) next.seo_description = page.seo_description;
-    if (admin.role === "owner" && page.slug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(page.slug)) {
-      next.slug = page.slug;
+  if (changes.pages?.length) {
+    out.pages = [];
+    for (const page of changes.pages) {
+      if (!UUID.test(page.id)) return "Lehte ei leitud.";
+      out.pages.push({
+        id: page.id,
+        title: text(page.title, 160) || "Leht",
+        nav_label: text(page.nav_label, 80),
+        show_in_nav: Boolean(page.show_in_nav),
+        nav_order: Math.round(Number(page.nav_order) || 0),
+        is_published: Boolean(page.is_published),
+        seo_title: text(page.seo_title, 160),
+        seo_description: text(page.seo_description, 400),
+        // Only the owner may change addresses; anyone else keeps the current slug (null leaves it unchanged).
+        slug: (role === "owner" && page.slug && SLUG.test(page.slug) ? page.slug : null) as string,
+      });
     }
-    const { error } = await supabase.from("pages").update(next).eq("id", page.id);
-    if (error) return { error: "Lehe salvestamine ebaõnnestus." };
   }
 
-  if (payload.sections.length > 0) {
-    const { error } = await supabase.from("sections").upsert(
-      payload.sections.map((section) => ({
+  if (changes.sections?.length) {
+    out.sections = [];
+    for (const section of changes.sections) {
+      if (!UUID.test(section.id) || !UUID.test(section.page_id)) return "Sektsiooni ei leitud.";
+      out.sections.push({
         id: section.id,
         page_id: section.page_id,
-        section_key: section.section_key,
+        section_key: String(section.section_key).slice(0, 80),
         section_type: section.section_type,
-        sort_order: section.sort_order,
-        enabled: section.enabled,
-        content: section.content,
-        style: section.style,
-      })),
-      { onConflict: "id" },
-    );
-    if (error) return { error: "Sektsioonide salvestamine ebaõnnestus." };
-  }
-
-  for (const offering of payload.offerings) {
-    const fields = {
-      title: offering.title,
-      short_title: offering.short_title,
-      location_name: offering.location_name,
-      address: offering.address,
-      schedule_summary: offering.schedule_summary,
-      registration_mode: REGISTRATION_MODES.includes(offering.registration_mode) ? offering.registration_mode : "form",
-      registration_url: cleanRegistrationUrl(offering.registration_url),
-      registration_email: offering.registration_email?.trim() || null,
-    };
-    if (fields.registration_mode === "external_link" && !fields.registration_url) {
-      return { error: "Registreerimise link peab algama https://-ga." };
+        sort_order: Math.round(Number(section.sort_order) || 0),
+        enabled: Boolean(section.enabled),
+        content: section.content && typeof section.content === "object" ? section.content : {},
+        style: section.style && typeof section.style === "object" ? section.style : {},
+      });
     }
-    const { error } = await supabase.from("offerings").update(fields).eq("id", offering.id);
-    if (error) return { error: "Tundide salvestamine ebaõnnestus." };
+  }
+  if (changes.deletedSectionIds?.length) out.deletedSectionIds = ids(changes.deletedSectionIds);
+
+  if (changes.offerings?.length) {
+    out.offerings = [];
+    for (const offering of changes.offerings) {
+      if (!UUID.test(offering.id)) return "Tundi ei leitud.";
+      const mode = REGISTRATION_MODES.includes(offering.registration_mode) ? offering.registration_mode : "form";
+      const url = cleanRegistrationUrl(offering.registration_url);
+      if (mode === "external_link" && !url) return "Registreerimise link peab algama https://-ga.";
+      out.offerings.push({
+        id: offering.id,
+        title: text(offering.title, 160) || "Tund",
+        short_title: text(offering.short_title, 160),
+        location_name: text(offering.location_name, 160),
+        address: text(offering.address, 200),
+        schedule_summary: text(offering.schedule_summary, 200),
+        tasakaal: text(offering.tasakaal, 200),
+        registration_mode: mode,
+        registration_url: url,
+        registration_email: text(offering.registration_email?.trim() || null, 200),
+      });
+    }
   }
 
-  for (const item of payload.media) {
-    const { error } = await supabase
-      .from("media")
-      .update({ alt_text: item.alt_text, focal_x: item.focal_x, focal_y: item.focal_y })
-      .eq("id", item.id);
-    if (error) return { error: "Pildi salvestamine ebaõnnestus." };
+  if (changes.events?.length) {
+    out.events = [];
+    for (const event of changes.events) {
+      if (!UUID.test(event.id) || !UUID.test(event.offering_id)) return "Kuupäeva ei leitud.";
+      const iso = (value: string | null) => (value && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : null);
+      const startsAt = iso(event.starts_at);
+      const endsAt = iso(event.ends_at);
+      if (startsAt && endsAt && endsAt < startsAt) return "Tunni lõpp peab olema pärast algust.";
+      out.events.push({
+        id: event.id,
+        offering_id: event.offering_id,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        display_date: text(event.display_date, 60),
+        sort_order: Math.round(Number(event.sort_order) || 0),
+        active: event.active !== false,
+      });
+    }
+  }
+  if (changes.deletedEventIds?.length) out.deletedEventIds = ids(changes.deletedEventIds);
+
+  if (changes.media?.length) {
+    out.media = changes.media
+      .filter((item) => UUID.test(item.id))
+      .map((item) => ({
+        id: item.id,
+        alt_text: text(item.alt_text, 300),
+        focal_x: Math.min(100, Math.max(0, Math.round(Number(item.focal_x) || 0))),
+        focal_y: Math.min(100, Math.max(0, Math.round(Number(item.focal_y) || 0))),
+      }));
   }
 
-  const { error: settingsError } = await supabase.from("site_settings").update(payload.settings).eq("id", 1);
-  if (settingsError) return { error: "Seadete salvestamine ebaõnnestus." };
-
-  const { error: themeError } = await supabase.from("theme_settings").update({ tokens: parseTheme(payload.theme) }).eq("id", 1);
-  if (themeError) return { error: "Välimuse salvestamine ebaõnnestus." };
-
-  if (typeof payload.customCss === "string") {
-    if (admin.role !== "owner") return { error: "Ainult omanik saab muuta täiendavat CSS-i." };
-    const { error } = await supabase
-      .from("advanced_style_settings")
-      .update({ custom_css: payload.customCss, updated_by: admin.id })
-      .eq("id", 1);
-    if (error) return { error: "CSS-i salvestamine ebaõnnestus." };
+  if (changes.settings) {
+    const social = Object.fromEntries(
+      Object.entries(changes.settings.social ?? {}).map(([key, value]) => [key, typeof value === "string" && value ? sanitizeHref(value) : null]),
+    );
+    out.settings = {
+      site_name: text(changes.settings.site_name, 120) || "Vaikusruum",
+      contact_email: text(changes.settings.contact_email, 200),
+      contact_phone: text(changes.settings.contact_phone, 40),
+      footer_text: text(changes.settings.footer_text, 400),
+      social,
+    };
   }
 
-  revalidatePath("/", "layout");
-  return { ok: true };
+  if (changes.theme !== undefined) out.theme = parseTheme(changes.theme);
+
+  if (changes.customCss !== undefined) {
+    if (role !== "owner") return "Ainult omanik saab muuta täiendavat CSS-i.";
+    out.customCss = String(changes.customCss).slice(0, 50_000);
+  }
+
+  return out;
+}
+
+export async function saveEditorDraftAction(expectedRevision: number, changes: EditorChanges): Promise<SaveDraftResult> {
+  const admin = await requireAdmin();
+  const cleaned = cleanChanges(changes, admin.role);
+  if (typeof cleaned === "string") return { error: cleaned };
+
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("save_editor_draft", {
+    p_expected_revision: expectedRevision,
+    p_changes: cleaned,
+  });
+  if (error) {
+    if (error.code === "PT409" || error.message.includes("revision_conflict")) {
+      return {
+        conflict: true,
+        error: "Vahepeal on veebilehte muudetud (teises aknas või teise inimese poolt). Laadi editor uuesti, et oma muudatusi mitte üle kirjutada.",
+      };
+    }
+    console.error("[editor] save failed:", error.message);
+    return { error: "Salvestamine ebaõnnestus. Midagi ei muudetud; proovi uuesti." };
+  }
+
+  refreshPublicSite();
+  return { ok: true, revision: Number(data) };
 }

@@ -56,9 +56,39 @@ export function getSectionLayoutTree(section: SectionRow): SectionLayoutTree {
   const existing = section.style?.layoutTree;
   if (!isLayoutTree(existing)) return generated;
   if (COLLECTION_SECTION_TYPES.has(section.section_type)) {
-    return mergeCollectionTree(existing, generated);
+    return withUniqueIds(mergeCollectionTree(existing, generated));
   }
-  return existing;
+  return withUniqueIds(existing);
+}
+
+/**
+ * Node ids address selection, drag targets and moves, so each must be unique. A group that only wraps
+ * a group with its own id is merged into it; any other repeat gets a numbered id.
+ */
+export function withUniqueIds(tree: SectionLayoutTree): SectionLayoutTree {
+  const seen = new Set<string>();
+  let changed = false;
+  const visit = (node: LayoutNode): LayoutNode => {
+    let current = node;
+    while (current.type === "group" && current.children.length === 1 && current.children[0].type === "group" && current.children[0].id === current.id) {
+      const inner = current.children[0];
+      current = { ...current, ...inner, gap: inner.gap ?? current.gap };
+      changed = true;
+    }
+    let id = current.id;
+    if (seen.has(id)) {
+      let n = 2;
+      while (seen.has(`${current.id}.${n}`)) n++;
+      id = `${current.id}.${n}`;
+      changed = true;
+    }
+    seen.add(id);
+    if (current.type === "columns") return { ...current, id, columns: current.columns.map(visit) as typeof current.columns };
+    if (current.type === "column" || current.type === "group") return { ...current, id, children: current.children.map(visit) };
+    return id === current.id ? current : { ...current, id };
+  };
+  const root = visit(tree.root) as SectionLayoutTree["root"];
+  return changed ? { ...tree, root } : tree;
 }
 
 export function normalizeSectionLayout(section: SectionRow): SectionRow {
@@ -322,7 +352,7 @@ function contactElements(base: string): LayoutNode[] {
   return [
     text(`${base}.heading`, "Kontakti pealkiri", "heading"),
     text(`${base}.intro`, "Kontakti sissejuhatus", "intro"),
-    element(`${base}.form`, "form", "Kontaktivorm"),
+    element(`${base}.form`, "form", "Kontaktivorm", { field: "form" }),
   ];
 }
 
@@ -760,7 +790,7 @@ function rememberPreferredSplit(section: SectionRow, tree: SectionLayoutTree): {
 }
 
 function simplifyLayoutTree(tree: SectionLayoutTree): SectionLayoutTree {
-  return { ...tree, root: simplifyNode(tree.root) as SectionLayoutTree["root"] };
+  return withUniqueIds({ ...tree, root: simplifyNode(tree.root) as SectionLayoutTree["root"] });
 }
 
 function simplifyNode(node: LayoutNode): LayoutNode {

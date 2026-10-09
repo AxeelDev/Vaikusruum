@@ -14,6 +14,7 @@ export function createPublicSupabase(): SupabaseClient {
     throw new Error("Supabase public environment is not configured.");
   }
   client = createClient(url, key, {
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(15_000) }) },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   return client;

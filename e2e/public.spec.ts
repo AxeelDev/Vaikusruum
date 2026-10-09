@@ -27,8 +27,10 @@ test.describe("public site", () => {
     await page.goto("/pehme-jooga-ja-gong");
     await expect(page.getByRole("heading", { name: /Pehme jooga/ }).first()).toBeVisible();
     await expect(page.getByText("Veenuse gong on üks sümfooniliste gongide liikidest")).toBeVisible();
-    await expect(page.getByText(/28\.09/)).toBeVisible();
-    await expect(page.getByRole("link", { name: /Üks Maja/ })).toHaveCount(0);
+    // Registration happens on Üksmaja's page; past dates are not listed.
+    await expect(page.getByRole("link", { name: "Registreeri" })).toHaveAttribute("href", /yksmaja\.ee\/events\//);
+    await expect(page.locator("main form")).toHaveCount(0);
+    await expect(page.locator("main")).not.toContainText("28.09.2026");
     await noHorizontalOverflow(page);
   });
 
@@ -79,6 +81,44 @@ test.describe("public site", () => {
   test("tagasiside is not a public empty page", async ({ page }) => {
     const response = await page.goto("/tagasiside");
     expect(response?.status()).toBe(404);
+  });
+});
+
+test.describe("privacy and forms", () => {
+  test("privacy page is public but not in the menu", async ({ page }) => {
+    const response = await page.goto("/privaatsus");
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "Privaatsus" }).first()).toBeVisible();
+    await expect(page.locator("main")).toContainText("12 kuu");
+    await expect(page.getByRole("navigation", { name: "Peamenüü" }).getByRole("link", { name: "Privaatsus" })).toHaveCount(0);
+  });
+
+  test("contact form asks for consent and links the privacy notice", async ({ page }) => {
+    await page.goto("/kontakt");
+    const consent = page.locator('main input[name="consent"]');
+    await expect(consent).toHaveAttribute("required", "");
+    await expect(page.locator("main form").getByRole("link", { name: "Privaatsusteave" })).toHaveAttribute("href", "/privaatsus");
+    // The honeypot is clipped to 1px and hidden from assistive tech: people never see or reach it.
+    const honeypot = page.locator("main .vr-hp");
+    await expect(honeypot).toHaveAttribute("aria-hidden", "true");
+    const box = await honeypot.boundingBox();
+    expect((box?.width ?? 0) <= 1 && (box?.height ?? 0) <= 1).toBe(true);
+  });
+
+  test("?teema=eratund preselects the private lesson topic", async ({ page }) => {
+    await page.goto("/kontakt?teema=eratund");
+    await expect(page.locator('main select[name="kind"]')).toHaveValue("private_lesson");
+  });
+
+  test("pages send the security headers", async ({ request }) => {
+    const response = await request.get("/");
+    expect(response.headers()["x-frame-options"]).toBe("SAMEORIGIN");
+    expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers()["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+  });
+
+  test("daily maintenance needs the cron secret", async ({ request }) => {
+    expect((await request.get("/api/cron/daily")).status()).toBe(401);
   });
 });
 

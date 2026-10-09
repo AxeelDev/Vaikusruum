@@ -80,6 +80,8 @@ export type EditorState = {
   advanced: boolean;
   saving: boolean;
   saveError: string | null;
+  /** The last save was refused because the site changed after the editor loaded. */
+  saveConflict: boolean;
   saveFlash: boolean;
   pendingPageId: string | null;
   pendingNavigationHref: string | null;

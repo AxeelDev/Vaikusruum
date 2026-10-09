@@ -61,6 +61,34 @@ export function tallinnLocalToIso(local: string): string | null {
   return `${date}T${time}:00+03:00`;
 }
 
+/** "2026-11-02T19:00" in Tallinn time, for date and time inputs. Empty when the value is not a date. */
+export function isoToTallinnLocal(iso: string | null): string {
+  if (!iso || Number.isNaN(Date.parse(iso))) return "";
+  return formatIsoAsTallinnLocal(iso);
+}
+
+/**
+ * Dates still to come, soonest first. A class drops off once it has ended (or started, without an end time).
+ * Entries with only a free-text date have no time to compare, so they stay.
+ */
+export function upcomingEvents<T extends Pick<EventRow, "starts_at" | "ends_at" | "sort_order">>(events: T[], now: number): T[] {
+  return events
+    .filter((event) => {
+      const until = Date.parse(event.ends_at ?? event.starts_at ?? "");
+      return Number.isNaN(until) || until >= now;
+    })
+    .sort((a, b) => {
+      const at = Date.parse(a.starts_at ?? ""), bt = Date.parse(b.starts_at ?? "");
+      if (Number.isNaN(at) || Number.isNaN(bt)) return a.sort_order - b.sort_order;
+      return at - bt;
+    });
+}
+
+/** Upcoming dates as of this moment; for server rendering, where each render is a fresh snapshot. */
+export function upcomingEventsNow<T extends Pick<EventRow, "starts_at" | "ends_at" | "sort_order">>(events: T[]): T[] {
+  return upcomingEvents(events, Date.now());
+}
+
 function formatIsoAsTallinnLocal(iso: string): string {
   const value = new Date(iso);
   const parts = new Intl.DateTimeFormat("en-CA", {

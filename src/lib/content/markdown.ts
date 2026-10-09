@@ -28,7 +28,7 @@ export function sanitizeHref(href: string): string | null {
   if (!value) return null;
   const lower = value.toLowerCase();
   if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) return null;
-  if (/^https?:\/\//i.test(value) || value.startsWith("/") || value.startsWith("mailto:")) return value;
+  if (/^https?:\/\//i.test(value) || value.startsWith("/") || value.startsWith("mailto:") || value.startsWith("tel:")) return value;
   if (value.startsWith("#") && !isHexColor(value)) return value;
   return null;
 }

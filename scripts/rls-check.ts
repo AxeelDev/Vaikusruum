@@ -26,6 +26,7 @@ async function main() {
   const { data: submissions } = await supabase.from("form_submissions").select("id");
   if (submissions && submissions.length > 0) throw new Error("anon can read submissions");
 
+  // Visitors may not write submissions directly; the server inserts them after validation and rate limiting.
   const marker = `rls-probe-${Date.now()}@example.test`;
   const { error: insertProbe } = await supabase.from("form_submissions").insert({
     kind: "contact",
@@ -33,7 +34,22 @@ async function main() {
     email: marker,
     consent: true,
   });
-  if (insertProbe) throw new Error(`anon cannot submit forms: ${insertProbe.message}`);
+  if (!insertProbe) {
+    if (process.argv.includes("--before-submission-lockdown")) {
+      console.warn("note: anon can still insert submissions (migration 20261009150000 not applied yet)");
+    } else {
+      throw new Error("anon can insert form submissions directly; apply migration 20261009150000");
+    }
+  }
+
+  const { data: revision } = await supabase.from("site_revision").select("revision");
+  if (revision && revision.length > 0) throw new Error("anon can read the site revision");
+
+  const { error: rpcError } = await supabase.rpc("save_editor_draft", { p_expected_revision: 0, p_changes: {} });
+  if (!rpcError) throw new Error("anon was able to call save_editor_draft");
+
+  const { data: backups } = await supabase.storage.from("backups").list();
+  if (backups && backups.length > 0) throw new Error("anon can list backups");
 
   const { data: css } = await supabase.from("advanced_style_settings").update({ custom_css: "body{}" }).eq("id", 1).select();
   if (css && css.length > 0) throw new Error("anon was able to edit custom CSS");

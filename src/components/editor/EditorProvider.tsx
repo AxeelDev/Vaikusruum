@@ -9,14 +9,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { saveEditorDraftAction, type EditorSavePayload } from "@/lib/actions/admin";
+import { saveEditorDraftAction } from "@/lib/actions/admin";
+import { diffDraft, hasChanges } from "@/lib/editor/save-payload";
 import { cloneDraft, createSection, duplicateSection as cloneSectionRow, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
 import { insertLayoutElement, moveLayoutNode, normalizeSectionLayout, removeLayoutNode, resizeLayoutColumns, resolveLayoutNodeId } from "@/lib/editor/layout-tree";
 import { mergeFieldStyle } from "@/lib/editor/appearance";
 import { resolveInspectorTab, resolveNodeKind } from "@/lib/editor/node-registry";
 import { readEditorContent } from "@/lib/editor/content-binding";
 import type { AddableElementType, AddableSectionType, DragRuntimeState, EditPath, EditorDraft, EditorSelection, EditorState, InspectorContext, InspectorTab } from "@/lib/editor/types";
-import type { AdminRole, MediaRow, OfferingRow, SectionRow, TextAppearance } from "@/types/content";
+import type { AdminRole, EventRow, MediaRow, OfferingRow, SectionRow, TextAppearance } from "@/types/content";
 import type { ThemeTokens } from "@/lib/theme/theme";
 
 export type { EditPath };
@@ -51,6 +52,7 @@ type EditorApi = {
   patchMedia: (id: string, patch: Partial<MediaRow>, record?: boolean) => void;
   addMedia: (item: MediaRow) => void;
   patchPage: (id: string, patch: PagePatch, record?: boolean) => void;
+  setOfferingEvents: (offeringId: string, events: EventRow[], record?: boolean) => void;
   patchFieldStyle: (sectionId: string, field: string, patch: Partial<TextAppearance>, record?: boolean) => void;
   switchPage: (pageId: string) => void;
   switchPageBySlug: (slug: string) => boolean;
@@ -92,10 +94,13 @@ function snapshot(draft: EditorDraft): EditorDraft {
 
 export function EditorProvider({
   initial,
+  revision,
   role,
   children,
 }: {
   initial: EditorDraft;
+  /** Site revision the draft was loaded at; a save is refused if someone saved after it. */
+  revision: number;
   role: AdminRole;
   children: ReactNode;
 }) {
@@ -120,6 +125,8 @@ export function EditorProvider({
   const [advanced, setAdvanced] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveConflict, setSaveConflict] = useState(false);
+  const revisionRef = useRef(revision);
   const [saveFlash, setSaveFlash] = useState(false);
   const saveFlashTimer = useRef<number | null>(null);
   const [pendingPageId, setPendingPageId] = useState<string | null>(null);
@@ -277,6 +284,19 @@ export function EditorProvider({
         {
           ...cloneDraft(draft),
           pages: draft.pages.map((page) => (page.id === id ? { ...page, ...patch } : page)),
+        },
+        record,
+      );
+    },
+    [applyDraft, draft],
+  );
+
+  const setOfferingEvents = useCallback(
+    (offeringId: string, events: EventRow[], record = true) => {
+      applyDraft(
+        {
+          ...cloneDraft(draft),
+          eventsByOffering: { ...draft.eventsByOffering, [offeringId]: events },
         },
         record,
       );
@@ -574,74 +594,40 @@ export function EditorProvider({
   }, []);
 
   const save = useCallback(async () => {
+    const changes = diffDraft(JSON.parse(saved) as EditorDraft, draft, role);
+    const cleaned = { ...draft, deletedSectionIds: [] };
+    if (!hasChanges(changes)) {
+      setDraft(cleaned);
+      setSaved(JSON.stringify(cleaned));
+      return true;
+    }
     setSaving(true);
     setSaveError(null);
-    const payload: EditorSavePayload = {
-      pages: draft.pages.map((page) => ({
-        id: page.id,
-        title: page.title,
-        nav_label: page.nav_label,
-        show_in_nav: page.show_in_nav,
-        nav_order: page.nav_order,
-        slug: page.slug,
-        is_published: page.is_published,
-        seo_title: page.seo_title,
-        seo_description: page.seo_description,
+    // Never leave "Salvestan…" hanging. If a slow save still lands, the next attempt is stopped by the revision check.
+    const timeout = new Promise<{ error: string }>((resolve) =>
+      window.setTimeout(() => resolve({ error: "Salvestamine ei vastanud. Kontrolli ühendust ja proovi uuesti." }), 25_000),
+    );
+    const result = await Promise.race([
+      saveEditorDraftAction(revisionRef.current, changes).catch(() => ({
+        error: "Salvestamine ebaõnnestus: ühendus katkes. Proovi uuesti.",
       })),
-      sections: Object.values(draft.sectionsByPage)
-        .flat()
-        .map((section) => ({
-          id: section.id,
-          page_id: section.page_id,
-          section_key: section.section_key,
-          section_type: section.section_type,
-          sort_order: section.sort_order,
-          enabled: section.enabled,
-          content: section.content,
-          style: section.style ?? {},
-        })),
-      deletedSectionIds: draft.deletedSectionIds,
-      offerings: Object.values(draft.offerings).map((offering) => ({
-        id: offering.id,
-        title: offering.title,
-        short_title: offering.short_title,
-        location_name: offering.location_name,
-        address: offering.address,
-        schedule_summary: offering.schedule_summary,
-        registration_mode: offering.registration_mode,
-        registration_url: offering.registration_url,
-        registration_email: offering.registration_email,
-      })),
-      media: Object.values(draft.media).map((item) => ({
-        id: item.id,
-        alt_text: item.alt_text,
-        focal_x: item.focal_x,
-        focal_y: item.focal_y,
-      })),
-      settings: {
-        site_name: draft.settings.site_name,
-        contact_email: draft.settings.contact_email,
-        contact_phone: draft.settings.contact_phone,
-        footer_text: draft.settings.footer_text,
-        social: draft.settings.social,
-      },
-      theme: draft.theme,
-      customCss: role === "owner" ? draft.customCss : undefined,
-    };
-    const result = await saveEditorDraftAction(payload);
+      timeout,
+    ]);
     setSaving(false);
-    if (result && "error" in result && result.error) {
+    if ("error" in result) {
       setSaveError(result.error);
+      setSaveConflict(Boolean("conflict" in result && result.conflict));
       return false;
     }
-    const cleaned = { ...draft, deletedSectionIds: [] };
+    revisionRef.current = result.revision;
+    setSaveConflict(false);
     setDraft(cleaned);
     setSaved(JSON.stringify(cleaned));
     setSaveFlash(true);
     if (saveFlashTimer.current) window.clearTimeout(saveFlashTimer.current);
     saveFlashTimer.current = window.setTimeout(() => setSaveFlash(false), 2500);
     return true;
-  }, [draft, role]);
+  }, [draft, role, saved]);
 
   const confirmPendingPage = useCallback(
     async (mode: "save" | "discard") => {
@@ -710,6 +696,7 @@ export function EditorProvider({
       advanced,
       saving,
       saveError,
+      saveConflict,
       saveFlash,
       notice,
       lastInsertedNodeId,
@@ -733,6 +720,7 @@ export function EditorProvider({
       pendingNavigationHref,
       preview,
       saveError,
+      saveConflict,
       saveFlash,
       saving,
       selected,
@@ -759,6 +747,7 @@ export function EditorProvider({
       patchMedia,
       addMedia,
       patchPage,
+      setOfferingEvents,
       patchFieldStyle,
       switchPage,
       switchPageBySlug,
@@ -802,6 +791,7 @@ export function EditorProvider({
       patchFieldStyle,
       patchMedia,
       patchPage,
+      setOfferingEvents,
       patchSection,
       patchTheme,
       redo,

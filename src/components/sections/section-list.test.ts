@@ -172,6 +172,51 @@ describe("section list copy", () => {
     expect(markup).toContain("120 €");
   });
 
+  it("gives each contact form its own button links", () => {
+    const contact = (heading: string, href: string, label: string) =>
+      row({
+        section_key: "contact",
+        section_type: "contact",
+        content: { heading, formButtons: [{ label, href }] },
+        style: { layout: "text-only", background: "warm" },
+      });
+    const home = html("avaleht", [contact("A", "https://instagram.com/a", "Instagram")]);
+    const page = html("kontakt", [contact("B", "https://example.com/book", "Broneeri")]);
+    expect(home).toContain('href="https://instagram.com/a"');
+    expect(home).toContain("Instagram");
+    expect(home).not.toContain("example.com/book");
+    expect(page).toContain('href="https://example.com/book"');
+    expect(page).not.toContain("instagram.com/a");
+  });
+
+  it("drops an unsafe contact form button link", () => {
+    const markup = html("kontakt", [
+      row({
+        section_key: "contact",
+        section_type: "contact",
+        content: { heading: "VÕTA ÜHENDUST", formButtons: [{ label: "Halb", href: "javascript:alert(1)" }] },
+        style: { layout: "text-only" },
+      }),
+    ]);
+    expect(markup).not.toContain("javascript:alert");
+    expect(markup).not.toContain("Halb");
+  });
+
+  it("renders a registration form's own button link", () => {
+    const markup = html("kundalini-jooga", [
+      row({
+        section_key: "practical",
+        section_type: "offering_practical_info",
+        content: {
+          offeringId: SEED_IDS.offerings.kundalini,
+          formButtons: [{ label: "Üks Maja", href: "https://yksmaja.ee/events/kundalini" }],
+        },
+      }),
+    ]);
+    expect(markup).toContain('href="https://yksmaja.ee/events/kundalini"');
+    expect(markup).toContain("Üks Maja");
+  });
+
   it("uses a section heading on the homepage contact and a page heading on /kontakt", () => {
     const section = row({
       section_key: "contact",

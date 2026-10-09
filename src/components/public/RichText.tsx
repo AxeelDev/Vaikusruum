@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { TiptapNode } from "@/types/content";
 import { isTiptapDoc } from "@/lib/content/rich-text";
+import { sanitizeHref } from "@/lib/content/markdown";
 
 const URL_PATTERN = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]!?])/g;
 
@@ -28,6 +29,8 @@ function textOf(node: TiptapNode, key: string): ReactNode {
   let href = link?.attrs?.href;
   // A link mark saved without an address still points at its own text when that text is a URL.
   if (link && (typeof href !== "string" || !href) && isUrl(node.text)) href = node.text.trim();
+  // Same rule as Markdown links: no javascript:, data: or vbscript: addresses.
+  href = typeof href === "string" ? sanitizeHref(href) ?? undefined : undefined;
   const hasHref = typeof href === "string" && Boolean(href);
   const children =
     node.content?.map((child, i) => <NodeView key={`${key}-${i}`} node={child} />) ??

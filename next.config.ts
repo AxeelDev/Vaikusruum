@@ -10,6 +10,21 @@ const nextConfig: NextConfig = {
     // a full page refresh always loads fresh copies.
     staleTimes: { static: 1800 },
   },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // The site is never meant to be shown inside another site's frame (clickjacking).
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       { source: "/pehme-jooga-ja-loogastus", destination: "/pehme-jooga-ja-gong", permanent: true },

@@ -667,7 +667,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
+      const target = event.target instanceof Element ? event.target : null;
       const typing = Boolean(target?.closest("input, textarea, select"));
       if (event.key === "Escape") {
         if (dragRef.current) {

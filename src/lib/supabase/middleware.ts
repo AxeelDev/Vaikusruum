@@ -9,6 +9,7 @@ export async function updateSession(request: NextRequest) {
   if (!url || !key) return response;
 
   const supabase = createServerClient(url, key, {
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(10_000) }) },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -23,6 +24,7 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  // A failed refresh must not block the page; the page itself checks the session again.
+  await supabase.auth.getUser().catch(() => null);
   return response;
 }

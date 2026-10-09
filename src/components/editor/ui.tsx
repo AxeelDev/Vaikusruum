@@ -312,12 +312,15 @@ export function EditorPopover({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, ready: false });
+  // Forget the old position when closing, so a reopened popover is measured before it shows.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (!open) setCoords({ top: 0, left: 0, ready: false });
+  }
 
   useLayoutEffect(() => {
-    if (!open) {
-      setCoords({ top: 0, left: 0, ready: false });
-      return;
-    }
+    if (!open) return;
     function update() {
       const trigger = anchorRef.current?.getBoundingClientRect();
       const floating = ref.current?.getBoundingClientRect();
@@ -481,10 +484,12 @@ export function EditorSlider({
   const decimals = step < 1 ? String(step).split(".")[1]?.length ?? 2 : 0;
   const shown = Number(value.toFixed(decimals));
   const [typed, setTyped] = useState(String(shown));
-
-  useEffect(() => {
+  // Follow outside changes (slider, undo) in the number field.
+  const [lastShown, setLastShown] = useState(shown);
+  if (lastShown !== shown) {
+    setLastShown(shown);
     setTyped(String(shown));
-  }, [shown]);
+  }
 
   function nudge(direction: -1 | 1, large: boolean) {
     const jump = large ? step * 10 : step;

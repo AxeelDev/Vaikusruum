@@ -9,6 +9,7 @@ export const contactSchema = z.object({
   message: z.string().trim().max(4000).optional().nullable(),
   preferredDate: z.string().trim().max(80).optional().nullable(),
   pageSlug: z.string().trim().max(120).optional().nullable(),
+  consent: z.literal(true, { error: "Palun kinnita, et oled privaatsusteabega tutvunud." }),
 });
 
 export const bootstrapSchema = z.object({

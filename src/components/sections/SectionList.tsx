@@ -8,6 +8,8 @@ import { SiteImage } from "@/components/public/SiteImage";
 import { Specks } from "@/components/public/Specks";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { RegistrationBlock } from "@/components/forms/RegistrationBlock";
+import { LinkButtonRow } from "@/components/public/LinkButtons";
+import { readButtonLinks } from "@/lib/content/form-buttons";
 import { EventDates } from "@/components/public/EventDates";
 import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/content/private-lessons";
 import { EditableNode, EditableText } from "@/components/site/Editable";
@@ -398,10 +400,37 @@ function SectionView({
     });
   }
 
+  const editing = Boolean(editor && !editor.state.preview);
+
+  function linkButtonSelection(node: LayoutElementNode): EditorSelection | null {
+    if (node.elementType === "form") {
+      const field = node.field?.startsWith("custom.") ? node.field : "form";
+      return {
+        id: field.startsWith("custom.") ? `${prefix}.${field}` : node.id,
+        type: "text",
+        sectionId: section.id,
+        field,
+        layoutNodeId: node.id,
+      };
+    }
+    if (node.elementType === "buttons" && node.field) {
+      return {
+        id: `${prefix}.${node.field}`,
+        type: "text",
+        sectionId: section.id,
+        field: node.field,
+        layoutNodeId: node.id,
+      };
+    }
+    return null;
+  }
+
   function layoutSelectionForNode(node: LayoutNode): { id: string; type: "container" | "text" | "image"; field?: string; mediaId?: string; offeringId?: string } {
     if (node.type === "column" || node.type === "group" || node.type === "columns") {
       return { id: node.id, type: "container" };
     }
+    const links = linkButtonSelection(node);
+    if (links) return { id: links.id, type: "text", field: links.field };
     if (node.elementType === "image") return { id: `${section.id}.${node.field ?? "image"}`, type: "image", field: node.field ?? "image", mediaId: resolveImageMediaId(section, node.field) };
     if (node.elementType === "text" && node.field) {
       return { id: node.field === "body" ? `${prefix}.body` : `${prefix}.${node.field}`, type: "text", field: node.field };
@@ -447,15 +476,32 @@ function SectionView({
       if (!offering) return null;
       return <div className="vr-layout-element vr-layout-element--card">{renderOfferingCard(offering)}</div>;
     }
-    if (node.elementType === "form" && section.section_type === "contact") {
-      return (
+    if (node.elementType === "form") {
+      const selection = linkButtonSelection(node);
+      const custom = Boolean(node.field?.startsWith("custom."));
+      const raw = custom && node.field ? section.content[node.field] : null;
+      const storedKind = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as { kind?: unknown }).kind : undefined;
+      const kind = storedKind === "private_lesson" || storedKind === "registration"
+        ? storedKind
+        : section.content.defaultKind === "private_lesson" ? "private_lesson" : "contact";
+      const embedded = custom || (section.section_type !== "contact" && section.section_key !== "contact");
+      const form = (
         <ContactForm
-          kind={section.content.defaultKind === "private_lesson" ? "private_lesson" : "contact"}
-          email={settings.contact_email}
-          social={settings.social}
-          settings={settings}
+          kind={kind}
+          buttons={selection ? readButtonLinks(section.content, selection.field) : []}
+          draft={editing}
+          email={embedded ? undefined : settings.contact_email}
+          social={embedded ? undefined : settings.social}
+          settings={embedded ? undefined : settings}
+          showKindSelect={kind !== "registration"}
           pageSlug={slug}
         />
+      );
+      if (!selection) return form;
+      return (
+        <EditableNode selection={selection} className="vr-layout-element" as="div">
+          {form}
+        </EditableNode>
       );
     }
     if (node.field === "lessons") return renderPrivateLessonList();
@@ -544,17 +590,17 @@ function SectionView({
   }
 
   function renderButtonsElement(node: LayoutElementNode): ReactNode {
+    const selection = linkButtonSelection(node) ?? renderGenericSelection(node);
     const raw = node.field ? section.content[node.field] : null;
-    const config = raw && typeof raw === "object" ? raw as { buttons?: Array<{ label?: string; href?: string }>; direction?: string } : {};
-    const buttons = Array.isArray(config.buttons) ? config.buttons : [];
+    const config = raw && typeof raw === "object" ? raw as { direction?: string } : {};
     return (
       <div className="vr-layout-element">
-        <EditableNode selection={renderGenericSelection(node)} className={`vr-button-group vr-button-group--${config.direction === "vertical" ? "vertical" : "horizontal"}`} as="div">
-          {buttons.map((button, index) => (
-            <Link key={index} className="vr-cta" href={button.href || "/"}>
-              {button.label || "Nupp"}
-            </Link>
-          ))}
+        <EditableNode selection={selection} as="div">
+          <LinkButtonRow
+            buttons={node.field ? readButtonLinks(section.content, node.field) : []}
+            draft={editing}
+            direction={config.direction === "vertical" ? "vertical" : "horizontal"}
+          />
         </EditableNode>
       </div>
     );
@@ -841,6 +887,9 @@ function SectionView({
               offering={offering}
               fallbackEmail={settings.default_registration_email ?? settings.contact_email}
               pageSlug={slug}
+              buttons={readButtonLinks(section.content, "formButtons")}
+              draft={editing}
+              editSelection={editing ? { id: `${prefix}.formButtons`, type: "text", sectionId: section.id, field: "formButtons" } : undefined}
               heading={
                 <EditableText
                   as="h2"

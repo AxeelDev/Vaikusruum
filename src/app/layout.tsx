@@ -35,11 +35,18 @@ const lato = Lato({
 });
 
 export const metadata: Metadata = {
+  // Makes share-preview and canonical URLs absolute.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://vaikusruum.ee"),
   title: {
     default: "Vaikusruum",
     template: "%s · Vaikusruum",
   },
   description: "Vaikusruum on kutse aeglustuda, hingata ja olla.",
+  openGraph: {
+    siteName: "Vaikusruum",
+    locale: "et_EE",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

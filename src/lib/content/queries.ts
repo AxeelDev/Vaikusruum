@@ -247,7 +247,13 @@ export async function getEditorBundle() {
   const media: Record<string, MediaRow> = {};
   for (const row of await withImageSizes((mediaRes.data ?? []) as MediaRow[])) media[row.id] = row;
 
-  const [settings, theme, customCss] = await Promise.all([getSiteSettings(), getTheme(), getCustomCss()]);
+  const [settings, theme, customCss, revisionRes] = await Promise.all([
+    getSiteSettings(),
+    getTheme(),
+    getCustomCss(),
+    supabase.from("site_revision").select("revision").eq("id", 1).maybeSingle(),
+  ]);
+  if (revisionRes.error) throw new Error(`site revision: ${revisionRes.error.message}`);
 
   return {
     pages,
@@ -259,6 +265,7 @@ export async function getEditorBundle() {
     theme,
     customCss,
     deletedSectionIds: [] as string[],
+    revision: Number(revisionRes.data?.revision ?? 0),
   };
 }
 

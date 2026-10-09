@@ -49,13 +49,15 @@ import { uploadProgressLabel, uploadSiteMedia } from "@/lib/utils/upload-site-me
 import { mediaPublicUrl } from "@/lib/utils/urls";
 import { PrivateLessonsFields } from "@/components/admin/PrivateLessonsFields";
 import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/content/private-lessons";
+import { isButtonLinksField, linkButtonError, readButtonLinks, writeButtonLinks, type LinkButton } from "@/lib/content/form-buttons";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
 import { MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
+import { isoToTallinnLocal, tallinnLocalToIso } from "@/lib/content/events";
 import { indexedFieldValue, parseIndexedField, readBoundSectionValue, readEditorContent } from "@/lib/editor/content-binding";
 import { assignImageMedia, IMAGE_SIZE_MAX, IMAGE_SIZE_MIN, patchImageAppearance, readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
 import type { EditorSelection, InspectorTabId } from "@/lib/editor/types";
-import type { AnimationAppearance, HeightPreset, LayoutNode, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
+import type { AnimationAppearance, EventRow, HeightPreset, LayoutNode, OfferingRow, SectionRow, SectionStyle, TextAppearance, VerticalAlign } from "@/types/content";
 import type { TiptapNode } from "@/types/content";
 
 const FONT_OPTIONS = ALL_FONTS.map((font) => ({
@@ -306,7 +308,16 @@ function EditorFooterControls() {
 
   return (
     <div className="vr-inspector-footer">
-      {state.saveError ? <p className="vr-form-error vr-editor-error">{state.saveError}</p> : null}
+      {state.saveError ? (
+        <div className="vr-form-error vr-editor-error" role="alert">
+          <p>{state.saveError}</p>
+          {state.saveConflict ? (
+            <EditorButton variant="secondary" onClick={() => window.location.reload()}>
+              Laadi uuesti
+            </EditorButton>
+          ) : null}
+        </div>
+      ) : null}
       {state.notice ? <p className="vr-ed-help">{state.notice}</p> : null}
       <EditorButton
         variant="primary"
@@ -348,6 +359,7 @@ function ContentPanel() {
   if (selected.type === "container") return <ContainerPanel mode="content" />;
   if (selected.type === "header") return <HeaderPanel mode="content" />;
   if (selected.type === "nav") return <NavItemPanel />;
+  if (isButtonLinksField(selected.field)) return <ButtonLinksPanel />;
   if (isStructuredContentSelection(editor)) return <StructuredContentPanel />;
   return <NodeContentInspector />;
 }
@@ -673,6 +685,17 @@ function layoutElementRow(section: SectionRow, node: Extract<LayoutNode, { type:
       },
     };
   }
+  if (node.elementType === "form" || node.elementType === "buttons") {
+    const field = node.elementType === "form" ? (node.field?.startsWith("custom.") ? node.field : "form") : node.field;
+    const id = node.elementType === "form" && field === "form" ? node.id : `${prefix}.${field ?? node.id}`;
+    const labels = field ? readButtonLinks(section.content, field).map((button) => button.label.trim()).filter(Boolean) : [];
+    return {
+      icon: "↗",
+      label: clientLayoutLabel(section, node, slug),
+      preview: labels.join(", ").slice(0, 42) || undefined,
+      selection: { id, type: "text" as const, sectionId: section.id, field, layoutNodeId: node.id },
+    };
+  }
   const indexed = parseIndexedField(node.field);
   const bound = node.field ? readBoundSectionValue(section, node.field) : undefined;
   const previewText =
@@ -983,6 +1006,116 @@ function RegistrationControls({ offeringId }: { offeringId: string }) {
   );
 }
 
+/** The class dates shown under "Kuupäevad". Times are entered in Tallinn time. */
+function EventDatesControls({ offeringId }: { offeringId: string }) {
+  const editor = useEditor();
+  const offering = editor.state.draft.offerings[offeringId];
+  if (!offering) return null;
+  const events = [...(editor.state.draft.eventsByOffering[offeringId] ?? [])].sort(
+    (a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? "") || a.sort_order - b.sort_order,
+  );
+  // eslint-disable-next-line react-hooks/purity -- only greys out past dates; a stale value is harmless
+  const now = Date.now();
+
+  function write(next: EventRow[], record = true) {
+    const ordered = [...next]
+      .sort((a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? ""))
+      .map((event, index) => ({ ...event, sort_order: index }));
+    editor.setOfferingEvents(offeringId, ordered, record);
+  }
+
+  function update(id: string, part: "date" | "start" | "end", value: string) {
+    write(
+      events.map((event) => {
+        if (event.id !== id) return event;
+        const start = isoToTallinnLocal(event.starts_at);
+        const end = isoToTallinnLocal(event.ends_at);
+        const date = part === "date" ? value : start.slice(0, 10) || end.slice(0, 10);
+        const startTime = part === "start" ? value : start.slice(11, 16);
+        const endTime = part === "end" ? value : end.slice(11, 16);
+        return {
+          ...event,
+          starts_at: date && startTime ? tallinnLocalToIso(`${date}T${startTime}`) : null,
+          ends_at: date && endTime ? tallinnLocalToIso(`${date}T${endTime}`) : null,
+          display_date: null,
+        };
+      }),
+    );
+  }
+
+  function add() {
+    const last = events[events.length - 1];
+    const lastStart = isoToTallinnLocal(last?.starts_at ?? null);
+    const lastEnd = isoToTallinnLocal(last?.ends_at ?? null);
+    // Suggest a week after the last date at the same time, or next week at 19:00.
+    const base = lastStart ? new Date(`${lastStart.slice(0, 10)}T12:00:00Z`) : new Date();
+    base.setUTCDate(base.getUTCDate() + 7);
+    const date = base.toISOString().slice(0, 10);
+    const startTime = lastStart.slice(11, 16) || "19:00";
+    const endTime = lastEnd.slice(11, 16) || "20:30";
+    write([
+      ...events,
+      {
+        id: crypto.randomUUID(),
+        offering_id: offeringId,
+        starts_at: tallinnLocalToIso(`${date}T${startTime}`),
+        ends_at: tallinnLocalToIso(`${date}T${endTime}`),
+        display_date: null,
+        sort_order: events.length,
+        active: true,
+      },
+    ]);
+  }
+
+  return (
+    <EditorGroup label="Kuupäevad">
+      {events.length ? (
+        <ul className="vr-ed-dates">
+          {events.map((event) => {
+            const start = isoToTallinnLocal(event.starts_at);
+            const end = isoToTallinnLocal(event.ends_at);
+            const past = Date.parse(event.ends_at ?? event.starts_at ?? "") < now;
+            return (
+              <li key={event.id} data-past={past ? "true" : undefined}>
+                <input
+                  type="date"
+                  className="vr-ed-input vr-ed-date-day"
+                  aria-label="Kuupäev"
+                  value={start.slice(0, 10)}
+                  onChange={(e) => update(event.id, "date", e.target.value)}
+                />
+                <input
+                  type="time"
+                  className="vr-ed-input vr-ed-date-start"
+                  aria-label="Algus"
+                  value={start.slice(11, 16)}
+                  onChange={(e) => update(event.id, "start", e.target.value)}
+                />
+                <input
+                  type="time"
+                  className="vr-ed-input vr-ed-date-end"
+                  aria-label="Lõpp"
+                  value={end.slice(11, 16)}
+                  onChange={(e) => update(event.id, "end", e.target.value)}
+                />
+                <EditorIconButton className="vr-ed-date-remove" ariaLabel="Eemalda kuupäev" onClick={() => write(events.filter((item) => item.id !== event.id))}>
+                  ×
+                </EditorIconButton>
+                {past ? <span className="vr-ed-muted vr-ed-date-note">möödunud, lehel ei näidata</span> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="vr-ed-help">Kuupäevi pole lisatud.</p>
+      )}
+      <EditorButton variant="ghost" onClick={add}>
+        Lisa kuupäev
+      </EditorButton>
+    </EditorGroup>
+  );
+}
+
 function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | "layout" }) {
   const editor = useEditor();
   const selected = editor.state.selected;
@@ -1016,7 +1149,12 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
             label="Näita „Hea teada“ linki"
           />
           <RegistrationControls offeringId={String(section.content.offeringId ?? "")} />
+          <EventDatesControls offeringId={String(section.content.offeringId ?? "")} />
+          <SectionButtonLinks sectionId={section.id} field="formButtons" />
         </>
+      ) : null}
+      {mode === "content" && (section.section_type === "contact" || section.section_key === "contact") ? (
+        <SectionButtonLinks sectionId={section.id} field="form" />
       ) : null}
       {mode === "content" &&
       section.section_type !== "faq" &&
@@ -2025,9 +2163,98 @@ function InspectorModeIcon({ tab }: { tab: InspectorTabId }) {
   );
 }
 
+function ButtonLinksPanel() {
+  const editor = useEditor();
+  const selected = editor.state.selected;
+  const section = selected?.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
+  const field = selected?.field;
+  if (!selected?.sectionId || !section || !field || !isButtonLinksField(field)) return null;
+  const onForm = field === "form" || field === "formButtons" || field.startsWith("custom.form.");
+  return (
+    <div className="vr-inspector-body">
+      <ButtonLinksFields
+        scope={onForm ? "form" : "buttons"}
+        buttons={readButtonLinks(section.content, field)}
+        onChange={(buttons, record = true) => editor.patchSection(section.id, (row) => writeButtonLinks(row, field, buttons), record)}
+      />
+    </div>
+  );
+}
+
+function SectionButtonLinks({ sectionId, field }: { sectionId: string; field: "form" | "formButtons" }) {
+  const editor = useEditor();
+  const section = findSection(editor.state.draft, sectionId);
+  if (!section) return null;
+  return (
+    <ButtonLinksFields
+      scope="form"
+      buttons={readButtonLinks(section.content, field)}
+      onChange={(buttons, record = true) => editor.patchSection(sectionId, (row) => writeButtonLinks(row, field, buttons), record)}
+    />
+  );
+}
+
+function ButtonLinksFields({
+  buttons,
+  scope,
+  onChange,
+}: {
+  buttons: LinkButton[];
+  scope: "form" | "buttons";
+  onChange: (next: LinkButton[], record?: boolean) => void;
+}) {
+  function update(index: number, patch: Partial<LinkButton>, record: boolean) {
+    onChange(buttons.map((button, buttonIndex) => (buttonIndex === index ? { ...button, ...patch } : button)), record);
+  }
+
+  return (
+    <EditorGroup label="Nupud">
+      {buttons.length ? (
+        <ul className="vr-ed-button-links">
+          {buttons.map((button, index) => {
+            const error = linkButtonError(button.href);
+            return (
+              <li key={`${index}-${buttons.length}`}>
+                <EditorTextInput
+                  ariaLabel={`Nupu ${index + 1} tekst`}
+                  placeholder="Nupu tekst"
+                  value={button.label}
+                  onChange={(label) => update(index, { label }, false)}
+                  onCommit={(label) => update(index, { label }, true)}
+                />
+                <EditorIconButton ariaLabel="Eemalda nupp" onClick={() => onChange(buttons.filter((_, buttonIndex) => buttonIndex !== index))}>
+                  ×
+                </EditorIconButton>
+                <EditorTextInput
+                  ariaLabel={`Nupu ${index + 1} link`}
+                  placeholder="https:// või /kontakt"
+                  value={button.href}
+                  invalid={Boolean(error)}
+                  onChange={(href) => update(index, { href }, false)}
+                  onCommit={(href) => update(index, { href }, true)}
+                />
+                {error ? <p className="vr-ed-help vr-ed-help--error">{error}</p> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="vr-ed-help">{scope === "form" ? "Sellel vormil pole veel nuppe." : "Nuppe pole veel."}</p>
+      )}
+      <EditorButton variant="ghost" onClick={() => onChange([...buttons, { label: "Nupp", href: "" }])}>
+        Lisa nupp
+      </EditorButton>
+      <p className="vr-ed-help">
+        {scope === "form" ? "Igal nupul on oma link. See kehtib ainult sellel vormil." : "Igal nupul on oma link."}
+      </p>
+    </EditorGroup>
+  );
+}
+
 function canDeleteSelection(selected: EditorSelection | null, contextKind: string) {
   if (contextKind === "site" || contextKind === "none" || !selected) return false;
   if (selected.type === "header" || selected.type === "nav" || selected.type === "page" || selected.type === "theme") return false;
+  if (selected.field === "formButtons") return false;
   if (selected.id === "header.wordmark" || selected.id === "footer.text") return false;
   return Boolean(selected.sectionId || selected.type === "section" || selected.type === "container" || selected.type === "image" || selected.type === "text" || selected.type === "link");
 }

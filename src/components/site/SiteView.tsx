@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { SectionList } from "@/components/sections/SectionList";
 import { EditableText } from "@/components/site/Editable";
@@ -65,6 +67,9 @@ export function SiteView({
           path={{ kind: "settings", key: "footer_text" }}
           value={settings.footer_text ?? settings.site_name}
         />
+        <p className="vr-footer-links">
+          <Link href="/privaatsus">Privaatsus</Link>
+        </p>
       </footer>
     </div>
   );

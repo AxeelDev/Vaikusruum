@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { ContactDetails } from "@/components/public/ContactDetails";
+import { LinkButtonRow } from "@/components/public/LinkButtons";
 import { submitPublicForm } from "@/lib/actions/submit-form";
+import type { LinkButton } from "@/lib/content/form-buttons";
 import type { SiteSettings } from "@/types/content";
 
 const noopSubscribe = () => () => {};
@@ -30,6 +33,8 @@ export function ContactForm({
   settings,
   showKindSelect = true,
   pageSlug,
+  buttons = [],
+  draft = false,
 }: {
   kind?: "contact" | "registration" | "private_lesson";
   offeringId?: string;
@@ -38,8 +43,12 @@ export function ContactForm({
   settings?: SiteSettings;
   showKindSelect?: boolean;
   pageSlug?: string;
+  buttons?: LinkButton[];
+  draft?: boolean;
 }) {
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
+  // When the form appeared; submissions faster than a person could type are dropped as spam.
+  const [startedAt] = useState(() => Date.now());
   const [error, setError] = useState("");
   const [chosenKind, setSelectedKind] = useState<typeof kind | null>(null);
   const topicFromUrl = useTopicFromUrl();
@@ -66,6 +75,9 @@ export function ContactForm({
       message: formData.get("message") || null,
       preferredDate: formData.get("preferredDate") || null,
       pageSlug: pageSlug || null,
+      consent: formData.get("consent") === "on",
+      website: formData.get("website"),
+      startedAt,
     });
     if (!result.ok) {
       setStatus("error");
@@ -113,10 +125,27 @@ export function ContactForm({
           Sõnum
           <textarea name="message" />
         </label>
-        {error ? <p className="vr-form-error">{error}</p> : null}
+        {/* Hidden from people; bots that fill every field reveal themselves here. */}
+        <div className="vr-hp" aria-hidden="true">
+          <label>
+            Veebileht
+            <input name="website" tabIndex={-1} autoComplete="off" />
+          </label>
+        </div>
+        <label className="vr-check vr-consent">
+          <input type="checkbox" name="consent" required />
+          <span>
+            Nõustun, et mu andmeid kasutatakse sellele sõnumile vastamiseks.{" "}
+            <Link href="/privaatsus" target="_blank" className="vr-text-link">
+              Privaatsusteave
+            </Link>
+          </span>
+        </label>
+        {error ? <p className="vr-form-error" role="alert">{error}</p> : null}
         <button className="vr-cta" type="submit" disabled={status === "sending"}>
           {status === "sending" ? "Saadan…" : "Saada"}
         </button>
+        <LinkButtonRow buttons={buttons} draft={draft} align="start" />
       </form>
       {settings ? <ContactDetails settings={settings} /> : null}
       {!settings && email ? (

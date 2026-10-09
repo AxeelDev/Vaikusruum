@@ -574,9 +574,15 @@ html.vr-editor-lock body {
 }
 
 .vr-editor-error {
+  display: grid;
+  gap: 8px;
   margin: 0;
   padding: 6px 12px;
   font-size: 13px;
+}
+
+.vr-editor-error p {
+  margin: 0;
 }
 
 .vr-editor-canvas {
@@ -2052,4 +2058,79 @@ html.vr-editor-lock body {
   .vr-editor-root[data-inspector-open="true"] > .vr-editor-workspace {
     padding-left: var(--editor-inspector-width, var(--editor-sidebar-width));
   }
+}
+
+.vr-ed-button-links {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vr-ed-button-links li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label remove"
+    "link link"
+    "error error";
+  gap: 4px;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ed-border-soft);
+}
+
+.vr-ed-button-links li > .vr-ed-input:first-of-type { grid-area: label; }
+.vr-ed-button-links li > .vr-ed-iconbtn { grid-area: remove; }
+.vr-ed-button-links li > .vr-ed-input:last-of-type { grid-area: link; }
+.vr-ed-button-links li > .vr-ed-help { grid-area: error; }
+
+.vr-ed-button-links li .vr-ed-input {
+  min-width: 0;
+}
+
+.vr-ed-dates {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vr-ed-dates {
+  gap: 10px;
+}
+
+/* Date and remove button on the first row, start – end time below. */
+.vr-ed-dates li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-areas:
+    "day day remove"
+    "start end ."
+    "note note note";
+  gap: 4px;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ed-border-soft);
+}
+
+.vr-ed-date-day { grid-area: day; }
+.vr-ed-date-start { grid-area: start; }
+.vr-ed-date-end { grid-area: end; }
+.vr-ed-date-remove { grid-area: remove; }
+.vr-ed-date-note { grid-area: note; }
+
+.vr-ed-dates li .vr-ed-input {
+  min-width: 0;
+  padding-inline: 6px;
+}
+
+.vr-ed-dates li[data-past="true"] .vr-ed-input {
+  opacity: 0.55;
+}
+
+.vr-ed-dates li .vr-ed-muted {
+  font-size: 11px;
 }

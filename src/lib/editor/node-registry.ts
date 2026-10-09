@@ -142,6 +142,7 @@ export function resolveNodeKind(selection: EditorSelection, options?: { rich?: b
   if (selection.offeringId) return "offering";
   const fromField = kindFromField(selection.field);
   if (fromField) return fromField;
+  if (selection.field === "form" || selection.field === "formButtons") return "form";
   if (options?.rich) return "richText";
   return "text";
 }
