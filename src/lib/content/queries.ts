@@ -1,3 +1,5 @@
+import { cache } from "react";
+import { createPublicSupabase } from "@/lib/supabase/public";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { parseTheme, DEFAULT_THEME, type ThemeTokens } from "@/lib/theme/theme";
 import { isCustomImageField } from "@/lib/editor/image-style";
@@ -14,19 +16,19 @@ import type {
 
 export { pageHref } from "@/lib/utils/urls";
 
-export async function getTheme(): Promise<ThemeTokens> {
+export const getTheme = cache(async function getTheme(): Promise<ThemeTokens> {
   try {
-    const supabase = await createServerSupabase();
+    const supabase = createPublicSupabase();
     const { data } = await supabase.from("theme_settings").select("tokens").eq("id", 1).maybeSingle();
     return parseTheme(data?.tokens ?? DEFAULT_THEME);
   } catch {
     return DEFAULT_THEME;
   }
-}
+});
 
-export async function getCustomCss(): Promise<string> {
+export const getCustomCss = cache(async function getCustomCss(): Promise<string> {
   try {
-    const supabase = await createServerSupabase();
+    const supabase = createPublicSupabase();
     const { data } = await supabase
       .from("advanced_style_settings")
       .select("custom_css")
@@ -36,9 +38,9 @@ export async function getCustomCss(): Promise<string> {
   } catch {
     return "";
   }
-}
+});
 
-export async function getSiteSettings(): Promise<SiteSettings> {
+export const getSiteSettings = cache(async function getSiteSettings(): Promise<SiteSettings> {
   const fallback: SiteSettings = {
     id: 1,
     site_name: "Vaikusruum",
@@ -54,7 +56,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     footer_text: null,
   };
   try {
-    const supabase = await createServerSupabase();
+    const supabase = createPublicSupabase();
     const { data } = await supabase.from("site_settings").select("*").eq("id", 1).maybeSingle();
     if (!data) return fallback;
     return {
@@ -74,11 +76,11 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   } catch {
     return fallback;
   }
-}
+});
 
-export async function getNavItems(): Promise<NavItem[]> {
+export const getNavItems = cache(async function getNavItems(): Promise<NavItem[]> {
   try {
-    const supabase = await createServerSupabase();
+    const supabase = createPublicSupabase();
     const { data } = await supabase
       .from("pages")
       .select("slug, title, nav_label, nav_order")
@@ -93,13 +95,13 @@ export async function getNavItems(): Promise<NavItem[]> {
   } catch {
     return [];
   }
-}
+});
 
-export async function getPublishedPage(slug: string): Promise<{
+export const getPublishedPage = cache(async function getPublishedPage(slug: string): Promise<{
   page: PageRow;
   sections: SectionRow[];
 } | null> {
-  const supabase = await createServerSupabase();
+  const supabase = createPublicSupabase();
   const { data: page } = await supabase
     .from("pages")
     .select("*")
@@ -119,24 +121,24 @@ export async function getPublishedPage(slug: string): Promise<{
     page: page as PageRow,
     sections: (sections ?? []) as SectionRow[],
   };
-}
+});
 
-export async function getOfferingsByIds(ids: string[]): Promise<OfferingRow[]> {
+export const getOfferingsByIds = cache(async function getOfferingsByIds(ids: string[]): Promise<OfferingRow[]> {
   if (ids.length === 0) return [];
-  const supabase = await createServerSupabase();
+  const supabase = createPublicSupabase();
   const { data } = await supabase.from("offerings").select("*").in("id", ids).eq("active", true);
   const list = (data ?? []) as OfferingRow[];
   return ids.map((id) => list.find((item) => item.id === id)).filter((item): item is OfferingRow => Boolean(item));
-}
+});
 
-export async function getOfferingById(id: string): Promise<OfferingRow | null> {
-  const supabase = await createServerSupabase();
+export const getOfferingById = cache(async function getOfferingById(id: string): Promise<OfferingRow | null> {
+  const supabase = createPublicSupabase();
   const { data } = await supabase.from("offerings").select("*").eq("id", id).maybeSingle();
   return (data as OfferingRow | null) ?? null;
-}
+});
 
-export async function getEventsForOffering(offeringId: string): Promise<EventRow[]> {
-  const supabase = await createServerSupabase();
+export const getEventsForOffering = cache(async function getEventsForOffering(offeringId: string): Promise<EventRow[]> {
+  const supabase = createPublicSupabase();
   const { data } = await supabase
     .from("events")
     .select("*")
@@ -144,19 +146,19 @@ export async function getEventsForOffering(offeringId: string): Promise<EventRow
     .eq("active", true)
     .order("sort_order", { ascending: true });
   return (data ?? []) as EventRow[];
-}
+});
 
-export async function getMediaByIds(ids: string[]): Promise<Record<string, MediaRow>> {
+export const getMediaByIds = cache(async function getMediaByIds(ids: string[]): Promise<Record<string, MediaRow>> {
   const unique = [...new Set(ids.filter(Boolean))];
   if (unique.length === 0) return {};
-  const supabase = await createServerSupabase();
+  const supabase = createPublicSupabase();
   const { data } = await supabase.from("media").select("*").in("id", unique);
   const map: Record<string, MediaRow> = {};
   for (const row of (data ?? []) as MediaRow[]) {
     map[row.id] = row;
   }
   return map;
-}
+});
 
 export { mediaPublicUrl } from "@/lib/utils/urls";
 

@@ -5,6 +5,11 @@ const supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : undefined;
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  experimental: {
+    // Pages fetched in the background stay in the browser for a whole visit (30 min) instead of 5;
+    // a full page refresh always loads fresh copies.
+    staleTimes: { static: 1800 },
+  },
   async redirects() {
     return [
       { source: "/pehme-jooga-ja-loogastus", destination: "/pehme-jooga-ja-gong", permanent: true },

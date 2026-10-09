@@ -6,7 +6,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|brand/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  // Only signed-in areas need the session refreshed; public pages stay cacheable and skip the auth round trip.
+  matcher: ["/admin/:path*", "/api/:path*"],
 };

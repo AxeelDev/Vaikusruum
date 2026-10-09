@@ -27,7 +27,7 @@ export async function generateCmsMetadata(slug: string): Promise<Metadata> {
   };
 }
 
-export async function CmsPage({ slug, teema }: { slug: string; teema?: string }) {
+export async function CmsPage({ slug }: { slug: string }) {
   const data = await getPublishedPage(slug);
   if (!data) notFound();
 
@@ -56,14 +56,7 @@ export async function CmsPage({ slug, teema }: { slug: string; teema?: string })
     }),
   );
 
-  const sections =
-    slug === "kontakt" && teema === "eratund"
-      ? data.sections.map((section) =>
-          section.section_type === "contact"
-            ? { ...section, content: { ...section.content, defaultKind: "private_lesson" } }
-            : section,
-        )
-      : data.sections;
+  const sections = data.sections;
 
   return (
     <SiteView

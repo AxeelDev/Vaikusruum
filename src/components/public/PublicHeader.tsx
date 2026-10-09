@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { EditableText } from "@/components/site/Editable";
 import { useOptionalEditor } from "@/components/editor/EditorProvider";
@@ -25,6 +25,15 @@ export function PublicHeader({
   const headerRef = useRef<HTMLElement>(null);
   const menuId = useId();
   const open = openRoute === current;
+  const router = useRouter();
+
+  // Warm every menu page as soon as the site loads, so menu clicks open from memory.
+  // The links live in a collapsed menu, where automatic viewport prefetching would never see them.
+  const hrefs = items.map((item) => item.href).join("|");
+  useEffect(() => {
+    if (editor) return;
+    for (const href of hrefs.split("|")) if (href) router.prefetch(href);
+  }, [editor, hrefs, router]);
 
   useEffect(() => {
     if (!open) return;

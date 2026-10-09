@@ -1,9 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { ContactDetails } from "@/components/public/ContactDetails";
 import { submitPublicForm } from "@/lib/actions/submit-form";
 import type { SiteSettings } from "@/types/content";
+
+const noopSubscribe = () => () => {};
+
+/** "/kontakt?teema=eratund" preselects the private-lesson topic. Read in the browser so the page can stay static. */
+function useTopicFromUrl(): "private_lesson" | null {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => (new URLSearchParams(window.location.search).get("teema") === "eratund" ? "private_lesson" : null),
+    () => null,
+  );
+}
 
 const KIND_LABEL = {
   contact: "Üldine küsimus",
@@ -30,7 +41,9 @@ export function ContactForm({
 }) {
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
   const [error, setError] = useState("");
-  const [selectedKind, setSelectedKind] = useState(kind);
+  const [chosenKind, setSelectedKind] = useState<typeof kind | null>(null);
+  const topicFromUrl = useTopicFromUrl();
+  const selectedKind = chosenKind ?? (showKindSelect ? topicFromUrl : null) ?? kind;
 
   const links = useMemo(() => {
     const entries: Array<[string, string]> = [];

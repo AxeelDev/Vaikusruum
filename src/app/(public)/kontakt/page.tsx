@@ -4,11 +4,7 @@ export async function generateMetadata() {
   return generateCmsMetadata("kontakt");
 }
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ teema?: string }>;
-}) {
-  const { teema } = await searchParams;
-  return <CmsPage slug="kontakt" teema={teema} />;
+// ?teema=eratund is read by the contact form in the browser, so this page stays static.
+export default async function Page() {
+  return <CmsPage slug="kontakt" />;
 }
