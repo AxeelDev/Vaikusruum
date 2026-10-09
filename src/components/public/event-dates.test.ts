@@ -18,14 +18,15 @@ describe("EventDates", () => {
     event("4", "2026-12-07T19:00:00+02:00", "2026-12-07T20:30:00+02:00"),
   ];
 
-  it("shows one row per month and the shared time once", () => {
+  it("shows one row per month and leaves out a time shared by every date", () => {
     const html = markup(events);
     expect(html.match(/vr-dates-month/g)).toHaveLength(3);
     for (const month of ["oktoober", "november", "detsember"]) expect(html).toContain(month);
     expect(html).toContain("19.10");
     expect(html).toContain("2.11");
     expect(html).toContain("23.11");
-    expect(html.match(/kell 19:00–20:30/g)).toHaveLength(1);
+    expect(html).toContain("7.12");
+    expect(html).not.toContain("kell");
   });
 
   it("keeps each date's own time when they differ", () => {

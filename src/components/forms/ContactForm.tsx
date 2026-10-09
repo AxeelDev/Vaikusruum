@@ -73,7 +73,7 @@ export function ContactForm({
   const [chosenLesson, setChosenLesson] = useState<string | null>(null);
   const fromUrl = useUrlChoice();
   const selectedKind = chosenKind ?? (showKindSelect ? fromUrl.topic : null) ?? kind;
-  // In the editor the class list always shows, so its texts can be reached before "Eratund" is chosen.
+  // In the editor the class list always shows, so its texts can be reached before "Registreerumine" is chosen.
   const askClass = showKindSelect && (selectedKind === "private_lesson" || Boolean(edit)) && lessonOptions.length > 1;
   const classOnlyInEditor = Boolean(edit) && selectedKind !== "private_lesson";
   const text = (key: keyof FormCopy) => (edit ? edit.copy(key, copy[key]) : copy[key]);
@@ -149,7 +149,7 @@ export function ContactForm({
         {askClass ? (
           <fieldset
             className={["vr-choice-group", classOnlyInEditor ? "vr-editor-hidden" : ""].filter(Boolean).join(" ")}
-            title={classOnlyInEditor ? "Külastaja näeb seda, kui valib „Eratund“" : undefined}
+            title={classOnlyInEditor ? `Külastaja näeb seda, kui valib „${copy.formKindLesson}“` : undefined}
           >
             <legend>{text("formClassLabel")}</legend>
             <div className="vr-choice-list">

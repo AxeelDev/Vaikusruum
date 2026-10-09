@@ -128,9 +128,9 @@ test.describe("privacy and forms", () => {
     await expect(page.locator("main select")).toHaveCount(0);
     const group = page.getByRole("group", { name: "Teema" });
     await expect(group.getByRole("radio", { name: "Küsimus" })).toBeChecked();
-    await expect(group.getByRole("radio", { name: "Eratund" })).not.toBeChecked();
+    await expect(group.getByRole("radio", { name: "Registreerumine" })).not.toBeChecked();
     await expect(page.getByRole("group", { name: "Milline tund?" })).toHaveCount(0);
-    await group.getByRole("radio", { name: "Eratund" }).check();
+    await group.getByRole("radio", { name: "Registreerumine" }).check();
     const classes = page.getByRole("group", { name: "Milline tund?" });
     await expect(classes).toBeVisible();
     const labels = await classes.locator("label").allTextContents();
@@ -144,7 +144,7 @@ test.describe("privacy and forms", () => {
 
   test("?teema=eratund preselects the private lesson topic", async ({ page }) => {
     await page.goto("/kontakt?teema=eratund");
-    await expect(page.getByRole("group", { name: "Teema" }).getByRole("radio", { name: "Eratund" })).toBeChecked();
+    await expect(page.getByRole("group", { name: "Teema" }).getByRole("radio", { name: "Registreerumine" })).toBeChecked();
     await expect(page.getByRole("group", { name: "Milline tund?" })).toBeVisible();
   });
 

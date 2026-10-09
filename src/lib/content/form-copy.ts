@@ -6,7 +6,7 @@
 export const FORM_COPY_DEFAULTS = {
   formKindLabel: "Teema",
   formKindContact: "Küsimus",
-  formKindLesson: "Eratund",
+  formKindLesson: "Registreerumine",
   formClassLabel: "Milline tund?",
   formUnsure: "Pole veel kindel",
   formName: "Nimi",
@@ -32,7 +32,7 @@ export type FormCopy = Record<FormCopyKey, string>;
 export const FORM_COPY_LABELS: Record<FormCopyKey, string> = {
   formKindLabel: "Teema silt",
   formKindContact: "Teema: küsimus",
-  formKindLesson: "Teema: eratund",
+  formKindLesson: "Teema: registreerumine",
   formClassLabel: "Tunni küsimus",
   formUnsure: "Tund: pole veel kindel",
   formName: "Nime väli",

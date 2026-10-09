@@ -1,9 +1,9 @@
 import { groupEventsByMonth } from "@/lib/content/events";
 import type { EventRow } from "@/types/content";
 
-/** Upcoming dates, one line per month: the month as a quiet label, the dates beside it, the shared time once below. */
+/** Upcoming dates, one line per month. A time is shown beside a date only when that date's time differs from the others. */
 export function EventDates({ events }: { events: EventRow[] }) {
-  const { months, sharedTime, other } = groupEventsByMonth(events);
+  const { months, other } = groupEventsByMonth(events);
   if (!months.length && !other.length) return null;
   return (
     <dl className="vr-dates">
@@ -30,14 +30,6 @@ export function EventDates({ events }: { events: EventRow[] }) {
           </dd>
         </div>
       ))}
-      {sharedTime ? (
-        <div className="vr-dates-row">
-          <dt className="vr-sr-only">Kellaaeg</dt>
-          <dd className="vr-dates-days vr-dates-days--only">
-            <span className="vr-date-time">kell {sharedTime}</span>
-          </dd>
-        </div>
-      ) : null}
     </dl>
   );
 }

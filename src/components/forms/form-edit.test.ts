@@ -89,7 +89,7 @@ describe("every text of the contact form can be edited", () => {
     expect(markup).toContain("Milline tund?");
   });
 
-  it("shows the class list in the editor even before Eratund is chosen, marked as hidden for visitors", () => {
+  it("shows the class list in the editor even before Registreerumine is chosen, marked as hidden for visitors", () => {
     const spy = recorder();
     const markup = render(createElement(ContactForm, { settings, lessonOptions: options, edit: spy.edit }));
     expect(markup).toContain("Milline tund?");

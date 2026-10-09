@@ -390,7 +390,7 @@ function DatesPanel({ sectionId }: { sectionId: string }) {
     <div className="vr-inspector-body">
       <EditorContext kicker="Kuupäevad" title="Kuupäevad" />
       <EventDatesControls offeringId={offeringId} />
-      <p className="vr-ed-help">Kuu nimi, kellaaeg ja kuupäevade järjekord kujunevad nendest ridadest. Üks kellaaeg näidatakse korra, kui see on kõigil sama.</p>
+      <p className="vr-ed-help">Kuu nimi ja kuupäevade järjekord kujunevad nendest ridadest. Kellaaeg lisatakse kuupäeva järele ainult siis, kui kellaajad erinevad.</p>
     </div>
   );
 }

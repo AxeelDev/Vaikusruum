@@ -16,15 +16,15 @@ function radio(markup: string, name: string, value: string) {
 }
 
 describe("ContactForm topic picker", () => {
-  it("offers Küsimus and Eratund as a radio group, not a select", () => {
+  it("offers Küsimus and Registreerumine as a radio group, not a select", () => {
     const markup = renderToStaticMarkup(createElement(ContactForm, { lessonOptions: options }));
     expect(markup).not.toContain("<select");
     expect(markup).toContain("<fieldset");
     expect(radio(markup, "kind", "contact")).toContain("checked");
     expect(radio(markup, "kind", "private_lesson")).not.toContain("checked");
     expect(markup).toContain("Küsimus");
-    expect(markup).toContain("Eratund");
-    // The class list only appears once Eratund is chosen.
+    expect(markup).toContain("Registreerumine");
+    // The class list only appears once Registreerumine is chosen.
     expect(markup).not.toContain("Milline tund?");
   });
 
