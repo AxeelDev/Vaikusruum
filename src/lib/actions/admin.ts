@@ -174,6 +174,83 @@ export async function deleteSubmissionAction(id: string) {
   return { ok: true };
 }
 
+const testimonialSchema = z.object({
+  quote: z.string().trim().min(1, "Tagasiside tekst on kohustuslik.").max(1200, "Tagasiside võib olla kuni 1200 märki pikk."),
+  name: z
+    .string()
+    .trim()
+    .max(120, "Nimi võib olla kuni 120 märki pikk.")
+    .nullable()
+    .transform((value) => value || null),
+  photo_media_id: z.string().regex(UUID).nullable(),
+  show_name: z.boolean(),
+  show_photo: z.boolean(),
+  published: z.boolean(),
+});
+
+export type TestimonialFields = z.input<typeof testimonialSchema>;
+export type TestimonialResult = { ok: true; id?: string } | { error: string };
+
+function refreshTestimonials() {
+  revalidatePath("/admin/tagasiside");
+  refreshPublicSite();
+}
+
+export async function createTestimonialAction(fields: TestimonialFields): Promise<TestimonialResult> {
+  await requireAdmin();
+  const parsed = testimonialSchema.safeParse(fields);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Kontrolli välju." };
+  const supabase = await createServerSupabase();
+  // New testimonials go to the end of the list.
+  const { data: last } = await supabase.from("testimonials").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
+  const { data, error } = await supabase
+    .from("testimonials")
+    .insert({ ...parsed.data, sort_order: (last?.sort_order ?? -1) + 1 })
+    .select("id")
+    .single();
+  if (error || !data) return { error: "Lisamine ebaõnnestus." };
+  refreshTestimonials();
+  return { ok: true, id: data.id as string };
+}
+
+export async function updateTestimonialAction(id: string, fields: TestimonialFields): Promise<TestimonialResult> {
+  await requireAdmin();
+  if (!UUID.test(id)) return { error: "Tagasisidet ei leitud." };
+  const parsed = testimonialSchema.safeParse(fields);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Kontrolli välju." };
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.from("testimonials").update(parsed.data).eq("id", id).select("id");
+  if (error) return { error: "Salvestamine ebaõnnestus." };
+  if (!data?.length) return { error: "Tagasisidet ei leitud. Võib-olla kustutati see vahepeal." };
+  refreshTestimonials();
+  return { ok: true };
+}
+
+export async function deleteTestimonialAction(id: string): Promise<TestimonialResult> {
+  await requireAdmin();
+  if (!UUID.test(id)) return { error: "Tagasisidet ei leitud." };
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from("testimonials").delete().eq("id", id);
+  if (error) return { error: "Kustutamine ebaõnnestus." };
+  refreshTestimonials();
+  return { ok: true };
+}
+
+/** Saves the order: the ids in the order they should appear. */
+export async function reorderTestimonialsAction(ids: string[]): Promise<TestimonialResult> {
+  await requireAdmin();
+  if (!Array.isArray(ids) || ids.length > 500 || ids.some((id) => !UUID.test(id)) || new Set(ids).size !== ids.length) {
+    return { error: "Järjekorda ei õnnestunud salvestada." };
+  }
+  const supabase = await createServerSupabase();
+  for (const [index, id] of ids.entries()) {
+    const { error } = await supabase.from("testimonials").update({ sort_order: index }).eq("id", id);
+    if (error) return { error: "Järjekorra salvestamine ebaõnnestus." };
+  }
+  refreshTestimonials();
+  return { ok: true };
+}
+
 export type SaveDraftResult = { ok: true; revision: number } | { error: string; conflict?: boolean };
 
 function text(value: unknown, max: number): string | null {

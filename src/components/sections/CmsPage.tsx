@@ -4,14 +4,17 @@ import type { Metadata } from "next";
 import {
   collectMediaIds,
   getEventsForOffering,
+  getLessonOptions,
   getMediaByIds,
   getNavItems,
   getOfferingsByIds,
   getPublishedPage,
+  getPublishedTestimonials,
   getSiteSettings,
   getTheme,
 } from "@/lib/content/queries";
 import { upcomingEventsNow } from "@/lib/content/events";
+import { listLayoutElements } from "@/lib/editor/layout-tree";
 import { pageHref } from "@/lib/utils/urls";
 import type { EventRow, OfferingRow } from "@/types/content";
 
@@ -48,12 +51,19 @@ export async function CmsPage({ slug }: { slug: string }) {
     return ids;
   });
 
-  const [offeringRows, media, settings, theme, nav] = await Promise.all([
+  // Only pages with a contact form need the list of classes it offers.
+  const hasForm = data.sections.some((section) => section.section_type === "contact" || listLayoutElements(section).some((node) => node.elementType === "form"));
+
+  const hasTestimonials = data.sections.some((section) => section.section_type === "testimonials");
+
+  const [offeringRows, media, settings, theme, nav, lessonOptions, testimonials] = await Promise.all([
     getOfferingsByIds(offeringIds),
     getMediaByIds(collectMediaIds(data.sections)),
     getSiteSettings(),
     getTheme(),
     getNavItems(),
+    hasForm ? getLessonOptions() : Promise.resolve(undefined),
+    hasTestimonials ? getPublishedTestimonials() : Promise.resolve(undefined),
   ]);
 
   const offerings: Record<string, OfferingRow> = {};
@@ -80,6 +90,8 @@ export async function CmsPage({ slug }: { slug: string }) {
       nav={nav.length ? nav : [{ href: pageHref(data.page.slug), label: data.page.nav_label || data.page.title, slug: data.page.slug }]}
       themeDensity={theme.specksDensity}
       headerSticky={theme.headerSticky}
+      lessonOptions={lessonOptions}
+      testimonials={testimonials}
     />
   );
 }

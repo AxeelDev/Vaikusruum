@@ -12,6 +12,8 @@ import { LinkButtonRow } from "@/components/public/LinkButtons";
 import { readButtonLinks } from "@/lib/content/form-buttons";
 import { EventDates } from "@/components/public/EventDates";
 import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/content/private-lessons";
+import { privateLessonHref, type LessonOption } from "@/lib/content/lesson-options";
+import { TestimonialList } from "@/components/public/Testimonials";
 import { EditableNode, EditableText } from "@/components/site/Editable";
 import { EditableRichText } from "@/components/site/EditableRichText";
 import { MediaFrame, ScreenSection, SectionInner, SplitLayout, isHomeSceneSection } from "@/components/layout/primitives";
@@ -25,7 +27,7 @@ import { contactHeadingClass, contactHeadingTag } from "@/lib/content/headings";
 import { pageHref } from "@/lib/utils/urls";
 import { docHasText, isTiptapDoc } from "@/lib/content/rich-text";
 import type { EditorSelection } from "@/lib/editor/types";
-import type { EventRow, LayoutColumnNode, LayoutElementNode, LayoutGroupNode, LayoutNode, MediaRow, OfferingRow, SectionRow, SiteSettings } from "@/types/content";
+import type { EventRow, LayoutColumnNode, LayoutElementNode, LayoutGroupNode, LayoutNode, MediaRow, OfferingRow, SectionRow, SiteSettings, TestimonialWithPhoto } from "@/types/content";
 
 function SectionShell({
   section,
@@ -232,6 +234,8 @@ export function SectionList({
   media,
   settings,
   themeDensity,
+  lessonOptions,
+  testimonials,
 }: {
   slug: string;
   sections: SectionRow[];
@@ -240,6 +244,8 @@ export function SectionList({
   media: Record<string, MediaRow>;
   settings: SiteSettings;
   themeDensity: string;
+  lessonOptions?: LessonOption[];
+  testimonials?: TestimonialWithPhoto[];
 }) {
   const editor = useOptionalEditor();
   const visible = editor ? sections : sections.filter((section) => section.enabled);
@@ -256,6 +262,8 @@ export function SectionList({
           media={media}
           settings={settings}
           themeDensity={themeDensity}
+          lessonOptions={lessonOptions}
+          testimonials={testimonials}
         />
       ))}
     </>
@@ -270,6 +278,8 @@ function SectionView({
   media,
   settings,
   themeDensity,
+  lessonOptions,
+  testimonials,
 }: {
   slug: string;
   section: SectionRow;
@@ -278,6 +288,8 @@ function SectionView({
   media: Record<string, MediaRow>;
   settings: SiteSettings;
   themeDensity: string;
+  lessonOptions?: LessonOption[];
+  testimonials?: TestimonialWithPhoto[];
 }) {
   const editor = useOptionalEditor();
   const specksOn = section.style?.specks !== false;
@@ -348,7 +360,6 @@ function SectionView({
     }
     if (node.type === "group") {
       if (isFaqItemGroup(section, node)) return renderFaqItemGroup(node);
-      if (isTestimonialGroup(section, node)) return renderTestimonialGroup(node);
       const children = renderContainerChildren(node);
       if (children.length === 0 && (!editor || editor.state.preview)) return null;
       return (
@@ -495,6 +506,7 @@ function SectionView({
           settings={embedded ? undefined : settings}
           showKindSelect={kind !== "registration"}
           pageSlug={slug}
+          lessonOptions={lessonOptions}
         />
       );
       if (!selection) return form;
@@ -548,6 +560,13 @@ function SectionView({
               {lesson.duration ? <span className="vr-private-duration">{lesson.duration}</span> : null}
             </h3>
             {lesson.description ? <p>{lesson.description}</p> : null}
+            {lesson.title ? (
+              <p>
+                <Link className="vr-text-link" href={privateLessonHref(section.content, lesson.title)}>
+                  {String(section.content.actionLabel || PAGE_COPY_DEFAULTS.privateAction)}
+                </Link>
+              </p>
+            ) : null}
           </article>
         ))}
       </EditableNode>
@@ -717,14 +736,6 @@ function SectionView({
     );
   }
 
-  function isTestimonialGroup(current: SectionRow, node: LayoutNode): boolean {
-    return (
-      current.section_type === "testimonials" &&
-      node.type === "group" &&
-      node.children.some((child) => child.type === "element" && child.field?.startsWith("quote."))
-    );
-  }
-
   function renderFaqItemGroup(node: LayoutGroupNode): ReactNode {
     const question = node.children.find((child) => child.type === "element" && child.field?.startsWith("q."));
     const answer = node.children.find((child) => child.type === "element" && child.field?.startsWith("a."));
@@ -744,23 +755,6 @@ function SectionView({
           </summary>
           {answerField ? renderTextField(answerField, { multiline: true, hideIfEmpty: false }) : null}
         </details>
-      </LayoutContainer>
-    );
-  }
-
-  function renderTestimonialGroup(node: LayoutGroupNode): ReactNode {
-    const quote = node.children.find((child) => child.type === "element" && child.field?.startsWith("quote."));
-    const name = node.children.find((child) => child.type === "element" && child.field?.startsWith("name."));
-    const quoteField = quote && quote.type === "element" ? quote.field : undefined;
-    const nameField = name && name.type === "element" ? name.field : undefined;
-    const quoteValue = quoteField ? String(readBoundSectionValue(section, quoteField) ?? "") : "";
-    if (!quoteValue && (!editor || editor.state.preview)) return null;
-    return (
-      <LayoutContainer section={section} node={node} className="vr-layout-group vr-layout-group--small">
-        <blockquote>
-          {quoteField ? renderTextField(quoteField, { multiline: true, hideIfEmpty: false }) : null}
-          {nameField ? renderTextField(nameField, { as: "p", className: "vr-muted" }) : null}
-        </blockquote>
       </LayoutContainer>
     );
   }
@@ -1072,6 +1066,26 @@ function SectionView({
 
   if (section.section_type === "spacer") {
     return <SectionShell section={section} slug={slug} specksOn={false} themeDensity={themeDensity}>{null}</SectionShell>;
+  }
+
+  if (section.section_type === "testimonials") {
+    // Testimonials live in their own table and are edited in the admin panel; this only shows them.
+    const items = testimonials ?? [];
+    const shown = editing ? items : items.filter((item) => item.published);
+    if (!shown.length && !editing) return null;
+    return (
+      <SectionShell section={section} slug={slug} specksOn={specksOn} themeDensity={themeDensity}>
+        <SectionInner>
+          <div className="vr-reading">
+            {shown.length ? (
+              <TestimonialList items={items} showHidden={editing} />
+            ) : (
+              <p className="vr-testimonials-empty">Tagasisidet ei ole veel lisatud. Lisa see halduses.</p>
+            )}
+          </div>
+        </SectionInner>
+      </SectionShell>
+    );
   }
 
   const reading = slug !== "avaleht" && isReadingSection(section);

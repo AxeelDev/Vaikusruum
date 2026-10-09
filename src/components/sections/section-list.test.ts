@@ -221,7 +221,7 @@ describe("section list copy", () => {
     const section = row({
       section_key: "contact",
       section_type: "contact",
-      content: { heading: "VÕTA KONTAKTI" },
+      content: { heading: "VÕTA ÜHENDUST" },
       style: { layout: "text-only", background: "warm" },
     });
     const home = html("avaleht", [section]);

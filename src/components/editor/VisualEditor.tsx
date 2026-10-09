@@ -8,6 +8,7 @@ import { SiteView } from "@/components/site/SiteView";
 import { BREAKPOINT_WIDTH, type AddableElementType, type EditorSelection } from "@/lib/editor/types";
 import { addableNodesForRole } from "@/lib/editor/node-registry";
 import { pageSections } from "@/lib/editor/draft";
+import { buildLessonOptions, lessonsFromSections } from "@/lib/content/lesson-options";
 import { hrefToSlug } from "@/lib/editor/pages";
 import {
   dropsEqual,
@@ -86,6 +87,17 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
   const rafRef = useRef<number | null>(null);
   const page = state.draft.pages.find((item) => item.id === state.pageId) ?? state.draft.pages[0];
   const sections = page ? pageSections(state.draft, page.id) : [];
+  // The same class list visitors see in the contact form, built from the draft.
+  const lessonOptions = useMemo(
+    () =>
+      buildLessonOptions(
+        Object.values(state.draft.offerings)
+          .filter((offering) => offering.active)
+          .sort((a, b) => a.title.localeCompare(b.title)),
+        lessonsFromSections(Object.values(state.draft.sectionsByPage).flat()),
+      ),
+    [state.draft.offerings, state.draft.sectionsByPage],
+  );
   const nav = useMemo(
     () =>
       state.draft.pages
@@ -488,9 +500,12 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
       return { id, type: "section", sectionId: id.slice("section.".length) };
     }
     const type = hit.dataset.vrSelectionType;
+    const known = type === "image" || type === "text" || type === "link" || type === "nav" || type === "header" || type === "container";
+    // An editable text element always carries a field; if its type attribute is missing it is still text, never a container.
+    const fallback = hit.hasAttribute("data-vr-editable") && hit.dataset.vrSelectionField ? "text" : "container";
     return {
       id,
-      type: type === "image" || type === "text" || type === "link" || type === "nav" || type === "header" || type === "container" ? type : "container",
+      type: known ? type : fallback,
       sectionId: hit.dataset.vrSelectionSectionId ?? hit.dataset.vrSectionId,
       field: hit.dataset.vrSelectionField,
       mediaId: hit.dataset.vrSelectionMediaId,
@@ -794,6 +809,8 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
                 nav={nav}
                 themeDensity={state.draft.theme.specksDensity}
                 headerSticky={state.draft.theme.headerSticky}
+                lessonOptions={lessonOptions}
+                testimonials={state.testimonials}
               />
             </div>
             {!state.preview ? (
@@ -922,6 +939,11 @@ function EditorTopBar({
 
   return (
     <div className="vr-editor-topstrip">
+      {state.inspectorOpen ? null : (
+        <button type="button" className="vr-editor-panel-toggle" onClick={() => editor.openInspector()}>
+          <span aria-hidden="true">☰</span> Paneel
+        </button>
+      )}
       <div className="vr-editor-topbar" role="toolbar" aria-label="Redaktori tööriistariba">
         <div className="vr-editor-add">
           <button ref={addButtonRef} type="button" aria-label="Lisa element" data-active={menuOpen ? "true" : undefined} onClick={() => setMenuOpen((open) => !open)}>

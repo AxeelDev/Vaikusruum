@@ -4,10 +4,11 @@ import type { MediaRow } from "@/types/content";
 
 export default async function MediaPage() {
   const supabase = await createServerSupabase();
-  const [media, sections, pages] = await Promise.all([
+  const [media, sections, pages, testimonials] = await Promise.all([
     supabase.from("media").select("*").order("created_at", { ascending: false }),
     supabase.from("sections").select("page_id, content, style"),
     supabase.from("pages").select("id, title, nav_label"),
+    supabase.from("testimonials").select("photo_media_id"),
   ]);
   const items = (media.data ?? []) as MediaRow[];
   const pageName = new Map((pages.data ?? []).map((page) => [page.id, page.nav_label || page.title]));
@@ -21,6 +22,11 @@ export default async function MediaPage() {
       const name = pageName.get(section.page_id) ?? "Leht";
       usage[item.id] = [...new Set([...(usage[item.id] ?? []), name])];
     }
+  }
+
+  // A testimonial photo is in use too, even though it is not stored in a section.
+  for (const row of testimonials.data ?? []) {
+    if (row.photo_media_id) usage[row.photo_media_id] = [...new Set([...(usage[row.photo_media_id] ?? []), "Tagasiside"])];
   }
 
   return <MediaLibrary items={items} usage={usage} />;

@@ -35,6 +35,10 @@ const NAV: NavItem[] = [
     label: "Registreerumised",
   },
   {
+    href: "/admin/tagasiside",
+    label: "Tagasiside",
+  },
+  {
     href: "/admin/media",
     label: "Pildid",
   },

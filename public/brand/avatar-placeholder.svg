@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112" width="112" height="112" role="img" aria-label="">
+  <circle cx="56" cy="56" r="56" fill="#ece6cf"/>
+  <!-- a small spiral, as in the logo, drawn from half-circles that grow with each turn -->
+  <path d="M53 56a3 3 0 0 1 6 0a6 6 0 0 1-12 0a9 9 0 0 1 18 0a12 12 0 0 1-24 0a15 15 0 0 1 30 0a18 18 0 0 1-36 0a21 21 0 0 1 42 0a24 24 0 0 1-48 0a27 27 0 0 1 54 0"
+        fill="none" stroke="#b3ac96" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

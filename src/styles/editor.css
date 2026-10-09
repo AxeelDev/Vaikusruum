@@ -375,6 +375,34 @@ html.vr-editor-lock body {
   z-index: var(--z-editor-topbar);
 }
 
+.vr-editor-panel-toggle {
+  height: 36px;
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--editor-border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--editor-panel) 88%, #22252d);
+  color: var(--editor-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.vr-editor-panel-toggle:hover {
+  background: var(--editor-panel-hover);
+  color: var(--editor-text);
+}
+
+/* On phones the sheet is opened by tapping an element, so there is nothing to bring back. */
+@media (max-width: 759px) {
+  .vr-editor-panel-toggle {
+    display: none;
+  }
+}
+
 .vr-editor-topbar {
   height: 36px;
   display: inline-flex;

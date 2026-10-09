@@ -29,6 +29,8 @@ export type SubmissionCard = {
   preferred_date: string | null;
   created_at: string;
   pageLabel: string;
+  /** The class asked about: an offering's title or a private-lesson topic. */
+  lesson: string | null;
 };
 
 export function SubmissionList({ rows: initial }: { rows: SubmissionCard[] }) {
@@ -99,6 +101,7 @@ export function SubmissionList({ rows: initial }: { rows: SubmissionCard[] }) {
             </header>
             <dl className="vr-submission-fields">
               <SubmissionField label="E-post" value={row.email} href={`mailto:${row.email}`} />
+              <SubmissionField label="Tund" value={row.lesson} />
               <SubmissionField label="Telefon" value={row.phone} href={row.phone ? `tel:${row.phone.replace(/\s+/g, "")}` : undefined} />
               <SubmissionField label="Eelistatud aeg" value={row.preferred_date} />
               <SubmissionField label="Sõnum" value={row.message} wide />

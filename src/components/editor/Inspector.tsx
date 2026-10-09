@@ -33,7 +33,10 @@ import {
   clampTextStyle,
   effectiveTextStyle,
   inheritedTextStyle,
+  isLongTextField,
   isOverridden,
+  LARGE_TEXT_SIZE,
+  longTextSize,
   readTextStyle,
   textStyleKey,
   textStyleScale,
@@ -323,8 +326,8 @@ function EditorFooterControls() {
         variant="primary"
         className="vr-inspector-done"
         onClick={() => {
-          if (state.selected || state.inspectorContext.kind !== "none") editor.deselect();
-          else editor.closeInspector();
+          editor.deselect();
+          editor.closeInspector();
         }}
       >
         Valmis
@@ -756,7 +759,6 @@ function NodeContentInspector() {
       {selected.type === "nav" ? <NavTarget /> : null}
       {selected.field?.startsWith("q.") || selected.field?.startsWith("a.") ? <FaqItemControls /> : null}
       {selected.field?.startsWith("item.") ? <IndexedItemControls kind="item" /> : null}
-      {selected.field?.startsWith("quote.") || selected.field?.startsWith("name.") ? <IndexedItemControls kind="testimonial" /> : null}
     </div>
   );
 }
@@ -792,6 +794,9 @@ function NodeAppearanceInspector() {
   const effective = effectiveTextStyle(override, inherited);
   const scale = textStyleScale(selected, section);
   const sizeRange = TEXT_SIZE_RANGES[scale];
+  const bound = readEditorContent(editor.state.draft, selected);
+  const longText = isLongTextField(selected.field, bound.format, bound.format === "plain" ? bound.value : "", scale);
+  const longSize = longTextSize(override.fontSize);
   const advanced = editor.state.advanced;
   const sectionId = selected.sectionId;
   const swatches = themeColorSwatches(editor.state.draft.theme);
@@ -845,17 +850,36 @@ function NodeAppearanceInspector() {
           Kasuta saidi stiili
         </EditorButton>
       </EditorGroup>
-      <EditorSlider
-        label="Suurus"
-        min={sizeRange.min}
-        max={sizeRange.max}
-        value={effective.fontSize ?? inherited.fontSize ?? 18}
-        onChange={(fontSize) => patch({ fontSize })}
-        unit="px"
-        exact={advanced}
-        inherited={!isOverridden(override, "fontSize")}
-        onReset={() => reset(["fontSize", "size"])}
-      />
+      {longText ? (
+        <EditorGroup label="Suurus">
+          <EditorSegmented<string>
+            value={longSize}
+            options={[
+              { value: "normal", label: "Tavaline" },
+              { value: "large", label: "Suurem" },
+            ]}
+            onChange={(choice) => (choice === "large" ? patch({ fontSize: LARGE_TEXT_SIZE }, true) : reset(["fontSize", "size"]))}
+          />
+          {longSize === "custom" ? <p className="vr-ed-help">Oma suurus: {override.fontSize} px. Pikk tekst on tavaliselt kõikjal sama suur.</p> : null}
+          {longSize !== "normal" ? (
+            <EditorButton variant="ghost" onClick={() => reset(["fontSize", "size"])}>
+              Lähtesta
+            </EditorButton>
+          ) : null}
+        </EditorGroup>
+      ) : (
+        <EditorSlider
+          label="Suurus"
+          min={sizeRange.min}
+          max={sizeRange.max}
+          value={effective.fontSize ?? inherited.fontSize ?? 18}
+          onChange={(fontSize) => patch({ fontSize })}
+          unit="px"
+          exact={advanced}
+          inherited={!isOverridden(override, "fontSize")}
+          onReset={() => reset(["fontSize", "size"])}
+        />
+      )}
       <EditorSlider
         label="Paksus"
         min={100}
@@ -1134,7 +1158,7 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
       <EditorContext kicker="Sektsioon" title={semanticSectionName(section)} />
       {mode === "content" && section.section_type === "faq" ? <FaqSectionContent sectionId={section.id} /> : null}
       {mode === "content" && section.section_type === "important_info" ? <ImportantInfoContent sectionId={section.id} /> : null}
-      {mode === "content" && section.section_type === "testimonials" ? <TestimonialContent sectionId={section.id} /> : null}
+      {mode === "content" && section.section_type === "testimonials" ? <TestimonialsInAdmin /> : null}
       {mode === "content" && section.section_type === "private_lessons" ? <PrivateLessonsSectionContent sectionId={section.id} /> : null}
       {mode === "content" && section.section_type === "offering_practical_info" ? (
         <>
@@ -1951,16 +1975,16 @@ function FaqItemControls() {
   return <IndexedItemControls kind="faq" />;
 }
 
-function IndexedItemControls({ kind }: { kind: "faq" | "item" | "testimonial" }) {
+function IndexedItemControls({ kind }: { kind: "faq" | "item" }) {
   const editor = useEditor();
   const selected = editor.state.selected;
   if (!selected?.sectionId || !selected.field) return null;
-  const match = selected.field.match(/^(q|a|item|quote|name)\.(\d+)$/);
+  const match = selected.field.match(/^(q|a|item)\.(\d+)$/);
   if (!match) return null;
   const index = Number(match[2]);
   const section = findSection(editor.state.draft, selected.sectionId);
   if (!section) return null;
-  const label = kind === "faq" ? "Kustuta küsimus" : kind === "testimonial" ? "Kustuta tsitaat" : "Kustuta punkt";
+  const label = kind === "faq" ? "Kustuta küsimus" : "Kustuta punkt";
   return (
     <>
       <EditorButton
@@ -2054,39 +2078,20 @@ function ImportantInfoContent({ sectionId }: { sectionId: string }) {
   );
 }
 
-function TestimonialContent({ sectionId }: { sectionId: string }) {
+/** Testimonials are kept in the admin panel, so there is one place to add, edit, reorder and remove them. */
+function TestimonialsInAdmin() {
   const editor = useEditor();
-  const section = findSection(editor.state.draft, sectionId);
-  const page = editor.state.draft.pages.find((item) => item.id === section?.page_id);
-  const prefix = `${page?.slug ?? "page"}.${section?.section_key ?? "list"}`;
-  const items = Array.isArray(section?.content.items) ? (section.content.items as Array<{ quote?: string; name?: string }>) : [];
+  const total = editor.state.testimonials.length;
+  const published = editor.state.testimonials.filter((item) => item.published).length;
   return (
     <div className="vr-ed-pages">
-      {items.map((item, index) => (
-        <button
-          key={index}
-          type="button"
-          onClick={() =>
-            editor.select({
-              id: `${prefix}.quote.${index}`,
-              type: "text",
-              sectionId,
-              field: `quote.${index}`,
-            })
-          }
-        >
-          {item.quote?.slice(0, 42) || `Tsitaat ${index + 1}`}
-        </button>
-      ))}
-      <EditorButton
-        variant="secondary"
-        onClick={() => {
-          if (!section) return;
-          const next = [...((section.content.items as unknown[]) ?? []), { quote: "Tsitaat", name: "" }];
-          editor.patchSection(section.id, (row) => ({ ...row, content: { ...row.content, items: next } }));
-        }}
-      >
-        Lisa tsitaat
+      <p className="vr-ed-help">
+        {total
+          ? `Tagasisidet on ${total} (avalikult nähtav: ${published}). Tekst, nimi, pilt ja järjekord on halduses.`
+          : "Tagasisidet ei ole veel lisatud. Lisa see halduses."}
+      </p>
+      <EditorButton variant="secondary" onClick={() => editor.requestNavigation("/admin/tagasiside")}>
+        Muuda tagasisidet halduses
       </EditorButton>
     </div>
   );

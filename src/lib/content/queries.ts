@@ -5,6 +5,7 @@ import { parseTheme, DEFAULT_THEME, type ThemeTokens } from "@/lib/theme/theme";
 import { isCustomImageField } from "@/lib/editor/image-style";
 import { mediaPublicUrl, pageHref } from "@/lib/utils/urls";
 import { readImageSize } from "@/lib/utils/image-size";
+import { buildLessonOptions, lessonsFromSections, type LessonOption } from "@/lib/content/lesson-options";
 import type {
   EventRow,
   MediaRow,
@@ -13,6 +14,7 @@ import type {
   SectionRow,
   SiteSettings,
   NavItem,
+  TestimonialWithPhoto,
 } from "@/types/content";
 
 export { pageHref } from "@/lib/utils/urls";
@@ -132,6 +134,51 @@ export const getOfferingsByIds = cache(async function getOfferingsByIds(ids: str
   return ids.map((id) => list.find((item) => item.id === id)).filter((item): item is OfferingRow => Boolean(item));
 });
 
+export const getActiveOfferings = cache(async function getActiveOfferings(): Promise<OfferingRow[]> {
+  const supabase = createPublicSupabase();
+  const { data } = await supabase.from("offerings").select("*").eq("active", true).order("title", { ascending: true });
+  return (data ?? []) as OfferingRow[];
+});
+
+/** Private-lesson types listed on the published site (the Eratunnid page). */
+export const getPrivateLessonItems = cache(async function getPrivateLessonItems() {
+  const supabase = createPublicSupabase();
+  const { data } = await supabase.from("sections").select("section_type, enabled, content").eq("section_type", "private_lessons");
+  return lessonsFromSections((data ?? []) as Array<{ section_type: string; enabled: boolean; content: Record<string, unknown> }>);
+});
+
+/** Every class a visitor can ask about in the contact form: the active offerings plus the private-lesson types. */
+export const getLessonOptions = cache(async function getLessonOptions(): Promise<LessonOption[]> {
+  try {
+    const [offerings, lessons] = await Promise.all([getActiveOfferings(), getPrivateLessonItems()]);
+    return buildLessonOptions(offerings, lessons);
+  } catch {
+    return buildLessonOptions([], []);
+  }
+});
+
+const TESTIMONIAL_SELECT = "*, photo:media(storage_path, alt_text)";
+
+/** What the Tagasiside page shows: published testimonials in the order the admin set. Empty if the table is not there yet. */
+export const getPublishedTestimonials = cache(async function getPublishedTestimonials(): Promise<TestimonialWithPhoto[]> {
+  try {
+    const supabase = createPublicSupabase();
+    const { data, error } = await supabase
+      .from("testimonials")
+      .select(TESTIMONIAL_SELECT)
+      .eq("published", true)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("[testimonials] read failed:", error.message);
+      return [];
+    }
+    return (data ?? []) as unknown as TestimonialWithPhoto[];
+  } catch {
+    return [];
+  }
+});
+
 export const getOfferingById = cache(async function getOfferingById(id: string): Promise<OfferingRow | null> {
   const supabase = createPublicSupabase();
   const { data } = await supabase.from("offerings").select("*").eq("id", id).maybeSingle();
@@ -201,12 +248,13 @@ export { mediaPublicUrl } from "@/lib/utils/urls";
 
 export async function getEditorBundle() {
   const supabase = await createServerSupabase();
-  const [pagesRes, sectionsRes, offeringsRes, eventsRes, mediaRes] = await Promise.all([
+  const [pagesRes, sectionsRes, offeringsRes, eventsRes, mediaRes, testimonialsRes] = await Promise.all([
     supabase.from("pages").select("*").order("nav_order", { ascending: true }),
     supabase.from("sections").select("*").order("sort_order", { ascending: true }),
     supabase.from("offerings").select("*"),
     supabase.from("events").select("*").order("sort_order", { ascending: true }),
     supabase.from("media").select("*").order("created_at", { ascending: false }),
+    supabase.from("testimonials").select(TESTIMONIAL_SELECT).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
   ]);
 
   const failures = [
@@ -215,6 +263,7 @@ export async function getEditorBundle() {
     ["offerings", offeringsRes.error],
     ["events", eventsRes.error],
     ["media", mediaRes.error],
+    ["testimonials", testimonialsRes.error],
   ] as const;
   for (const [label, error] of failures) {
     if (error) {
@@ -265,6 +314,8 @@ export async function getEditorBundle() {
     theme,
     customCss,
     deletedSectionIds: [] as string[],
+    /** Shown on the canvas, edited in the admin panel; not part of the editor's own draft. */
+    testimonials: (testimonialsRes.data ?? []) as unknown as TestimonialWithPhoto[],
     revision: Number(revisionRes.data?.revision ?? 0),
   };
 }

@@ -51,6 +51,8 @@ async function main() {
   const { data: backups } = await supabase.storage.from("backups").list();
   if (backups && backups.length > 0) throw new Error("anon can list backups");
 
+  await checkTestimonials();
+
   const { data: css } = await supabase.from("advanced_style_settings").update({ custom_css: "body{}" }).eq("id", 1).select();
   if (css && css.length > 0) throw new Error("anon was able to edit custom CSS");
 
@@ -60,6 +62,44 @@ async function main() {
   }
 
   console.log("RLS spot checks passed.");
+}
+
+/** The public sees published testimonials only and can change none. */
+async function checkTestimonials() {
+  const { error: insertError } = await supabase.from("testimonials").insert({ quote: "rls probe", published: true });
+  if (!insertError) throw new Error("anon was able to insert a testimonial");
+
+  if (!service) {
+    console.warn("note: no service key, skipped the unpublished-testimonial visibility check");
+    return;
+  }
+  const admin = createClient(url!, service, { auth: { persistSession: false } });
+  const marker = `rls-probe-${Date.now()}`;
+  const { data: rows, error: seedError } = await admin
+    .from("testimonials")
+    .insert([
+      { quote: `${marker} published`, published: true },
+      { quote: `${marker} hidden`, published: false },
+    ])
+    .select("id, quote, published");
+  if (seedError || !rows) throw new Error(`could not create probe testimonials: ${seedError?.message}`);
+  try {
+    const { data: seen, error } = await supabase.from("testimonials").select("id, quote, published").like("quote", `${marker}%`);
+    if (error) throw new Error(`anon cannot read published testimonials: ${error.message}`);
+    if (!seen?.some((row) => row.published)) throw new Error("anon cannot see a published testimonial");
+    if (seen.some((row) => !row.published)) throw new Error("unpublished testimonial leaked to anon");
+
+    const hidden = rows.find((row) => !row.published)!;
+    const shown = rows.find((row) => row.published)!;
+    await supabase.from("testimonials").update({ quote: "changed by anon" }).eq("id", shown.id);
+    await supabase.from("testimonials").delete().eq("id", shown.id);
+    await supabase.from("testimonials").delete().eq("id", hidden.id);
+    const { data: after } = await admin.from("testimonials").select("id, quote").in("id", rows.map((row) => row.id));
+    if (after?.length !== 2) throw new Error("anon was able to delete a testimonial");
+    if (after.some((row) => row.quote === "changed by anon")) throw new Error("anon was able to edit a testimonial");
+  } finally {
+    await admin.from("testimonials").delete().like("quote", `${marker}%`);
+  }
 }
 
 main().catch((error) => {

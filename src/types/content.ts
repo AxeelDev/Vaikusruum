@@ -233,6 +233,24 @@ export type MediaRow = {
   height?: number;
 };
 
+export type TestimonialRow = {
+  id: string;
+  quote: string;
+  name: string | null;
+  photo_media_id: string | null;
+  show_name: boolean;
+  show_photo: boolean;
+  published: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** A testimonial with the file of its chosen photo, as the page and the editor canvas need it. */
+export type TestimonialWithPhoto = TestimonialRow & {
+  photo: Pick<MediaRow, "storage_path" | "alt_text"> | null;
+};
+
 export type SiteSettings = {
   id: 1;
   site_name: string;

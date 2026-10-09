@@ -36,7 +36,7 @@ test.describe("public site", () => {
 
   test("contact page has no placeholder copy", async ({ page }) => {
     await page.goto("/kontakt");
-    await expect(page.getByText(/VÕTA KONTAKTI|VÕTA ÜHENDUST/)).toBeVisible();
+    await expect(page.getByText("VÕTA ÜHENDUST")).toBeVisible();
     await expect(page.getByText("Miina Laanesaar")).toBeVisible();
     await expect(page.getByRole("link", { name: "miina.laanesaar@gmail.com" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Lorem ipsum");
@@ -78,6 +78,24 @@ test.describe("public site", () => {
     await expect(page.getByText("Tule koos sõbraga!")).toBeVisible();
   });
 
+  test("gong dates are grouped by month with the time shown once", async ({ page }) => {
+    await page.goto("/pehme-jooga-ja-gong");
+    const dates = page.locator(".vr-dates");
+    // Dates are time-dependent; once the last one has passed the block disappears.
+    test.skip((await dates.count()) === 0, "no upcoming dates to show");
+    const months = await dates.locator(".vr-dates-month").allTextContents();
+    expect(months.length).toBeGreaterThan(0);
+    for (const month of months) expect(month).toMatch(/^(jaanuar|veebruar|märts|aprill|mai|juuni|juuli|august|september|oktoober|november|detsember)( \d{4})?$/);
+    expect(new Set(months).size).toBe(months.length);
+    const times = await dates.locator(".vr-date-time").allTextContents();
+    expect(times.length).toBeGreaterThan(0);
+    // Two columns: every label sits left of its dates.
+    const label = await dates.locator(".vr-dates-month").first().boundingBox();
+    const days = await dates.locator(".vr-dates-days").first().boundingBox();
+    expect(days!.x).toBeGreaterThan(label!.x + label!.width);
+    await noHorizontalOverflow(page);
+  });
+
   test("tagasiside is not a public empty page", async ({ page }) => {
     const response = await page.goto("/tagasiside");
     expect(response?.status()).toBe(404);
@@ -105,9 +123,53 @@ test.describe("privacy and forms", () => {
     expect((box?.width ?? 0) <= 1 && (box?.height ?? 0) <= 1).toBe(true);
   });
 
+  test("the topic is two large choices, not a dropdown", async ({ page }) => {
+    await page.goto("/kontakt");
+    await expect(page.locator("main select")).toHaveCount(0);
+    const group = page.getByRole("group", { name: "Teema" });
+    await expect(group.getByRole("radio", { name: "Küsimus" })).toBeChecked();
+    await expect(group.getByRole("radio", { name: "Eratund" })).not.toBeChecked();
+    await expect(page.getByRole("group", { name: "Milline tund?" })).toHaveCount(0);
+    await group.getByRole("radio", { name: "Eratund" }).check();
+    const classes = page.getByRole("group", { name: "Milline tund?" });
+    await expect(classes).toBeVisible();
+    const labels = await classes.locator("label").allTextContents();
+    expect(labels.at(-1)).toBe("Pole veel kindel");
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const label of ["Kundalini jooga", "Pehme jooga ja gongilõdvestus", "Individuaaltund rasedale"]) {
+      expect(labels).toContain(label);
+    }
+    await expect(classes.getByRole("radio", { name: "Pole veel kindel" })).toBeChecked();
+  });
+
   test("?teema=eratund preselects the private lesson topic", async ({ page }) => {
     await page.goto("/kontakt?teema=eratund");
-    await expect(page.locator('main select[name="kind"]')).toHaveValue("private_lesson");
+    await expect(page.getByRole("group", { name: "Teema" }).getByRole("radio", { name: "Eratund" })).toBeChecked();
+    await expect(page.getByRole("group", { name: "Milline tund?" })).toBeVisible();
+  });
+
+  test("&tund= preselects the class, and the Eratunnid page links to it", async ({ page }) => {
+    await page.goto("/kontakt?teema=eratund&tund=individuaaltund-rasedale");
+    await expect(page.getByRole("radio", { name: "Individuaaltund rasedale" })).toBeChecked();
+    await page.goto("/eratunnid");
+    const links = page.locator(".vr-private-lesson").getByRole("link", { name: "Võta ühendust" });
+    await expect(links).toHaveCount(3);
+    await links.nth(2).click();
+    await expect(page).toHaveURL(/tund=individuaaltund-rasedale/);
+    await expect(page.getByRole("radio", { name: "Individuaaltund rasedale" })).toBeChecked();
+  });
+
+  test("an unknown class is refused by the server", async ({ page }) => {
+    await page.goto("/kontakt?teema=eratund");
+    await page.getByLabel("Nimi").fill("Test");
+    await page.getByLabel("E-post").fill("test@example.com");
+    await page.locator('main input[name="consent"]').check();
+    await page.locator('main input[name="lesson"]:checked').evaluate((input: HTMLInputElement) => {
+      input.value = "pole-selline-tund";
+    });
+    await page.waitForTimeout(2800);
+    await page.getByRole("button", { name: "Saada" }).click();
+    await expect(page.locator(".vr-form-error")).toContainText("Valitud tundi ei leitud");
   });
 
   test("pages send the security headers", async ({ request }) => {
@@ -129,5 +191,61 @@ test.describe("admin entry", () => {
     const login = page.getByRole("button", { name: "Logi sisse" });
     await expect(bootstrap.or(login)).toBeVisible();
     await expect(page.locator("body")).not.toContainText("MFA");
+  });
+});
+
+test.describe("typography", () => {
+  const PAGES = ["/", "/kundalini-jooga", "/pehme-jooga-ja-gong", "/eratunnid", "/minust", "/joogatunni-kkk", "/hea-teada", "/kontakt", "/privaatsus"];
+
+  for (const width of [1280, 390]) {
+    test(`long body text is one size at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const odd: string[] = [];
+      for (const path of PAGES) {
+        await page.goto(path);
+        const found = await page.evaluate(() => {
+          const main = document.querySelector("main")!;
+          // The default for running text: an untouched .vr-body in this page, at this width.
+          const probe = document.createElement("div");
+          probe.className = "vr-body";
+          main.appendChild(probe);
+          const base = getComputedStyle(probe).fontSize;
+          probe.remove();
+          return [...main.querySelectorAll("p")]
+            .filter((p) => (p.textContent ?? "").trim().length > 80)
+            // The hero intro and form chrome are larger or smaller on purpose.
+            .filter((p) => !p.closest(".vr-hero-copy, .vr-hero-layout, .vr-form, .vr-contact-details, .vr-editor-hidden"))
+            .map((p) => ({ size: getComputedStyle(p).fontSize, base, text: (p.textContent ?? "").trim().slice(0, 40) }))
+            .filter((item) => item.size !== item.base);
+        });
+        for (const item of found) odd.push(`${path} (${item.size} not ${item.base}): ${item.text}`);
+      }
+      expect(odd).toEqual([]);
+    });
+  }
+
+  test("a paragraph is never a main heading", async ({ page }) => {
+    for (const path of ["/", "/kundalini-jooga"]) {
+      await page.goto(path);
+      const headings = await page.locator("main h1").allTextContents();
+      for (const text of headings) expect(text.trim().length).toBeLessThanOrEqual(80);
+      expect(headings.length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test("the contact name leads and the details are smaller", async ({ page }) => {
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/kontakt");
+      const sizes = await page.evaluate(() => {
+        const px = (selector: string) => parseFloat(getComputedStyle(document.querySelector(selector)!).fontSize);
+        return { name: px(".vr-contact-name"), email: px(".vr-contact-personal a"), company: px(".vr-contact-company p") };
+      });
+      expect(sizes.name).toBeGreaterThanOrEqual(24);
+      expect(sizes.name).toBeGreaterThan(sizes.email * 1.4);
+      expect(sizes.email).toBeLessThanOrEqual(16.5);
+      expect(sizes.company).toBeLessThanOrEqual(16.5);
+      await noHorizontalOverflow(page);
+    }
   });
 });

@@ -15,7 +15,7 @@ export type BoundEditorContent = EditorContent & {
   plainPreview: string;
 };
 
-export type IndexedFieldKind = "q" | "a" | "item" | "quote" | "name";
+export type IndexedFieldKind = "q" | "a" | "item";
 
 export type IndexedField = {
   kind: IndexedFieldKind;
@@ -45,7 +45,7 @@ const EMPTY_PLAIN: BoundEditorContent = {
 
 export function parseIndexedField(field?: string | null): IndexedField | null {
   if (!field) return null;
-  const match = field.match(/^(q|a|item|quote|name)\.(\d+)$/);
+  const match = field.match(/^(q|a|item)\.(\d+)$/);
   if (!match) return null;
   return { kind: match[1] as IndexedFieldKind, index: Number(match[2]) };
 }
@@ -56,13 +56,16 @@ export function textSelection(
   field: string,
   extra: Partial<EditorSelection> = {},
 ): EditorSelection {
-  const offeringBit = extra.offeringId ? `${extra.offeringId}.` : "";
+  // Callers pass optional props straight through (`{ type: options.type }`); an explicit `undefined`
+  // must not overwrite a default, or the element loses its selection type.
+  const given = Object.fromEntries(Object.entries(extra).filter(([, value]) => value !== undefined)) as Partial<EditorSelection>;
+  const offeringBit = given.offeringId ? `${given.offeringId}.` : "";
   return {
-    id: extra.id ?? `${slug}.${section.section_key}.${offeringBit}${field}`,
-    type: extra.type ?? "text",
     sectionId: section.id,
     field,
-    ...extra,
+    ...given,
+    id: given.id ?? `${slug}.${section.section_key}.${offeringBit}${field}`,
+    type: given.type ?? "text",
   };
 }
 
@@ -149,13 +152,7 @@ function bindIndexedField(section: SectionRow, indexed: IndexedField): BoundEdit
   if (indexed.kind === "a") {
     return plain(value, { kind: "faq", sectionId: section.id, index: indexed.index, field: "answer" }, "Vastus");
   }
-  if (indexed.kind === "item") {
-    return plain(value, { kind: "list-item", sectionId: section.id, index: indexed.index }, "Punkt");
-  }
-  if (indexed.kind === "quote") {
-    return plain(value, { kind: "testimonial", sectionId: section.id, index: indexed.index, field: "quote" }, "Tsitaat");
-  }
-  return plain(value, { kind: "testimonial", sectionId: section.id, index: indexed.index, field: "name" }, "Nimi");
+  return plain(value, { kind: "list-item", sectionId: section.id, index: indexed.index }, "Punkt");
 }
 
 export function indexedFieldValue(section: SectionRow, indexed: IndexedField): string {
@@ -165,9 +162,7 @@ export function indexedFieldValue(section: SectionRow, indexed: IndexedField): s
   if (!row || typeof row !== "object") return "";
   const record = row as Record<string, unknown>;
   if (indexed.kind === "q") return String(record.question ?? "");
-  if (indexed.kind === "a") return String(record.answer ?? "");
-  if (indexed.kind === "quote") return String(record.quote ?? "");
-  return String(record.name ?? "");
+  return String(record.answer ?? "");
 }
 
 export function readBoundSectionValue(section: SectionRow, field: string, draft?: EditorDraft): unknown {
@@ -253,8 +248,6 @@ export function fieldLabel(field: string, sectionType?: string) {
   if (indexed?.kind === "q") return "Küsimus";
   if (indexed?.kind === "a") return "Vastus";
   if (indexed?.kind === "item") return "Punkt";
-  if (indexed?.kind === "quote") return "Tsitaat";
-  if (indexed?.kind === "name") return "Nimi";
   return "Sisu";
 }
 

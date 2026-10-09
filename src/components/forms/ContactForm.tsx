@@ -6,24 +6,32 @@ import { ContactDetails } from "@/components/public/ContactDetails";
 import { LinkButtonRow } from "@/components/public/LinkButtons";
 import { submitPublicForm } from "@/lib/actions/submit-form";
 import type { LinkButton } from "@/lib/content/form-buttons";
+import { UNSURE_KEY, findLessonOption, resolveLessonParam, type LessonOption } from "@/lib/content/lesson-options";
 import type { SiteSettings } from "@/types/content";
 
 const noopSubscribe = () => () => {};
 
-/** "/kontakt?teema=eratund" preselects the private-lesson topic. Read in the browser so the page can stay static. */
-function useTopicFromUrl(): "private_lesson" | null {
-  return useSyncExternalStore(
+/**
+ * "/kontakt?teema=eratund" preselects the private-lesson topic and "&tund=<key>" the class.
+ * Read in the browser so the page can stay static.
+ */
+function useUrlChoice(): { topic: "private_lesson" | null; lesson: string | null } {
+  const search = useSyncExternalStore(
     noopSubscribe,
-    () => (new URLSearchParams(window.location.search).get("teema") === "eratund" ? "private_lesson" : null),
-    () => null,
+    () => window.location.search,
+    () => "",
   );
+  return useMemo(() => {
+    const params = new URLSearchParams(search);
+    const lesson = params.get("tund");
+    return { topic: params.get("teema") === "eratund" || lesson ? "private_lesson" : null, lesson };
+  }, [search]);
 }
 
-const KIND_LABEL = {
-  contact: "Üldine küsimus",
-  private_lesson: "Eratund",
-  registration: "Registreerumine",
-} as const;
+const KIND_CHOICES = [
+  { value: "contact", label: "Küsimus" },
+  { value: "private_lesson", label: "Eratund" },
+] as const;
 
 export function ContactForm({
   kind = "contact",
@@ -35,6 +43,7 @@ export function ContactForm({
   pageSlug,
   buttons = [],
   draft = false,
+  lessonOptions = [],
 }: {
   kind?: "contact" | "registration" | "private_lesson";
   offeringId?: string;
@@ -45,14 +54,21 @@ export function ContactForm({
   pageSlug?: string;
   buttons?: LinkButton[];
   draft?: boolean;
+  /** Every class a visitor can ask about; see buildLessonOptions. */
+  lessonOptions?: LessonOption[];
 }) {
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
   // When the form appeared; submissions faster than a person could type are dropped as spam.
   const [startedAt] = useState(() => Date.now());
   const [error, setError] = useState("");
   const [chosenKind, setSelectedKind] = useState<typeof kind | null>(null);
-  const topicFromUrl = useTopicFromUrl();
-  const selectedKind = chosenKind ?? (showKindSelect ? topicFromUrl : null) ?? kind;
+  const [chosenLesson, setChosenLesson] = useState<string | null>(null);
+  const fromUrl = useUrlChoice();
+  const selectedKind = chosenKind ?? (showKindSelect ? fromUrl.topic : null) ?? kind;
+  const askClass = showKindSelect && selectedKind === "private_lesson" && lessonOptions.length > 1;
+  // Without a choice, "Pole veel kindel" stands; a class named in the link is picked when it exists.
+  const selectedLesson =
+    findLessonOption(lessonOptions, chosenLesson)?.key ?? resolveLessonParam(lessonOptions, fromUrl.lesson)?.key ?? UNSURE_KEY;
 
   const links = useMemo(() => {
     const entries: Array<[string, string]> = [];
@@ -68,6 +84,7 @@ export function ContactForm({
     setError("");
     const result = await submitPublicForm({
       kind: showKindSelect ? formData.get("kind") : kind,
+      lesson: askClass ? formData.get("lesson") : null,
       offeringId: offeringId || null,
       name: formData.get("name"),
       email: formData.get("email"),
@@ -95,13 +112,42 @@ export function ContactForm({
     <div className="vr-contact-copy">
       <form className="vr-form" action={onSubmit}>
         {showKindSelect ? (
-          <label className="vr-field">
-            Teema
-            <select name="kind" value={selectedKind} onChange={(e) => setSelectedKind(e.target.value as typeof kind)}>
-              <option value="contact">{KIND_LABEL.contact}</option>
-              <option value="private_lesson">{KIND_LABEL.private_lesson}</option>
-            </select>
-          </label>
+          <fieldset className="vr-choice-group">
+            <legend>Teema</legend>
+            <div className="vr-choices">
+              {KIND_CHOICES.map((choice) => (
+                <label key={choice.value} className="vr-choice">
+                  <input
+                    type="radio"
+                    name="kind"
+                    value={choice.value}
+                    checked={selectedKind === choice.value}
+                    onChange={() => setSelectedKind(choice.value)}
+                  />
+                  <span className="vr-choice-face">{choice.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+        {askClass ? (
+          <fieldset className="vr-choice-group">
+            <legend>Milline tund?</legend>
+            <div className="vr-choice-list">
+              {lessonOptions.map((option) => (
+                <label key={option.key} className="vr-choice-row">
+                  <input
+                    type="radio"
+                    name="lesson"
+                    value={option.key}
+                    checked={selectedLesson === option.key}
+                    onChange={() => setChosenLesson(option.key)}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
         ) : null}
         <label className="vr-field">
           Nimi

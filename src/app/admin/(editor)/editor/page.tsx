@@ -31,9 +31,9 @@ export default async function EditorPage({
     );
   }
 
-  const { revision, ...draft } = initial;
+  const { revision, testimonials, ...draft } = initial;
   return (
-    <EditorProvider initial={draft} revision={revision} role={admin.role}>
+    <EditorProvider initial={draft} testimonials={testimonials} revision={revision} role={admin.role}>
       <VisualEditor debug={debug} />
     </EditorProvider>
   );

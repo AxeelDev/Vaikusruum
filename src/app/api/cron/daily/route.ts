@@ -15,6 +15,7 @@ const BACKUP_TABLES = [
   "site_settings",
   "theme_settings",
   "advanced_style_settings",
+  "testimonials",
   "form_submissions",
 ] as const;
 

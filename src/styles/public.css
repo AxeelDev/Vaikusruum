@@ -248,8 +248,15 @@
 
 .vr-section--contrast .vr-muted,
 .vr-section--contrast .vr-contact-company,
+.vr-section--contrast .vr-contact-company p,
+.vr-section--contrast .vr-contact-personal p,
+.vr-section--contrast .vr-contact-personal a,
 .vr-section--contrast .vr-contact-label {
   color: color-mix(in srgb, var(--vr-contrast-text) 78%, transparent);
+}
+
+.vr-section--contrast .vr-contact-personal p.vr-contact-name {
+  color: var(--vr-contrast-heading);
 }
 
 .vr-section--contrast .vr-field input,
@@ -962,6 +969,109 @@
   font-size: 0.95rem;
 }
 
+/* Topic and class pickers: radio inputs underneath, so the keyboard and screen readers get a real radio group. */
+.vr-choice-group {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 1.125rem;
+  text-align: left;
+}
+
+.vr-choice-group legend {
+  padding: 0;
+  margin-bottom: 0.1rem;
+}
+
+.vr-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.vr-choice,
+.vr-choice-row {
+  position: relative;
+  cursor: pointer;
+}
+
+.vr-choice input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.vr-choice-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--vr-button-height);
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--vr-line);
+  border-radius: var(--vr-button-radius);
+  font-size: 1.25rem;
+  letter-spacing: var(--vr-button-tracking);
+  text-align: center;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.vr-choice:hover .vr-choice-face {
+  border-color: var(--vr-heading-color);
+}
+
+.vr-choice input:checked + .vr-choice-face {
+  background: var(--vr-button-bg);
+  border-color: var(--vr-button-bg);
+  color: var(--vr-button-text);
+}
+
+.vr-choice input:focus-visible + .vr-choice-face,
+.vr-choice-row input:focus-visible {
+  outline: 2px solid var(--vr-focus);
+  outline-offset: 2px;
+}
+
+.vr-choice-list {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.vr-choice-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 44px;
+  line-height: 1.3;
+}
+
+.vr-choice-row input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--vr-heading-color);
+  cursor: pointer;
+}
+
+.vr-section--contrast .vr-choice-face {
+  border-color: color-mix(in srgb, var(--vr-contrast-text) 35%, transparent);
+}
+
+@media (max-width: 330px) {
+  .vr-choices {
+    grid-template-columns: 1fr;
+  }
+}
+
 .vr-hp {
   position: absolute;
   width: 1px;
@@ -1032,19 +1142,76 @@
 
 .vr-dates {
   display: grid;
-  gap: 0.7rem;
+  grid-template-columns: max-content 1fr;
+  align-items: baseline;
+  column-gap: 1.75rem;
+  row-gap: 0.45rem;
   margin: var(--vr-space-2) 0 0;
   padding: 0;
-  list-style: none;
+  text-align: left;
 }
 
-.vr-dates li {
-  display: grid;
-  gap: 0.12rem;
+.vr-dates-row {
+  display: contents;
+}
+
+.vr-dates-month {
+  margin: 0;
+  color: var(--vr-text-muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  font-variant-caps: all-small-caps;
+  text-align: left;
+}
+
+.vr-dates-days {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 0;
+  margin: 0;
+}
+
+/* Rows without a month label (a shared time, a free-text date) sit under the dates. */
+.vr-dates-days--only {
+  grid-column: 2;
+}
+
+.vr-dates-day:not(:last-child)::after {
+  content: "·";
+  margin-inline: 0.7em;
+  color: var(--vr-text-muted);
 }
 
 .vr-date-time {
   color: var(--vr-text-muted);
+}
+
+@media (max-width: 560px) {
+  .vr-dates {
+    column-gap: 1.25rem;
+  }
+
+  /* Long months keep their two columns; the dates wrap under each other instead of running on. */
+  .vr-dates-days {
+    flex-direction: column;
+    row-gap: 0.15rem;
+  }
+
+  .vr-dates-day:not(:last-child)::after {
+    content: none;
+  }
+}
+
+.vr-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .vr-event-link {
@@ -1095,12 +1262,28 @@
   overflow-wrap: anywhere;
 }
 
-.vr-contact-name {
-  font-weight: 600;
-  font-size: 1.125rem;
+/* The name leads in the display face; phone, e-mail and company details stay quiet underneath. */
+.vr-contact-personal p,
+.vr-contact-company p,
+.vr-contact-personal a {
+  font-size: 0.975rem;
+  line-height: 1.5;
+  color: var(--vr-text-muted);
 }
 
-.vr-contact-label {
+.vr-contact-personal p.vr-contact-name {
+  margin-bottom: 0.5rem;
+  font-family: var(--vr-font-display);
+  font-weight: 500;
+  font-size: clamp(1.5rem, 1.1rem + 1.4vw, 1.875rem);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--vr-heading-color, var(--vr-text));
+}
+
+/* "Registrikood" and "Arvelduskonto" sit in the same line as their value: same size. */
+.vr-contact-details .vr-contact-label {
+  font-size: inherit;
   color: var(--vr-text-muted);
 }
 
@@ -1130,6 +1313,13 @@
 .vr-private-duration {
   font-weight: 500;
   color: var(--vr-text-muted);
+}
+
+/* A lesson's description is running text like any other: same size as .vr-body. */
+.vr-private-lesson p {
+  margin: 0;
+  font-size: clamp(1.1875rem, 1.2vw, 1.375rem);
+  line-height: var(--vr-body-line-height);
 }
 
 .vr-private-prices ul {
@@ -1496,4 +1686,84 @@
 /* Images added to the hero (e.g. a logo) keep a readable size on narrow screens. */
 .vr-section--hero .vr-layout-element--media:not(.vr-layout-element--hero-art) .vr-media-frame {
   min-width: min(200px, 60cqi);
+}
+
+/* Testimonials: one centred block each, the quote between large quotation marks, then photo and name. */
+.vr-testimonials {
+  display: grid;
+  gap: clamp(72px, 9vw, 128px);
+  width: 100%;
+}
+
+.vr-testimonial {
+  position: relative;
+  margin: 0 auto;
+  padding: clamp(3.25rem, 8vw, 4.5rem) clamp(1rem, 5vw, 2.5rem);
+  width: min(100%, 680px);
+  text-align: center;
+}
+
+.vr-testimonial-quote {
+  margin: 0;
+  font-family: var(--vr-font-display);
+  font-style: italic;
+  font-size: clamp(1.25rem, 1.1rem + 0.55vw, 1.35rem);
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+.vr-testimonial-quote p {
+  margin: 0;
+}
+
+.vr-testimonial-quote p + p {
+  margin-top: 0.9em;
+}
+
+.vr-testimonial-mark {
+  position: absolute;
+  font-family: var(--vr-font-display);
+  font-size: clamp(4.5rem, 3.6rem + 3vw, 6rem);
+  line-height: 0.8;
+  color: var(--vr-heading-color);
+  opacity: 0.2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.vr-testimonial-mark--open {
+  top: 0;
+  left: 0;
+}
+
+.vr-testimonial-mark--close {
+  right: 0;
+  bottom: 0;
+}
+
+.vr-testimonial-by {
+  display: grid;
+  justify-items: center;
+  gap: 0.65rem;
+  margin-top: 1.75rem;
+}
+
+.vr-testimonial-photo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.vr-testimonial-name {
+  font-size: 1rem;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--vr-text-muted);
+}
+
+.vr-testimonials-empty {
+  margin: 0;
+  text-align: center;
+  color: var(--vr-text-muted);
 }

@@ -17,7 +17,7 @@ import { mergeFieldStyle } from "@/lib/editor/appearance";
 import { resolveInspectorTab, resolveNodeKind } from "@/lib/editor/node-registry";
 import { readEditorContent } from "@/lib/editor/content-binding";
 import type { AddableElementType, AddableSectionType, DragRuntimeState, EditPath, EditorDraft, EditorSelection, EditorState, InspectorContext, InspectorTab } from "@/lib/editor/types";
-import type { AdminRole, EventRow, MediaRow, OfferingRow, SectionRow, TextAppearance } from "@/types/content";
+import type { AdminRole, EventRow, MediaRow, OfferingRow, SectionRow, TestimonialWithPhoto, TextAppearance } from "@/types/content";
 import type { ThemeTokens } from "@/lib/theme/theme";
 
 export type { EditPath };
@@ -38,6 +38,8 @@ type EditorApi = {
   select: (selection: EditorSelection) => void;
   deselect: () => void;
   closeInspector: () => void;
+  /** Re-open the side panel on its page list (nothing selected). */
+  openInspector: () => void;
   goBack: () => void;
   setTab: (tab: InspectorTab) => void;
   clearNotice: () => void;
@@ -94,11 +96,14 @@ function snapshot(draft: EditorDraft): EditorDraft {
 
 export function EditorProvider({
   initial,
+  testimonials = [],
   revision,
   role,
   children,
 }: {
   initial: EditorDraft;
+  /** Read-only on the canvas; managed in the admin panel. */
+  testimonials?: TestimonialWithPhoto[];
   /** Site revision the draft was loaded at; a save is refused if someone saved after it. */
   revision: number;
   role: AdminRole;
@@ -172,6 +177,15 @@ export function EditorProvider({
     setInspectorTab("content");
   }, []);
 
+  const closeInspector = useCallback(() => setInspectorOpen(false), []);
+
+  const openInspector = useCallback(() => {
+    setSelected(null);
+    setInspectorContext({ kind: "none" });
+    setInspectorTab("content");
+    setInspectorOpen(true);
+  }, []);
+
   const openSiteDesign = useCallback(() => {
     setInspectorBack(inspectorContext);
     setInspectorContext({ kind: "site" });
@@ -236,13 +250,6 @@ export function EditorProvider({
         if (section && Array.isArray(section.content.items)) {
           const items = [...(section.content.items as string[])];
           items[path.index] = String(value);
-          section.content = { ...section.content, items };
-        }
-      } else if (path.kind === "testimonial") {
-        const section = findSection(next, path.sectionId);
-        if (section && Array.isArray(section.content.items)) {
-          const items = [...(section.content.items as Array<Record<string, string>>)];
-          items[path.index] = { ...items[path.index], [path.field]: String(value) };
           section.content = { ...section.content, items };
         }
       }
@@ -689,6 +696,7 @@ export function EditorProvider({
       inspectorTab,
       breakpoint,
       draft,
+      testimonials,
       dirty,
       history,
       historyIndex,
@@ -710,6 +718,7 @@ export function EditorProvider({
       draft,
       history,
       historyIndex,
+      testimonials,
       inspectorContext,
       inspectorOpen,
       inspectorTab,
@@ -732,7 +741,8 @@ export function EditorProvider({
       role,
       select,
       deselect,
-      closeInspector: () => setInspectorOpen(false),
+      closeInspector,
+      openInspector,
       goBack,
       setTab,
       clearNotice,
@@ -777,6 +787,7 @@ export function EditorProvider({
       addMedia,
       cancelPendingPage,
       clearNotice,
+      closeInspector,
       closeSiteDesign,
       confirmPendingPage,
       confirmPendingNavigation,
@@ -787,6 +798,7 @@ export function EditorProvider({
       moveNode,
       moveSection,
       moveSectionToIndex,
+      openInspector,
       openSiteDesign,
       patchFieldStyle,
       patchMedia,

@@ -3,6 +3,8 @@ import { z } from "zod";
 export const contactSchema = z.object({
   kind: z.enum(["contact", "registration", "private_lesson"]),
   offeringId: z.string().uuid().optional().nullable(),
+  /** The class chosen for a private lesson: a lesson option key, checked against the site's own list on the server. */
+  lesson: z.string().trim().max(80).optional().nullable(),
   name: z.string().trim().min(1, "Palun sisesta nimi.").max(120),
   email: z.string().trim().email("Palun sisesta korrektne e-posti aadress.").max(200),
   phone: z.string().trim().max(40).optional().nullable(),

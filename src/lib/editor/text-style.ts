@@ -159,6 +159,32 @@ export function textStyleScale(selection: EditorSelection, section?: SectionRow)
   return "body";
 }
 
+/** The "Suurem" size for long text. "Tavaline" is no override at all: the site default. */
+export const LARGE_TEXT_SIZE = 24;
+
+export type LongTextSize = "normal" | "large" | "custom";
+
+/**
+ * Paragraph-like text (a rich body, a multi-line plain field). It follows one site-wide size;
+ * the editor offers "Tavaline / Suurem" for it instead of a free pixel slider.
+ */
+export function isLongTextField(
+  field: string | undefined,
+  format: "plain" | "rich" | "structured",
+  value = "",
+  scale: TextStyleScale = "body",
+): boolean {
+  if (!field || scale !== "body") return false;
+  if (format === "rich") return true;
+  if (format !== "plain") return false;
+  return field === "plain" || field === "body" || field.startsWith("custom.paragraph.") || value.includes("\n");
+}
+
+export function longTextSize(fontSize?: number): LongTextSize {
+  if (fontSize === undefined) return "normal";
+  return fontSize === LARGE_TEXT_SIZE ? "large" : "custom";
+}
+
 export function inheritedTextStyle(
   selection: EditorSelection,
   section: SectionRow | undefined,

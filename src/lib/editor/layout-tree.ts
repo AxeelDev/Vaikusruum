@@ -324,7 +324,8 @@ export function defaultLayoutTree(section: SectionRow): SectionLayoutTree {
   }
 
   if (section.section_type === "testimonials") {
-    return { version: 1, root: group(`${base}.content`, "Sisu", testimonialElements(section), "large", readingAlign()) };
+    // The testimonials come from their own table and are edited in the admin panel, so the section has no editable elements.
+    return { version: 1, root: group(`${base}.content`, "Sisu", [], "large", readingAlign()) };
   }
 
   if (section.section_type === "offering_practical_info") {
@@ -373,18 +374,6 @@ function listItemElements(section: SectionRow): LayoutNode[] {
   const items = Array.isArray(section.content.items) ? (section.content.items as unknown[]) : [];
   const rows = items.length ? items : [""];
   return rows.map((_, index) => text(`${base}.item.${index}`, "Punkt", `item.${index}`));
-}
-
-function testimonialElements(section: SectionRow): LayoutNode[] {
-  const base = sectionNodePrefix(section);
-  const items = Array.isArray(section.content.items) ? section.content.items : [];
-  const rows = items.length ? items : [{ quote: "", name: "" }];
-  return rows.map((_, index) =>
-    group(`${base}.quote-group.${index}`, `Tsitaat ${index + 1}`, [
-      text(`${base}.quote.${index}`, "Tsitaat", `quote.${index}`),
-      text(`${base}.name.${index}`, "Nimi", `name.${index}`),
-    ], "small", readingAlign()),
-  );
 }
 
 function practicalElements(section: SectionRow): LayoutNode[] {

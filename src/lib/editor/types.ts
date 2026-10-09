@@ -6,6 +6,7 @@ import type {
   SectionRow,
   SectionType,
   SiteSettings,
+  TestimonialWithPhoto,
 } from "@/types/content";
 import type { ThemeTokens } from "@/lib/theme/theme";
 
@@ -25,8 +26,7 @@ export type EditPath =
   | { kind: "nav-label"; pageId: string }
   | { kind: "page-title"; pageId: string }
   | { kind: "faq"; sectionId: string; index: number; field: "question" | "answer" }
-  | { kind: "list-item"; sectionId: string; index: number }
-  | { kind: "testimonial"; sectionId: string; index: number; field: "quote" | "name" };
+  | { kind: "list-item"; sectionId: string; index: number };
 
 export type SelectedType =
   | "page"
@@ -73,6 +73,8 @@ export type EditorState = {
   lastInsertedNodeId: string | null;
   breakpoint: EditorBreakpoint;
   draft: EditorDraft;
+  /** Shown on the canvas, edited in the admin panel; never part of the editor's own draft. */
+  testimonials: TestimonialWithPhoto[];
   dirty: boolean;
   history: EditorDraft[];
   historyIndex: number;

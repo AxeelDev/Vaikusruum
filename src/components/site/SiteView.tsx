@@ -5,8 +5,9 @@ import Link from "next/link";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { SectionList } from "@/components/sections/SectionList";
 import { EditableText } from "@/components/site/Editable";
+import type { LessonOption } from "@/lib/content/lesson-options";
 import { pageHref } from "@/lib/utils/urls";
-import type { EventRow, MediaRow, OfferingRow, PageRow, SectionRow, SiteSettings } from "@/types/content";
+import type { EventRow, MediaRow, OfferingRow, PageRow, SectionRow, SiteSettings, TestimonialWithPhoto } from "@/types/content";
 
 export function SiteView({
   page,
@@ -18,6 +19,8 @@ export function SiteView({
   nav,
   themeDensity,
   headerSticky = true,
+  lessonOptions,
+  testimonials,
 }: {
   page: PageRow;
   sections: SectionRow[];
@@ -28,6 +31,8 @@ export function SiteView({
   nav: { href: string; label: string; slug: string }[];
   themeDensity: string;
   headerSticky?: boolean;
+  lessonOptions?: LessonOption[];
+  testimonials?: TestimonialWithPhoto[];
 }) {
   const showTitle = page.slug !== "avaleht" && page.slug !== "kontakt";
 
@@ -58,6 +63,8 @@ export function SiteView({
           media={media}
           settings={settings}
           themeDensity={themeDensity}
+          lessonOptions={lessonOptions}
+          testimonials={testimonials}
         />
       </main>
       <footer className="vr-footer">

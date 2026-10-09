@@ -3,6 +3,8 @@
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { createServiceSupabase } from "@/lib/supabase/service";
+import { findLessonOption } from "@/lib/content/lesson-options";
+import { getLessonOptions } from "@/lib/content/queries";
 import { sendMail } from "@/lib/email/send";
 import { submissionEmail } from "@/lib/email/submission";
 import { contactSchema } from "@/lib/validation/forms";
@@ -36,6 +38,19 @@ export async function submitPublicForm(input: unknown): Promise<SubmitResult> {
   }
   const value = parsed.data;
 
+  // A private-lesson request may name a class. It must be one the site really offers; the label is looked up here,
+  // never taken from the visitor.
+  let offeringId = value.offeringId || null;
+  let topic: string | null = null;
+  let classLabel: string | null = null;
+  if (value.kind === "private_lesson" && value.lesson) {
+    const choice = findLessonOption(await getLessonOptions(), value.lesson);
+    if (!choice) return { ok: false, error: "Valitud tundi ei leitud. Palun vali tund uuesti." };
+    classLabel = choice.label;
+    if (choice.offeringId) offeringId = choice.offeringId;
+    else topic = choice.label;
+  }
+
   let supabase;
   try {
     supabase = createServiceSupabase();
@@ -57,7 +72,9 @@ export async function submitPublicForm(input: unknown): Promise<SubmitResult> {
 
   const { error } = await supabase.from("form_submissions").insert({
     kind: value.kind,
-    offering_id: value.offeringId || null,
+    offering_id: offeringId,
+    // Only sent when set, so ordinary messages keep working even before the topic column exists.
+    ...(topic ? { topic } : {}),
     name: value.name,
     email: value.email,
     phone: value.phone || null,
@@ -76,8 +93,8 @@ export async function submitPublicForm(input: unknown): Promise<SubmitResult> {
   try {
     const [{ data: settings }, offering] = await Promise.all([
       supabase.from("site_settings").select("site_name, contact_email, default_registration_email").eq("id", 1).maybeSingle(),
-      value.offeringId
-        ? supabase.from("offerings").select("title, registration_email").eq("id", value.offeringId).maybeSingle().then((r) => r.data)
+      offeringId
+        ? supabase.from("offerings").select("title, registration_email").eq("id", offeringId).maybeSingle().then((r) => r.data)
         : Promise.resolve(null),
     ]);
     const to =
@@ -85,7 +102,12 @@ export async function submitPublicForm(input: unknown): Promise<SubmitResult> {
       settings?.contact_email ||
       process.env.CONTACT_NOTIFICATION_EMAIL;
     if (to) {
-      const mail = submissionEmail({ ...value, offeringTitle: offering?.title ?? null, siteName: settings?.site_name ?? "Vaikusruum" });
+      const mail = submissionEmail({
+        ...value,
+        offeringTitle: classLabel && offeringId ? classLabel : (offering?.title ?? null),
+        topic,
+        siteName: settings?.site_name ?? "Vaikusruum",
+      });
       await sendMail({ to, replyTo: value.email, subject: mail.subject, text: mail.text });
     } else {
       console.error("[form] no notification address configured");
