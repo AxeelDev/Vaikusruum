@@ -81,6 +81,17 @@ export const getSiteSettings = cache(async function getSiteSettings(): Promise<S
   }
 });
 
+/** The label a page goes by in links: its menu label, else its title. Null if there is no such published page. */
+export const getPageLabel = cache(async function getPageLabel(slug: string): Promise<string | null> {
+  try {
+    const supabase = createPublicSupabase();
+    const { data } = await supabase.from("pages").select("title, nav_label").eq("slug", slug).eq("is_published", true).maybeSingle();
+    return data ? data.nav_label || data.title : null;
+  } catch {
+    return null;
+  }
+});
+
 export const getNavItems = cache(async function getNavItems(): Promise<NavItem[]> {
   try {
     const supabase = createPublicSupabase();

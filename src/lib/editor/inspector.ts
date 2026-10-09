@@ -129,7 +129,8 @@ export function inspectorTitle(
   if (selection.field === "bring") return "Kaasa";
   if (selection.field === "clothing") return "Riided";
   if (selection.field === "notes") return "Märkus";
-  if (selection.field === "datesLabel") return "Kuupäevad";
+  if (selection.field === "datesLabel" || selection.field === "dates") return "Kuupäevad";
+  if (selection.field === "lessons" || selection.field === "prices") return "Eratunnid";
   if (selection.field === "headTeadaLabel") return "Link";
   if (selection.field === "tasakaalLabel" || selection.field === "tasakaal") return "Tasakaal";
   if (selection.field === "registerHeading") return "Pealkiri";

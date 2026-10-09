@@ -55,8 +55,9 @@ import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/
 import { isButtonLinksField, linkButtonError, readButtonLinks, writeButtonLinks, type LinkButton } from "@/lib/content/form-buttons";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
 import { MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
+import { FORM_COPY_DEFAULTS, FORM_COPY_LABELS, isContactSettingKey, isFormCopyKey, type FormCopyKey } from "@/lib/content/form-copy";
 import { isoToTallinnLocal, tallinnLocalToIso } from "@/lib/content/events";
-import { indexedFieldValue, parseIndexedField, readBoundSectionValue, readEditorContent } from "@/lib/editor/content-binding";
+import { defaultFieldText, indexedFieldValue, parseIndexedField, readBoundSectionValue, readEditorContent } from "@/lib/editor/content-binding";
 import { assignImageMedia, IMAGE_SIZE_MAX, IMAGE_SIZE_MIN, patchImageAppearance, readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
 import { clientLayoutLabel, imageLabel, semanticSectionName } from "@/lib/editor/labels";
 import type { EditorSelection, InspectorTabId } from "@/lib/editor/types";
@@ -362,10 +363,96 @@ function ContentPanel() {
   if (selected.type === "container") return <ContainerPanel mode="content" />;
   if (selected.type === "header") return <HeaderPanel mode="content" />;
   if (selected.type === "nav") return <NavItemPanel />;
+  if (selected.field === "dates" && selected.sectionId) return <DatesPanel sectionId={selected.sectionId} />;
+  if ((selected.field === "lessons" || selected.field === "prices") && selected.sectionId) return <LessonsPanel sectionId={selected.sectionId} />;
   if (isButtonLinksField(selected.field)) return <ButtonLinksPanel />;
   if (isStructuredContentSelection(editor)) return <StructuredContentPanel />;
   return <NodeContentInspector />;
 }
+
+/** Texts that have no typography of their own: the dates, the lessons list, form wording and contact details. */
+function hasNoTextStyle(selected: EditorSelection) {
+  return (
+    selected.field === "dates" ||
+    selected.field === "lessons" ||
+    selected.field === "prices" ||
+    isFormCopyKey(selected.field) ||
+    (selected.id.startsWith("settings.") && isContactSettingKey(selected.field)) ||
+    selected.navSlug !== undefined
+  );
+}
+
+function DatesPanel({ sectionId }: { sectionId: string }) {
+  const editor = useEditor();
+  const section = findSection(editor.state.draft, sectionId);
+  const offeringId = String(section?.content.offeringId ?? "");
+  return (
+    <div className="vr-inspector-body">
+      <EditorContext kicker="Kuupäevad" title="Kuupäevad" />
+      <EventDatesControls offeringId={offeringId} />
+      <p className="vr-ed-help">Kuu nimi, kellaaeg ja kuupäevade järjekord kujunevad nendest ridadest. Üks kellaaeg näidatakse korra, kui see on kõigil sama.</p>
+    </div>
+  );
+}
+
+function LessonsPanel({ sectionId }: { sectionId: string }) {
+  return (
+    <div className="vr-inspector-body">
+      <EditorContext kicker="Eratunnid" title="Tunnid ja hinnad" />
+      <PrivateLessonsSectionContent sectionId={sectionId} />
+    </div>
+  );
+}
+
+/** Every text around a form, including the ones only seen after a click or a send. */
+function FormCopyFields({ sectionId, keys, label = "Vormi tekstid" }: { sectionId: string; keys: FormCopyKey[]; label?: string }) {
+  const editor = useEditor();
+  const section = findSection(editor.state.draft, sectionId);
+  if (!section) return null;
+  return (
+    <EditorGroup label={label}>
+      <div className="vr-ed-form-copy">
+        {keys.map((key) => {
+          const saved = typeof section.content[key] === "string" ? (section.content[key] as string) : "";
+          return (
+            <label key={key} className="vr-ed-form-copy-row">
+              <span className="vr-ed-help">{FORM_COPY_LABELS[key]}</span>
+              <EditorTextInput
+                value={saved}
+                placeholder={FORM_COPY_DEFAULTS[key]}
+                ariaLabel={FORM_COPY_LABELS[key]}
+                onChange={(next) => editor.setPath({ kind: "section-content", sectionId, key }, next, false)}
+                onCommit={(next) => editor.setPath({ kind: "section-content", sectionId, key }, next, true)}
+              />
+            </label>
+          );
+        })}
+      </div>
+    </EditorGroup>
+  );
+}
+
+const FORM_TEXT_KEYS: FormCopyKey[] = [
+  "formKindLabel",
+  "formKindContact",
+  "formKindLesson",
+  "formClassLabel",
+  "formUnsure",
+  "formName",
+  "formEmail",
+  "formPhone",
+  "formDate",
+  "formMessage",
+  "formConsent",
+  "formPrivacyLink",
+  "formSubmit",
+  "formSending",
+  "formSuccess",
+  "formWriteLabel",
+  "contactRegistryLabel",
+  "contactIbanLabel",
+  "registerCta",
+];
 
 function AppearancePanel() {
   const editor = useEditor();
@@ -715,6 +802,9 @@ function NodeContentInspector() {
   const editor = useEditor();
   const selected = editor.state.selected!;
   const content = readEditorContent(editor.state.draft, selected);
+  // A field left blank shows its standard wording on the page; say so in the empty input.
+  const sectionType = selected.sectionId ? findSection(editor.state.draft, selected.sectionId)?.section_type : undefined;
+  const defaultText = selected.field && sectionType ? defaultFieldText(selected.field, sectionType) : undefined;
 
   function writePlain(next: string, record: boolean) {
     if (content.path) {
@@ -749,7 +839,7 @@ function NodeContentInspector() {
             key={selected.id}
             rows={Math.min(8, Math.max(3, content.value.split("\n").length + 1))}
             value={content.value}
-            placeholder="Kirjuta tekst"
+            placeholder={defaultText ?? "Kirjuta tekst"}
             onChange={(next) => writePlain(next, false)}
             onCommit={(next) => writePlain(next, true)}
           />
@@ -772,7 +862,7 @@ function NodeAppearanceInspector() {
   if (selected.type === "container") return <ContainerPanel mode="appearance" />;
   if (selected.type === "header") return <HeaderPanel mode="appearance" />;
   const styleKey = textStyleKey(selected);
-  if (!selected.sectionId || !styleKey) {
+  if (hasNoTextStyle(selected) || !selected.sectionId || !styleKey) {
     return (
       <div className="vr-inspector-body">
         <EditorContext kicker="Välimus" title={selectedKindLabel(selected.type)} />
@@ -1175,10 +1265,18 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
           <RegistrationControls offeringId={String(section.content.offeringId ?? "")} />
           <EventDatesControls offeringId={String(section.content.offeringId ?? "")} />
           <SectionButtonLinks sectionId={section.id} field="formButtons" />
+          <FormCopyFields
+            sectionId={section.id}
+            label="Registreerimisvormi tekstid"
+            keys={["registerCta", "formName", "formEmail", "formPhone", "formDate", "formMessage", "formConsent", "formPrivacyLink", "formSubmit", "formSending", "formSuccess", "formWriteLabel"]}
+          />
         </>
       ) : null}
       {mode === "content" && (section.section_type === "contact" || section.section_key === "contact") ? (
-        <SectionButtonLinks sectionId={section.id} field="form" />
+        <>
+          <SectionButtonLinks sectionId={section.id} field="form" />
+          <FormCopyFields sectionId={section.id} keys={FORM_TEXT_KEYS} />
+        </>
       ) : null}
       {mode === "content" &&
       section.section_type !== "faq" &&
@@ -2182,6 +2280,7 @@ function ButtonLinksPanel() {
         buttons={readButtonLinks(section.content, field)}
         onChange={(buttons, record = true) => editor.patchSection(section.id, (row) => writeButtonLinks(row, field, buttons), record)}
       />
+      {onForm ? <FormCopyFields sectionId={section.id} keys={FORM_TEXT_KEYS} /> : null}
     </div>
   );
 }

@@ -63,4 +63,13 @@ describe("diffDraft", () => {
     expect(diffDraft(draft(), next, "editor").customCss).toBeUndefined();
     expect(diffDraft(draft(), next, "owner").customCss).toBe("body { color: red }");
   });
+
+  it("sends the contact details when one is edited in place, and only then", () => {
+    expect(diffDraft(draft(), draft(), "editor").settings).toBeUndefined();
+    const next = draft();
+    next.settings = { ...next.settings, company_name: "Kõlavõlu OÜ", iban: "EE827700771002774537" };
+    const changes = diffDraft(draft(), next, "editor");
+    expect(Object.keys(changes)).toEqual(["settings"]);
+    expect(changes.settings).toMatchObject({ company_name: "Kõlavõlu OÜ", iban: "EE827700771002774537", contact_name: null, bank: null });
+  });
 });

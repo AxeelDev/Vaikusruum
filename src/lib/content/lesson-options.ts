@@ -10,6 +10,8 @@ export type LessonOption = {
   label: string;
   /** Set when the choice is one of the active offerings. */
   offeringId: string | null;
+  /** Where a private-lesson type is written, when known (the editor); never set for visitors. */
+  source?: { sectionId: string };
 };
 
 type OfferingLike = { id: string; slug: string; title: string; short_title: string | null };
@@ -33,18 +35,21 @@ export function lessonKey(title: string): string {
  * private-lesson types from the Eratunnid page that no offering already covers (matched by title),
  * and "Pole veel kindel" last.
  */
-export function buildLessonOptions(offerings: OfferingLike[], lessons: Array<Pick<PrivateLessonItem, "title">>): LessonOption[] {
+export function buildLessonOptions(
+  offerings: OfferingLike[],
+  lessons: Array<Pick<PrivateLessonItem, "title"> & { sectionId?: string }>,
+): LessonOption[] {
   const options: LessonOption[] = [];
   const seenTitles = new Set<string>();
   const seenKeys = new Set<string>([UNSURE_KEY]);
 
-  const add = (label: string, wanted: string, offeringId: string | null, titles: string[]) => {
+  const add = (label: string, wanted: string, offeringId: string | null, titles: string[], sectionId?: string) => {
     const base = wanted || lessonKey(label) || "tund";
     let key = base;
     for (let n = 2; seenKeys.has(key); n += 1) key = `${base}-${n}`;
     seenKeys.add(key);
     for (const title of titles) seenTitles.add(normalizeTitle(title));
-    options.push({ key, label, offeringId });
+    options.push(sectionId ? { key, label, offeringId, source: { sectionId } } : { key, label, offeringId });
   };
 
   for (const offering of offerings) {
@@ -55,17 +60,19 @@ export function buildLessonOptions(offerings: OfferingLike[], lessons: Array<Pic
   for (const lesson of lessons) {
     const title = lesson.title.trim();
     if (!title || seenTitles.has(normalizeTitle(title))) continue;
-    add(title, lessonKey(title), null, [title]);
+    add(title, lessonKey(title), null, [title], lesson.sectionId);
   }
   options.push({ key: UNSURE_KEY, label: UNSURE_LABEL, offeringId: null });
   return options;
 }
 
 /** Private-lesson types listed on the site, from the sections that carry them. */
-export function lessonsFromSections(sections: Array<{ section_type: string; enabled?: boolean; content: Record<string, unknown> }>): PrivateLessonItem[] {
+export function lessonsFromSections(
+  sections: Array<{ id?: string; section_type: string; enabled?: boolean; content: Record<string, unknown> }>,
+): Array<PrivateLessonItem & { sectionId?: string }> {
   return sections
     .filter((section) => section.section_type === "private_lessons" && section.enabled !== false)
-    .flatMap((section) => readPrivateLessons(section.content));
+    .flatMap((section) => readPrivateLessons(section.content).map((lesson) => (section.id ? { ...lesson, sectionId: section.id } : lesson)));
 }
 
 /** The contact link for one class on the Eratunnid page; the form preselects it from "tund". */

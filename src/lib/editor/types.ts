@@ -22,7 +22,7 @@ export type InspectorContext =
 export type EditPath =
   | { kind: "section-content"; sectionId: string; key: string }
   | { kind: "offering"; offeringId: string; key: keyof OfferingRow }
-  | { kind: "settings"; key: "site_name" | "footer_text" | "contact_email" | "contact_phone" }
+  | { kind: "settings"; key: "site_name" | "footer_text" | "contact_name" | "contact_email" | "contact_phone" | "company_name" | "registry_code" | "iban" | "bank" }
   | { kind: "nav-label"; pageId: string }
   | { kind: "page-title"; pageId: string }
   | { kind: "faq"; sectionId: string; index: number; field: "question" | "answer" }

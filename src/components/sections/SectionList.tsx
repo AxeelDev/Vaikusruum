@@ -14,6 +14,8 @@ import { EventDates } from "@/components/public/EventDates";
 import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/content/private-lessons";
 import { privateLessonHref, type LessonOption } from "@/lib/content/lesson-options";
 import { TestimonialList } from "@/components/public/Testimonials";
+import type { FormEdit } from "@/components/forms/form-edit";
+import { readFormCopy } from "@/lib/content/form-copy";
 import { EditableNode, EditableText } from "@/components/site/Editable";
 import { EditableRichText } from "@/components/site/EditableRichText";
 import { MediaFrame, ScreenSection, SectionInner, SplitLayout, isHomeSceneSection } from "@/components/layout/primitives";
@@ -413,6 +415,73 @@ function SectionView({
 
   const editing = Boolean(editor && !editor.state.preview);
 
+  // The texts around a form and in the contact block. For visitors they are plain strings; in the editor each one is clickable.
+  const formCopy = readFormCopy(section.content);
+  const formOffering = typeof section.content.offeringId === "string" ? offerings[section.content.offeringId] : undefined;
+  const formEdit: FormEdit | undefined = editing
+    ? {
+        copy: (key, value) => (
+          <EditableText
+            as="span"
+            selection={textSelection(slug, section, key)}
+            path={{ kind: "section-content", sectionId: section.id, key }}
+            value={value}
+          />
+        ),
+        setting: (key, value) => (
+          <EditableText
+            as="span"
+            selection={{ id: `settings.${key}`, type: "text", field: key }}
+            path={{ kind: "settings", key }}
+            value={value}
+          />
+        ),
+        option: (option, label) =>
+          option.offeringId ? (
+            <EditableText
+              as="span"
+              selection={{ id: `${prefix}.option.${option.key}`, type: "text", offeringId: option.offeringId, field: "short_title" }}
+              path={{ kind: "offering", offeringId: option.offeringId, key: "short_title" }}
+              value={label}
+            />
+          ) : option.source ? (
+            // A private-lesson type is written in the lessons list of its own section.
+            <EditableText
+              as="span"
+              selection={{ id: `${prefix}.option.${option.key}`, type: "text", sectionId: option.source.sectionId, field: "lessons" }}
+              path={{ kind: "section-content", sectionId: option.source.sectionId, key: "lessons" }}
+              value={label}
+            />
+          ) : (
+            label
+          ),
+        email: (address) => {
+          // The address belongs to the class when it has one of its own, otherwise to the contact settings.
+          if (formOffering?.registration_email) {
+            return (
+              <EditableText
+                as="span"
+                selection={{ id: `${prefix}.registration_email`, type: "text", offeringId: formOffering.id, field: "registration_email" }}
+                path={{ kind: "offering", offeringId: formOffering.id, key: "registration_email" }}
+                value={address}
+              />
+            );
+          }
+          if (!settings.default_registration_email) {
+            return (
+              <EditableText
+                as="span"
+                selection={{ id: "settings.contact_email", type: "text", field: "contact_email" }}
+                path={{ kind: "settings", key: "contact_email" }}
+                value={address}
+              />
+            );
+          }
+          return address;
+        },
+      }
+    : undefined;
+
   function linkButtonSelection(node: LayoutElementNode): EditorSelection | null {
     if (node.elementType === "form") {
       const field = node.field?.startsWith("custom.") ? node.field : "form";
@@ -507,6 +576,8 @@ function SectionView({
           showKindSelect={kind !== "registration"}
           pageSlug={slug}
           lessonOptions={lessonOptions}
+          copy={formCopy}
+          edit={formEdit}
         />
       );
       if (!selection) return form;
@@ -548,6 +619,19 @@ function SectionView({
   // Lesson and price rows are edited as a list in the section inspector.
   const privateLessonsSelection: EditorSelection = { id: `section.${section.id}`, type: "section", sectionId: section.id };
 
+  // Each lesson and price text is clickable on its own; all of them open the list where the section's lessons are written.
+  function listText(field: "lessons" | "prices", id: string, value: string): ReactNode {
+    if (!editing) return value;
+    return (
+      <EditableText
+        as="span"
+        selection={{ id: `${prefix}.${field}.${id}`, type: "text", sectionId: section.id, field }}
+        path={{ kind: "section-content", sectionId: section.id, key: field }}
+        value={value}
+      />
+    );
+  }
+
   function renderPrivateLessonList(): ReactNode {
     const lessons = readPrivateLessons(section.content);
     if (!lessons.length && (!editor || editor.state.preview)) return null;
@@ -556,14 +640,25 @@ function SectionView({
         {lessons.map((lesson, index) => (
           <article key={`${lesson.title}-${index}`} className="vr-private-lesson">
             <h3 className="vr-heading-sm">
-              {lesson.title}
-              {lesson.duration ? <span className="vr-private-duration">{lesson.duration}</span> : null}
+              {listText("lessons", `${index}.title`, lesson.title)}
+              {lesson.duration ? <span className="vr-private-duration">{listText("lessons", `${index}.duration`, lesson.duration)}</span> : null}
             </h3>
-            {lesson.description ? <p>{lesson.description}</p> : null}
+            {lesson.description ? <p>{listText("lessons", `${index}.description`, lesson.description)}</p> : null}
             {lesson.title ? (
               <p>
                 <Link className="vr-text-link" href={privateLessonHref(section.content, lesson.title)}>
-                  {String(section.content.actionLabel || PAGE_COPY_DEFAULTS.privateAction)}
+                  {editing ? (
+                    <EditableText
+                      as="span"
+                      className="vr-text-link"
+                      selection={{ id: `${prefix}.lessons.${index}.actionLabel`, type: "link", sectionId: section.id, field: "actionLabel" }}
+                      path={{ kind: "section-content", sectionId: section.id, key: "actionLabel" }}
+                      value={String(section.content.actionLabel || PAGE_COPY_DEFAULTS.privateAction)}
+                      clickMode="defer"
+                    />
+                  ) : (
+                    String(section.content.actionLabel || PAGE_COPY_DEFAULTS.privateAction)
+                  )}
                 </Link>
               </p>
             ) : null}
@@ -581,8 +676,8 @@ function SectionView({
         <ul>
           {prices.map((price, index) => (
             <li key={`${price.label}-${index}`}>
-              <span>{price.label}</span>
-              <strong>{price.amount}</strong>
+              <span>{listText("prices", `${index}.label`, price.label)}</span>
+              <strong>{listText("prices", `${index}.amount`, price.amount)}</strong>
             </li>
           ))}
         </ul>
@@ -829,7 +924,21 @@ function SectionView({
               value={label}
               appearance={appearance}
             />
-            {tasakaal ? `: ${tasakaal}` : null}
+            {tasakaal ? (
+              <>
+                {": "}
+                {editing && offeringId ? (
+                  <EditableText
+                    as="span"
+                    selection={{ id: `${prefix}.${offeringId}.tasakaal`, type: "text", sectionId: section.id, offeringId, field: "tasakaal" }}
+                    path={{ kind: "offering", offeringId, key: "tasakaal" }}
+                    value={tasakaal}
+                  />
+                ) : (
+                  tasakaal
+                )}
+              </>
+            ) : null}
           </p>
         </div>
       );
@@ -848,7 +957,16 @@ function SectionView({
             value={value}
             appearance={appearance}
           />
-          {events.length > 0 ? <EventDates events={events} /> : null}
+          {events.length > 0 ? (
+            editing ? (
+              // The dates are rows of their own; clicking them opens the list where each is edited.
+              <EditableNode selection={{ id: `${prefix}.dates`, type: "text", sectionId: section.id, field: "dates" }} as="div">
+                <EventDates events={events} />
+              </EditableNode>
+            ) : (
+              <EventDates events={events} />
+            )
+          ) : null}
         </div>
       );
       return section.content.showDates && events.length ? datesNode : hiddenOnPublic(datesNode);
@@ -883,6 +1001,8 @@ function SectionView({
               pageSlug={slug}
               buttons={readButtonLinks(section.content, "formButtons")}
               draft={editing}
+              copy={formCopy}
+              edit={formEdit}
               editSelection={editing ? { id: `${prefix}.formButtons`, type: "text", sectionId: section.id, field: "formButtons" } : undefined}
               heading={
                 <EditableText

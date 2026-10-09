@@ -98,6 +98,11 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
       ),
     [state.draft.offerings, state.draft.sectionsByPage],
   );
+  const privacyPage = state.draft.pages.find((item) => item.slug === "privaatsus");
+  const privacy = useMemo(
+    () => ({ label: privacyPage?.nav_label || privacyPage?.title || "Privaatsus", pageId: privacyPage?.id }),
+    [privacyPage?.nav_label, privacyPage?.title, privacyPage?.id],
+  );
   const nav = useMemo(
     () =>
       state.draft.pages
@@ -811,6 +816,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
                 headerSticky={state.draft.theme.headerSticky}
                 lessonOptions={lessonOptions}
                 testimonials={state.testimonials}
+                privacy={privacy}
               />
             </div>
             {!state.preview ? (

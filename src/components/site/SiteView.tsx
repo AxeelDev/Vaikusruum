@@ -21,6 +21,7 @@ export function SiteView({
   headerSticky = true,
   lessonOptions,
   testimonials,
+  privacy,
 }: {
   page: PageRow;
   sections: SectionRow[];
@@ -33,6 +34,8 @@ export function SiteView({
   headerSticky?: boolean;
   lessonOptions?: LessonOption[];
   testimonials?: TestimonialWithPhoto[];
+  /** The footer link to the privacy page: its label is that page's menu label or title. */
+  privacy?: { label: string; pageId?: string };
 }) {
   const showTitle = page.slug !== "avaleht" && page.slug !== "kontakt";
 
@@ -75,7 +78,14 @@ export function SiteView({
           value={settings.footer_text ?? settings.site_name}
         />
         <p className="vr-footer-links">
-          <Link href="/privaatsus">Privaatsus</Link>
+          <Link href="/privaatsus">
+            <EditableText
+              as="span"
+              selection={{ id: "footer.privacy", type: "text", field: "nav_label", navSlug: "privaatsus" }}
+              path={{ kind: "nav-label", pageId: privacy?.pageId ?? "" }}
+              value={privacy?.label ?? "Privaatsus"}
+            />
+          </Link>
         </p>
       </footer>
     </div>

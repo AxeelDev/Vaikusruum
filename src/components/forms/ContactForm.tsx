@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import type { FormEdit } from "@/components/forms/form-edit";
 import { ContactDetails } from "@/components/public/ContactDetails";
 import { LinkButtonRow } from "@/components/public/LinkButtons";
 import { submitPublicForm } from "@/lib/actions/submit-form";
 import type { LinkButton } from "@/lib/content/form-buttons";
+import { FORM_COPY_DEFAULTS, type FormCopy } from "@/lib/content/form-copy";
 import { UNSURE_KEY, findLessonOption, resolveLessonParam, type LessonOption } from "@/lib/content/lesson-options";
 import type { SiteSettings } from "@/types/content";
 
@@ -29,8 +31,8 @@ function useUrlChoice(): { topic: "private_lesson" | null; lesson: string | null
 }
 
 const KIND_CHOICES = [
-  { value: "contact", label: "Küsimus" },
-  { value: "private_lesson", label: "Eratund" },
+  { value: "contact", copy: "formKindContact" },
+  { value: "private_lesson", copy: "formKindLesson" },
 ] as const;
 
 export function ContactForm({
@@ -44,6 +46,8 @@ export function ContactForm({
   buttons = [],
   draft = false,
   lessonOptions = [],
+  copy = FORM_COPY_DEFAULTS,
+  edit,
 }: {
   kind?: "contact" | "registration" | "private_lesson";
   offeringId?: string;
@@ -56,6 +60,10 @@ export function ContactForm({
   draft?: boolean;
   /** Every class a visitor can ask about; see buildLessonOptions. */
   lessonOptions?: LessonOption[];
+  /** The texts around the fields; defaults when not given. */
+  copy?: FormCopy;
+  /** Set in the editor only: makes every text clickable and editable. */
+  edit?: FormEdit;
 }) {
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
   // When the form appeared; submissions faster than a person could type are dropped as spam.
@@ -65,7 +73,15 @@ export function ContactForm({
   const [chosenLesson, setChosenLesson] = useState<string | null>(null);
   const fromUrl = useUrlChoice();
   const selectedKind = chosenKind ?? (showKindSelect ? fromUrl.topic : null) ?? kind;
-  const askClass = showKindSelect && selectedKind === "private_lesson" && lessonOptions.length > 1;
+  // In the editor the class list always shows, so its texts can be reached before "Eratund" is chosen.
+  const askClass = showKindSelect && (selectedKind === "private_lesson" || Boolean(edit)) && lessonOptions.length > 1;
+  const classOnlyInEditor = Boolean(edit) && selectedKind !== "private_lesson";
+  const text = (key: keyof FormCopy) => (edit ? edit.copy(key, copy[key]) : copy[key]);
+  // The "not sure yet" choice shows the section's own wording; the others are the class names.
+  const optionLabel = (option: LessonOption) => {
+    if (option.key === UNSURE_KEY) return text("formUnsure");
+    return edit ? edit.option(option, option.label) : option.label;
+  };
   // Without a choice, "Pole veel kindel" stands; a class named in the link is picked when it exists.
   const selectedLesson =
     findLessonOption(lessonOptions, chosenLesson)?.key ?? resolveLessonParam(lessonOptions, fromUrl.lesson)?.key ?? UNSURE_KEY;
@@ -84,7 +100,7 @@ export function ContactForm({
     setError("");
     const result = await submitPublicForm({
       kind: showKindSelect ? formData.get("kind") : kind,
-      lesson: askClass ? formData.get("lesson") : null,
+      lesson: askClass && selectedKind === "private_lesson" ? formData.get("lesson") : null,
       offeringId: offeringId || null,
       name: formData.get("name"),
       email: formData.get("email"),
@@ -105,7 +121,7 @@ export function ContactForm({
   }
 
   if (status === "ok") {
-    return <p className="vr-form-success">Aitäh. Sõnum on kohale jõudnud.</p>;
+    return <p className="vr-form-success">{copy.formSuccess}</p>;
   }
 
   return (
@@ -113,7 +129,7 @@ export function ContactForm({
       <form className="vr-form" action={onSubmit}>
         {showKindSelect ? (
           <fieldset className="vr-choice-group">
-            <legend>Teema</legend>
+            <legend>{text("formKindLabel")}</legend>
             <div className="vr-choices">
               {KIND_CHOICES.map((choice) => (
                 <label key={choice.value} className="vr-choice">
@@ -124,15 +140,18 @@ export function ContactForm({
                     checked={selectedKind === choice.value}
                     onChange={() => setSelectedKind(choice.value)}
                   />
-                  <span className="vr-choice-face">{choice.label}</span>
+                  <span className="vr-choice-face">{text(choice.copy)}</span>
                 </label>
               ))}
             </div>
           </fieldset>
         ) : null}
         {askClass ? (
-          <fieldset className="vr-choice-group">
-            <legend>Milline tund?</legend>
+          <fieldset
+            className={["vr-choice-group", classOnlyInEditor ? "vr-editor-hidden" : ""].filter(Boolean).join(" ")}
+            title={classOnlyInEditor ? "Külastaja näeb seda, kui valib „Eratund“" : undefined}
+          >
+            <legend>{text("formClassLabel")}</legend>
             <div className="vr-choice-list">
               {lessonOptions.map((option) => (
                 <label key={option.key} className="vr-choice-row">
@@ -143,32 +162,32 @@ export function ContactForm({
                     checked={selectedLesson === option.key}
                     onChange={() => setChosenLesson(option.key)}
                   />
-                  <span>{option.label}</span>
+                  <span>{optionLabel(option)}</span>
                 </label>
               ))}
             </div>
           </fieldset>
         ) : null}
         <label className="vr-field">
-          Nimi
+          {text("formName")}
           <input name="name" autoComplete="name" required />
         </label>
         <label className="vr-field">
-          E-post
+          {text("formEmail")}
           <input name="email" type="email" autoComplete="email" required />
         </label>
         <label className="vr-field">
-          Telefon
+          {text("formPhone")}
           <input name="phone" type="tel" autoComplete="tel" />
         </label>
         {kind === "registration" ? (
           <label className="vr-field">
-            Eelistatud kuupäev
+            {text("formDate")}
             <input name="preferredDate" />
           </label>
         ) : null}
         <label className="vr-field">
-          Sõnum
+          {text("formMessage")}
           <textarea name="message" />
         </label>
         {/* Hidden from people; bots that fill every field reveal themselves here. */}
@@ -181,22 +200,22 @@ export function ContactForm({
         <label className="vr-check vr-consent">
           <input type="checkbox" name="consent" required />
           <span>
-            Nõustun, et mu andmeid kasutatakse sellele sõnumile vastamiseks.{" "}
+            {text("formConsent")}{" "}
             <Link href="/privaatsus" target="_blank" className="vr-text-link">
-              Privaatsusteave
+              {text("formPrivacyLink")}
             </Link>
           </span>
         </label>
         {error ? <p className="vr-form-error" role="alert">{error}</p> : null}
         <button className="vr-cta" type="submit" disabled={status === "sending"}>
-          {status === "sending" ? "Saadan…" : "Saada"}
+          {status === "sending" ? copy.formSending : text("formSubmit")}
         </button>
         <LinkButtonRow buttons={buttons} draft={draft} align="start" />
       </form>
-      {settings ? <ContactDetails settings={settings} /> : null}
+      {settings ? <ContactDetails settings={settings} copy={copy} edit={edit} /> : null}
       {!settings && email ? (
         <p className="vr-muted vr-contact-email">
-          Või kirjuta: <a href={`mailto:${email}`}>{email}</a>
+          {text("formWriteLabel")} <a href={`mailto:${email}`}>{edit ? edit.email(email) : email}</a>
         </p>
       ) : null}
       {links.length > 0 ? (

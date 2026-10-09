@@ -358,10 +358,17 @@ function cleanChanges(changes: EditorChanges, role: "owner" | "editor"): EditorC
     const social = Object.fromEntries(
       Object.entries(changes.settings.social ?? {}).map(([key, value]) => [key, typeof value === "string" && value ? sanitizeHref(value) : null]),
     );
+    // An empty line in the contact block means "leave it out", so blanks are stored as null.
+    const line = (value: unknown, max: number) => text(typeof value === "string" ? value.trim() || null : value, max);
     out.settings = {
       site_name: text(changes.settings.site_name, 120) || "Vaikusruum",
-      contact_email: text(changes.settings.contact_email, 200),
-      contact_phone: text(changes.settings.contact_phone, 40),
+      contact_name: line(changes.settings.contact_name, 120),
+      contact_email: line(changes.settings.contact_email, 200),
+      contact_phone: line(changes.settings.contact_phone, 40),
+      company_name: line(changes.settings.company_name, 160),
+      registry_code: line(changes.settings.registry_code, 40),
+      iban: line(changes.settings.iban, 40),
+      bank: line(changes.settings.bank, 80),
       footer_text: text(changes.settings.footer_text, 400),
       social,
     };

@@ -15,7 +15,18 @@ export type EditorChanges = {
   events?: Array<Pick<EventRow, "id" | "offering_id" | "starts_at" | "ends_at" | "display_date" | "sort_order" | "active">>;
   deletedEventIds?: string[];
   media?: Array<Pick<MediaRow, "id" | "alt_text" | "focal_x" | "focal_y">>;
-  settings?: { site_name: string; contact_email: string | null; contact_phone: string | null; footer_text: string | null; social: Record<string, unknown> };
+  settings?: {
+    site_name: string;
+    contact_name: string | null;
+    contact_email: string | null;
+    contact_phone: string | null;
+    company_name: string | null;
+    registry_code: string | null;
+    iban: string | null;
+    bank: string | null;
+    footer_text: string | null;
+    social: Record<string, unknown>;
+  };
   theme?: unknown;
   customCss?: string;
 };
@@ -88,8 +99,13 @@ const mediaPick = (m: MediaRow) => ({ id: m.id, alt_text: m.alt_text, focal_x: m
 
 const settingsPick = (d: EditorDraft) => ({
   site_name: d.settings.site_name,
+  contact_name: d.settings.contact_name ?? null,
   contact_email: d.settings.contact_email,
   contact_phone: d.settings.contact_phone,
+  company_name: d.settings.company_name ?? null,
+  registry_code: d.settings.registry_code ?? null,
+  iban: d.settings.iban ?? null,
+  bank: d.settings.bank ?? null,
   footer_text: d.settings.footer_text,
   social: d.settings.social ?? {},
 });

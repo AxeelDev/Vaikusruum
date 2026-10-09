@@ -8,6 +8,7 @@ import {
   getMediaByIds,
   getNavItems,
   getOfferingsByIds,
+  getPageLabel,
   getPublishedPage,
   getPublishedTestimonials,
   getSiteSettings,
@@ -56,7 +57,7 @@ export async function CmsPage({ slug }: { slug: string }) {
 
   const hasTestimonials = data.sections.some((section) => section.section_type === "testimonials");
 
-  const [offeringRows, media, settings, theme, nav, lessonOptions, testimonials] = await Promise.all([
+  const [offeringRows, media, settings, theme, nav, lessonOptions, testimonials, privacyLabel] = await Promise.all([
     getOfferingsByIds(offeringIds),
     getMediaByIds(collectMediaIds(data.sections)),
     getSiteSettings(),
@@ -64,6 +65,7 @@ export async function CmsPage({ slug }: { slug: string }) {
     getNavItems(),
     hasForm ? getLessonOptions() : Promise.resolve(undefined),
     hasTestimonials ? getPublishedTestimonials() : Promise.resolve(undefined),
+    getPageLabel("privaatsus"),
   ]);
 
   const offerings: Record<string, OfferingRow> = {};
@@ -92,6 +94,7 @@ export async function CmsPage({ slug }: { slug: string }) {
       headerSticky={theme.headerSticky}
       lessonOptions={lessonOptions}
       testimonials={testimonials}
+      privacy={{ label: privacyLabel ?? "Privaatsus" }}
     />
   );
 }

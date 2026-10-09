@@ -1,7 +1,9 @@
 import { ContactForm } from "@/components/forms/ContactForm";
+import type { FormEdit } from "@/components/forms/form-edit";
 import { LinkButtonRow } from "@/components/public/LinkButtons";
 import { EditableNode } from "@/components/site/Editable";
 import type { LinkButton } from "@/lib/content/form-buttons";
+import { FORM_COPY_DEFAULTS, type FormCopy } from "@/lib/content/form-copy";
 import type { EditorSelection } from "@/lib/editor/types";
 import type { OfferingRow } from "@/types/content";
 import type { ReactNode } from "react";
@@ -14,6 +16,8 @@ export function RegistrationBlock({
   buttons = [],
   draft = false,
   editSelection,
+  copy = FORM_COPY_DEFAULTS,
+  edit,
 }: {
   offering: OfferingRow;
   fallbackEmail: string | null;
@@ -22,6 +26,9 @@ export function RegistrationBlock({
   buttons?: LinkButton[];
   draft?: boolean;
   editSelection?: EditorSelection;
+  copy?: FormCopy;
+  /** Set in the editor only: makes the form's texts clickable and editable. */
+  edit?: FormEdit;
 }) {
   const mode = offering.registration_mode;
   if (mode === "disabled") return null;
@@ -40,6 +47,8 @@ export function RegistrationBlock({
       pageSlug={pageSlug}
       buttons={buttons}
       draft={draft}
+      copy={copy}
+      edit={edit}
     />
   ) : buttons.length ? (
     <LinkButtonRow buttons={buttons} draft={draft} align="start" />
@@ -54,14 +63,14 @@ export function RegistrationBlock({
       {!showForm && showEmail ? (
         <p>
           <a className="vr-cta" href={`mailto:${email}`}>
-            {email}
+            {edit ? edit.email(email!) : email}
           </a>
         </p>
       ) : null}
       {showLink ? (
         <p>
           <a className="vr-cta" href={offering.registration_url!} rel="noreferrer">
-            Registreeri
+            {edit ? edit.copy("registerCta", copy.registerCta) : copy.registerCta}
           </a>
         </p>
       ) : null}

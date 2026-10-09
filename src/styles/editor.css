@@ -2162,3 +2162,33 @@ html.vr-editor-lock body {
 .vr-ed-dates li .vr-ed-muted {
   font-size: 11px;
 }
+
+/* The topic and class pickers: in the editor a click on a label selects its text instead of ticking the radio underneath. */
+.vr-editor-canvas .vr-choice input,
+.vr-editor-canvas .vr-choice-row input {
+  pointer-events: none;
+}
+
+.vr-editor-canvas .vr-choice,
+.vr-editor-canvas .vr-choice-row {
+  cursor: default;
+}
+
+/* A contact line left empty stays visible, dimmed, so it can still be clicked and filled in. */
+.vr-editor-canvas .vr-contact-details .vr-editor-hidden {
+  outline-offset: 2px;
+}
+
+.vr-editor-canvas .vr-contact-details .vr-editor-hidden::before {
+  display: none;
+}
+
+.vr-ed-form-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.vr-ed-form-copy-row {
+  display: grid;
+  gap: 4px;
+}

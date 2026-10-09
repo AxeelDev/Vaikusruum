@@ -1,5 +1,6 @@
 import type { TiptapNode } from "@/types/content";
 import { isTiptapDoc } from "@/lib/content/rich-text";
+import { CONTACT_SETTING_LABELS, FORM_COPY_DEFAULTS, FORM_COPY_LABELS, isContactSettingKey, isFormCopyKey } from "@/lib/content/form-copy";
 import { findSection } from "@/lib/editor/draft";
 import type { EditPath, EditorDraft, EditorSelection } from "@/lib/editor/types";
 import type { OfferingRow, SectionRow } from "@/types/content";
@@ -91,7 +92,11 @@ export function bindSelection(draft: EditorDraft, selection: EditorSelection): B
   if (selection.id === "footer.text" || selection.field === "footer_text") {
     return plain(draft.settings.footer_text ?? "", { kind: "settings", key: "footer_text" }, "Jalusetekst");
   }
-  if (selection.type === "nav" && selection.navSlug) {
+  if (isContactSettingKey(selection.field) && selection.id.startsWith("settings.")) {
+    const key = selection.field;
+    return plain(String(draft.settings[key] ?? ""), { kind: "settings", key }, CONTACT_SETTING_LABELS[key]);
+  }
+  if (selection.navSlug && (selection.type === "nav" || selection.field === "nav_label")) {
     const page = draft.pages.find((item) => item.slug === selection.navSlug);
     if (!page) return null;
     return plain(page.nav_label || page.title, { kind: "nav-label", pageId: page.id }, "Menüülink");
@@ -165,6 +170,12 @@ export function indexedFieldValue(section: SectionRow, indexed: IndexedField): s
   return String(record.answer ?? "");
 }
 
+/** The wording a field shows when nothing is saved for it, if it has one; used as the hint in an empty input. */
+export function defaultFieldText(field: string, sectionType: string): string | undefined {
+  const value = readSectionField({}, field, sectionType);
+  return typeof value === "string" && value ? value : undefined;
+}
+
 export function readBoundSectionValue(section: SectionRow, field: string, draft?: EditorDraft): unknown {
   const indexed = parseIndexedField(field);
   if (indexed) return indexedFieldValue(section, indexed);
@@ -190,6 +201,8 @@ function readSectionField(
   sectionType: string,
   draft?: EditorDraft,
 ): unknown {
+  // The saved text as it is, even blank, so the field can be cleared and retyped; the page shows the default for a blank one.
+  if (isFormCopyKey(field)) return typeof content[field] === "string" ? content[field] : FORM_COPY_DEFAULTS[field];
   if (Object.prototype.hasOwnProperty.call(content, field)) return content[field];
   if (field === "body" && content.text !== undefined) return content.text;
   if (field === "plain" && typeof content.copy === "string") return content.copy;
@@ -221,6 +234,7 @@ function offeringFieldLabel(field: string) {
 }
 
 export function fieldLabel(field: string, sectionType?: string) {
+  if (isFormCopyKey(field)) return FORM_COPY_LABELS[field];
   if (field === "title") return sectionType === "hero" ? "Hero pealkiri" : "Pealkiri";
   if (field === "intro") return sectionType === "hero" ? "Hero sissejuhatus" : "Sissejuhatus";
   if (field === "heading") return "Pealkiri";
@@ -232,6 +246,7 @@ export function fieldLabel(field: string, sectionType?: string) {
   if (field === "heading" && sectionType === "private_lessons") return "Teenuse pealkiri";
   if (field === "actionLabel") return "Nupp";
   if (field === "lessons") return "Tunnid";
+  if (field === "dates") return "Kuupäevad";
   if (field === "prices") return "Hinnad";
   if (field === "eventLinkLabel") return "Väline link";
   if (field === "moreInfoLabel") return "Lingi tekst (kõigil tunnikaartidel)";
