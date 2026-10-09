@@ -239,7 +239,7 @@ export function fieldLabel(field: string, sectionType?: string) {
   if (field === "lessons") return "Tunnid";
   if (field === "prices") return "Hinnad";
   if (field === "eventLinkLabel") return "Väline link";
-  if (field === "moreInfoLabel") return "Link";
+  if (field === "moreInfoLabel") return "Lingi tekst (kõigil tunnikaartidel)";
   if (field === "scheduleText") return "Aeg";
   if (field === "bring") return "Kaasa";
   if (field === "clothing") return "Riided";

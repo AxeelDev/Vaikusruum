@@ -7,6 +7,20 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { tallinnLocalToIso } from "@/lib/content/events";
 import { parseTheme } from "@/lib/theme/theme";
 import { loginSchema } from "@/lib/validation/forms";
+import type { RegistrationMode } from "@/types/content";
+
+const REGISTRATION_MODES: RegistrationMode[] = ["form", "email", "external_link", "form_and_email", "disabled"];
+
+function cleanRegistrationUrl(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 async function requireAdmin() {
   const admin = await getAdminUser();
@@ -179,7 +193,7 @@ export async function createAdminAction(email: string, password: string, role: "
     display_name: email,
   });
   if (insertError) return { error: "Halduri lisamine ebaõnnestus." };
-  revalidatePath("/admin/admins");
+  revalidatePath("/admin/settings");
   return { ok: true };
 }
 
@@ -190,7 +204,7 @@ export async function removeAdminAction(userId: string) {
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("admin_users").delete().eq("user_id", userId);
   if (error) return { error: "Eemaldamine ebaõnnestus." };
-  revalidatePath("/admin/admins");
+  revalidatePath("/admin/settings");
   return { ok: true };
 }
 
@@ -233,6 +247,9 @@ export type EditorSavePayload = {
     location_name: string | null;
     address: string | null;
     schedule_summary: string | null;
+    registration_mode: RegistrationMode;
+    registration_url: string | null;
+    registration_email: string | null;
   }>;
   media: Array<{ id: string; alt_text: string | null; focal_x: number; focal_y: number }>;
   settings: {
@@ -290,7 +307,20 @@ export async function saveEditorDraftAction(payload: EditorSavePayload) {
   }
 
   for (const offering of payload.offerings) {
-    const { error } = await supabase.from("offerings").update(offering).eq("id", offering.id);
+    const fields = {
+      title: offering.title,
+      short_title: offering.short_title,
+      location_name: offering.location_name,
+      address: offering.address,
+      schedule_summary: offering.schedule_summary,
+      registration_mode: REGISTRATION_MODES.includes(offering.registration_mode) ? offering.registration_mode : "form",
+      registration_url: cleanRegistrationUrl(offering.registration_url),
+      registration_email: offering.registration_email?.trim() || null,
+    };
+    if (fields.registration_mode === "external_link" && !fields.registration_url) {
+      return { error: "Registreerimise link peab algama https://-ga." };
+    }
+    const { error } = await supabase.from("offerings").update(fields).eq("id", offering.id);
     if (error) return { error: "Tundide salvestamine ebaõnnestus." };
   }
 

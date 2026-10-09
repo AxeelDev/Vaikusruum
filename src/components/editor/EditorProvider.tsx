@@ -608,6 +608,9 @@ export function EditorProvider({
         location_name: offering.location_name,
         address: offering.address,
         schedule_summary: offering.schedule_summary,
+        registration_mode: offering.registration_mode,
+        registration_url: offering.registration_url,
+        registration_email: offering.registration_email,
       })),
       media: Object.values(draft.media).map((item) => ({
         id: item.id,

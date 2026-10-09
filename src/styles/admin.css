@@ -1,141 +1,705 @@
+/* Admin: flat surfaces, hairline dividers, text-led navigation. */
+
 .vr-admin {
+  --admin-line: rgba(255, 255, 255, 0.09);
+  --admin-input: #2f323b;
+  --admin-warn: #e3b66d;
+  --admin-ok: #8fc9a8;
   min-height: 100vh;
   background: var(--editor-shell);
   color: var(--editor-text);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color-scheme: dark;
 }
 
-.vr-admin-header {
+/* ---------- Shell ---------- */
+
+.vr-admin-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.vr-admin-topbar,
+.vr-admin-scrim {
+  display: none;
+}
+
+.vr-admin-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.7rem 1.5rem;
-  padding: 14px 24px;
-  border-bottom: 1px solid var(--editor-border-soft);
-  background: var(--editor-panel);
+  flex-direction: column;
+  gap: 32px;
+  padding: 28px 24px 24px;
+  border-right: 1px solid var(--admin-line);
+  overflow-y: auto;
 }
 
 .vr-admin-brand {
-  display: flex;
-  align-items: baseline;
-  gap: 0.7rem;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--editor-text);
   text-decoration: none;
+}
+
+.vr-admin-brand .vr-wordmark {
+  color: var(--editor-text);
+  font-size: 15px;
 }
 
 .vr-admin-brand small {
-  font-size: 0.82rem;
   color: var(--editor-muted);
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .vr-admin-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem 1.15rem;
-  margin-left: auto;
+  display: grid;
+  gap: 2px;
 }
 
-.vr-admin-nav a {
+.vr-admin-nav a,
+.vr-admin-nav-plain {
+  display: block;
+  padding: 7px 0;
+  color: var(--editor-muted);
+  font-size: 14px;
   text-decoration: none;
-  font-size: 12px;
-  color: var(--editor-text-secondary);
-  padding: 6px 7px;
-  border-radius: 3px;
+}
+
+.vr-admin-nav a:hover,
+.vr-admin-nav-plain:hover {
+  color: var(--editor-text);
 }
 
 .vr-admin-nav a[aria-current="page"] {
-  text-decoration: none;
-  background: var(--editor-panel-hover);
+  color: var(--editor-text);
+  font-weight: 600;
+}
+
+.vr-admin-sidebar-foot {
+  display: grid;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.vr-admin-user {
+  display: grid;
+  gap: 2px;
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.vr-admin-user > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-admin-link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--editor-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.vr-admin-link-button:hover {
   color: var(--editor-text);
 }
 
 .vr-admin-main {
-  width: min(100% - 48px, 1040px);
-  margin-inline: auto;
-  padding: 52px 0 72px;
+  min-width: 0;
+  padding: 40px clamp(20px, 5vw, 64px) 96px;
 }
 
-.vr-admin-main:has(.vr-submissions) {
-  width: min(100% - 48px, 1280px);
+.vr-admin-main > * {
+  max-width: 960px;
 }
 
-.vr-admin-title {
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 0;
-  margin: 0 0 24px;
-}
+/* ---------- Page structure ---------- */
 
-.vr-admin-panel {
+.vr-admin-page {
   display: grid;
-  gap: 26px;
+  gap: 24px;
 }
 
-.vr-admin-home {
-  max-width: 760px;
-}
-
-.vr-admin-launch-list,
-.vr-admin-list {
-  display: grid;
-  border-top: 1px solid var(--editor-border-soft);
-}
-
-.vr-admin-launch-row,
-.vr-admin-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: center;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--editor-border-soft);
-  text-decoration: none;
-}
-
-.vr-admin-launch-row strong,
-.vr-admin-list-row strong {
-  display: block;
-  color: var(--editor-text);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.vr-admin-launch-row small,
-.vr-admin-list-row small {
-  display: block;
-  margin-top: 5px;
-  color: var(--editor-muted);
-  font-size: 12px;
+.vr-admin-page--narrow {
+  max-width: 680px;
 }
 
 .vr-admin-page-head {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 18px;
-  border-bottom: 1px solid var(--editor-border-soft);
-  padding-bottom: 18px;
+  gap: 16px 24px;
 }
 
-.vr-admin-page-head .vr-admin-title {
+.vr-admin-title {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.vr-admin-lede {
+  max-width: 62ch;
+  margin: 6px 0 0;
+  color: var(--editor-muted);
+}
+
+.vr-admin-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vr-admin-main > .vr-admin-page-head {
+  margin-bottom: 8px;
+}
+
+.vr-admin-note {
+  margin: 0;
+  color: var(--editor-muted);
+  font-size: 13px;
+}
+
+.vr-admin-empty {
+  margin: 0;
+  padding: 16px 0;
+  color: var(--editor-muted);
+}
+
+.vr-admin-status {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--editor-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-admin-status[data-tone="warn"] {
+  color: var(--admin-warn);
+}
+
+.vr-admin-inline-status {
+  margin: 0;
+  color: var(--editor-text-secondary);
+  font-size: 13px;
+}
+
+.vr-admin-inline-status[data-tone="ok"] {
+  color: var(--admin-ok);
+}
+
+.vr-admin-inline-status[data-tone="error"] {
+  color: var(--editor-danger);
+}
+
+/* ---------- Buttons ---------- */
+
+.vr-admin-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.vr-admin-btn:disabled,
+.vr-admin-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.vr-admin-btn--primary {
+  background: var(--editor-accent);
+  color: #0e2a2b;
+}
+
+.vr-admin-btn--primary:not(:disabled):hover {
+  background: var(--editor-accent-strong);
+}
+
+.vr-admin-btn--ghost {
+  border-color: var(--editor-border-strong);
+  background: transparent;
+  color: var(--editor-text);
+}
+
+.vr-admin-btn--ghost:not(:disabled):hover {
+  border-color: var(--editor-text-secondary);
+}
+
+.vr-admin-btn--danger {
+  background: var(--editor-danger);
+  color: #2a1010;
+}
+
+.vr-admin-btn input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.vr-admin-text-action {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--editor-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-decoration-color: var(--editor-border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.vr-admin-text-action:hover {
+  color: var(--editor-text);
+  text-decoration-color: currentColor;
+}
+
+.vr-admin-text-action--danger,
+.vr-admin-text-action--danger:hover {
+  color: var(--editor-danger);
+  font-weight: 600;
+}
+
+.vr-admin-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--editor-text-secondary);
+  font-size: 13px;
+}
+
+/* ---------- Blocks and rows ---------- */
+
+.vr-admin-block + .vr-admin-block {
+  margin-top: 40px;
+}
+
+.vr-admin-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.vr-admin-block-head h2,
+.vr-admin-settings-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vr-admin-block-meta {
+  color: var(--editor-muted);
+  font-size: 13px;
+}
+
+.vr-admin-block-link {
+  margin-left: auto;
+  color: var(--editor-text-secondary);
+  font-size: 13px;
+  text-underline-offset: 3px;
+}
+
+.vr-admin-block-link:hover {
+  color: var(--editor-text);
+}
+
+.vr-admin-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vr-admin-rows > li {
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.vr-admin-rows > li > a,
+.vr-admin-rows > li > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 8px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.vr-admin-rows > li > a:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.vr-admin-rows strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.vr-admin-rows small,
+.vr-admin-rows time {
+  display: block;
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.vr-admin-rows time {
+  flex: none;
+}
+
+/* ---------- Settings ---------- */
+
+.vr-admin-settings-section {
+  display: grid;
+  gap: 16px;
+  padding: 0 0 28px;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.vr-admin-settings-head p {
+  margin: 4px 0 0;
+  color: var(--editor-muted);
+  font-size: 13px;
+}
+
+.vr-admin-settings-body {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.vr-admin-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.vr-admin-form {
+  display: grid;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.vr-admin-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vr-admin-field-label {
+  color: var(--editor-text-secondary);
+  font-size: 13px;
+}
+
+.vr-admin-field input,
+.vr-admin-field select,
+.vr-admin-field textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--editor-border);
+  border-radius: 2px;
+  background: var(--admin-input);
+  color: var(--editor-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.vr-admin-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23c9cbd0' stroke-width='1.5'%3E%3Cpath d='m3 4.5 3 3 3-3'/%3E%3C/svg%3E");
+  background-position: right 10px center;
+  background-repeat: no-repeat;
+}
+
+.vr-admin-field input::placeholder {
+  color: var(--editor-muted);
+}
+
+.vr-admin-field input:focus,
+.vr-admin-field select:focus,
+.vr-admin-field textarea:focus {
+  outline: none;
+  border-color: var(--editor-accent);
+}
+
+.vr-admin-field[data-invalid="true"] input {
+  border-color: var(--editor-danger);
+}
+
+.vr-admin-field-error {
+  color: var(--editor-danger);
+  font-size: 12px;
+}
+
+.vr-admin-field-hint {
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.vr-admin-disclosure summary {
+  width: max-content;
+  color: var(--editor-text-secondary);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.vr-admin-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-inline: -1px;
+  padding: 12px 0;
+  border-top: 1px solid var(--admin-line);
+  background: var(--editor-shell);
+}
+
+.vr-admin-savebar[data-visible="true"] {
+  display: flex;
+}
+
+.vr-admin-savebar [role="status"] {
+  color: var(--editor-text-secondary);
+  font-size: 13px;
+}
+
+.vr-admin-savebar [data-tone="ok"] {
+  color: var(--admin-ok);
+}
+
+.vr-admin-savebar [data-tone="error"] {
+  color: var(--editor-danger);
+}
+
+.vr-admin-savebar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- Submissions ---------- */
+
+.vr-admin-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.vr-admin-chip {
+  margin-bottom: -1px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--editor-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.vr-admin-chip span {
+  margin-left: 6px;
+}
+
+.vr-admin-chip:hover {
+  color: var(--editor-text);
+}
+
+.vr-admin-chip[aria-selected="true"] {
+  border-bottom-color: var(--editor-text);
+  color: var(--editor-text);
+}
+
+.vr-submissions {
+  display: grid;
+}
+
+.vr-submission-card {
+  display: grid;
+  gap: 12px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.vr-submission-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vr-submission-name {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vr-submission-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.vr-submission-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 24px;
   margin: 0;
 }
+
+.vr-submission-field {
+  min-width: 0;
+}
+
+.vr-submission-field[data-wide="true"] {
+  grid-column: 1 / -1;
+}
+
+.vr-submission-field-label {
+  margin-bottom: 2px;
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.vr-submission-field dd {
+  margin: 0;
+}
+
+.vr-submission-field p,
+.vr-submission-field a {
+  margin: 0;
+  color: var(--editor-text);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.vr-submission-field a {
+  text-decoration-color: var(--editor-border-strong);
+  text-underline-offset: 3px;
+}
+
+/* ---------- Media ---------- */
+
+.vr-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 28px 20px;
+}
+
+.vr-media-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.vr-media-card-body {
+  display: grid;
+  gap: 8px;
+}
+
+.vr-media-usage {
+  min-width: 0;
+}
+
+.vr-media-hint {
+  margin: 0;
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.vr-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+}
+
+.vr-media-actions .vr-media-hint {
+  flex: 1 1 auto;
+}
+
+.vr-focal {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: #2d3038;
+  cursor: crosshair;
+}
+
+.vr-focal img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vr-focal-point {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* ---------- Shared bits used by editor panels ---------- */
 
 .vr-admin-section {
   display: grid;
   gap: 16px;
   padding-top: 22px;
   border-top: 1px solid var(--editor-border-soft);
-}
-
-.vr-admin-section h2 {
-  margin: 0;
-  color: var(--editor-text-secondary);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .vr-admin-actions {
@@ -146,211 +710,84 @@
   margin-top: 1.4rem;
 }
 
-.vr-admin-note {
-  color: var(--editor-muted);
-  font-size: 12px;
-}
-
-.vr-submissions {
-  display: grid;
-  gap: 22px;
-}
-
-.vr-submission-card {
-  display: grid;
-  gap: 18px;
-  padding: 28px 32px;
-  border: 1px solid var(--editor-border-soft);
-  background: var(--editor-panel);
-}
-
-.vr-submission-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.vr-submission-name {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.vr-submission-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  font-size: 14px;
-  color: var(--editor-text-secondary);
-}
-
-.vr-submission-page {
-  color: var(--editor-text);
-  font-weight: 600;
-}
-
-.vr-submission-fields {
-  display: grid;
-  gap: 14px;
-}
-
-.vr-submission-field p {
-  margin: 6px 0 0;
-  font-size: 16px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-}
-
-.vr-submission-field-label {
-  display: block;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--editor-muted);
-}
-
-.vr-submission-more {
-  margin-top: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--editor-text-secondary);
-  font-size: 14px;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.vr-admin-upload {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 3px;
-  background: var(--editor-accent);
-  color: #f4ffff;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  overflow: hidden;
-}
-
-.vr-admin-upload input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
+/* ---------- Login ---------- */
 
 .vr-login {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 2rem;
+  padding: 2rem 16px;
   background: var(--editor-shell);
   color: var(--editor-text);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color-scheme: dark;
 }
 
 .vr-login-box {
-  width: min(100%, 360px);
+  width: min(100%, 340px);
 }
 
 .vr-login-box .vr-wordmark {
   display: block;
-  margin: 0 0 34px;
+  margin: 0 0 32px;
   text-align: center;
   color: var(--editor-text);
 }
 
-.vr-admin .vr-form,
+.vr-login-box .vr-admin-title {
+  margin-bottom: 20px;
+  font-size: 18px;
+}
+
 .vr-login .vr-form {
   display: grid;
   gap: 16px;
-  max-width: 100%;
 }
 
-.vr-admin .vr-field,
 .vr-login .vr-field {
   display: grid;
-  gap: 7px;
+  gap: 6px;
   color: var(--editor-text-secondary);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 13px;
 }
 
-.vr-admin .vr-field input,
-.vr-admin .vr-field textarea,
-.vr-admin .vr-field select,
-.vr-login .vr-field input,
-.vr-login .vr-field textarea,
-.vr-login .vr-field select {
+.vr-login .vr-field input {
   width: 100%;
   height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--editor-border-soft);
-  border-radius: 3px;
-  background: var(--editor-control);
+  padding: 0 10px;
+  border: 1px solid var(--editor-border);
+  border-radius: 2px;
+  background: #2f323b;
   color: var(--editor-text);
-  font-size: 12px;
-  appearance: none;
-  -webkit-appearance: none;
+  font-size: 16px;
 }
 
-.vr-admin .vr-field textarea,
-.vr-login .vr-field textarea {
-  height: auto;
-  min-height: 120px;
-  padding-block: 10px;
-  line-height: 1.55;
-}
-
-.vr-admin .vr-field input:focus,
-.vr-admin .vr-field textarea:focus,
-.vr-admin .vr-field select:focus,
-.vr-login .vr-field input:focus,
-.vr-login .vr-field textarea:focus,
-.vr-login .vr-field select:focus {
-  outline: 1px solid color-mix(in srgb, var(--editor-accent) 70%, transparent);
-  outline-offset: 1px;
+.vr-login .vr-field input:focus {
+  outline: none;
   border-color: var(--editor-accent);
 }
 
-.vr-admin .vr-cta,
 .vr-login .vr-cta {
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: 3px;
+  min-height: 42px;
+  border: 0;
+  border-radius: 2px;
   background: var(--editor-accent);
-  color: #f4ffff;
+  color: #0e2a2b;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0;
-}
-
-.vr-admin button:not(.vr-ed-iconbtn):not(.vr-ed-btn):not(.vr-cta),
-.vr-login button:not(.vr-ed-iconbtn):not(.vr-ed-btn):not(.vr-cta) {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--editor-border-soft);
-  border-radius: 3px;
-  background: var(--editor-control);
-  color: var(--editor-text);
+  text-transform: none;
   cursor: pointer;
-  font-size: 12px;
-}
-
-.vr-admin a {
-  color: var(--editor-text-secondary);
 }
 
 .vr-form-error {
+  margin: 0;
   color: var(--editor-danger);
+  font-size: 13px;
 }
+
+/* ---------- Rich text editor (used in the visual editor inspector) ---------- */
 
 .vr-editor {
   border-bottom: 1px solid var(--vr-line);
@@ -390,126 +827,126 @@
   outline: none;
 }
 
-.vr-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.vr-table--compact {
-  border-top: 1px solid var(--editor-border-soft);
-}
-
-.vr-table th,
-.vr-table td {
-  text-align: left;
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--editor-border-soft);
-  vertical-align: top;
-}
-
-.vr-table th {
-  color: var(--editor-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.vr-preview {
-  border-top: 1px solid var(--vr-line);
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-}
-
-.vr-code {
-  width: 100%;
-  min-height: 14rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-  background: var(--editor-control);
-  border: 1px solid var(--editor-border-soft);
-  padding: 0.8rem;
-}
-
-.vr-swatch-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
-}
-
-.vr-color input[type="color"] {
-  width: 100%;
-  height: 36px;
-  padding: 0;
-  border: 1px solid var(--vr-line);
-  background: transparent;
-}
-
-.vr-warn {
-  color: var(--editor-danger);
-}
-
-.vr-media-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-}
-
-.vr-media-card img {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-}
-
-.vr-media-card {
-  display: grid;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--editor-border-soft);
-  background: var(--editor-panel);
-}
-
-.vr-focal {
-  position: relative;
-  width: min(100%, 320px);
-  aspect-ratio: 4 / 3;
-  overflow: hidden;
-  cursor: crosshair;
-}
-
-.vr-focal img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-  .vr-focal-point {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  margin: -6px 0 0 -6px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px #3d3a35;
-  pointer-events: none;
-}
+/* ---------- Narrow screens ---------- */
 
 @media (max-width: 760px) {
-  .vr-admin-header {
-    align-items: flex-start;
+  .vr-admin-shell {
+    display: block;
   }
 
-  .vr-admin-nav {
-    width: 100%;
-    margin-left: 0;
+  .vr-admin-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    height: 56px;
+    padding: 0 6px 0 16px;
+    border-bottom: 1px solid var(--admin-line);
+    background: var(--editor-shell);
+  }
+
+  .vr-admin-topbar-title {
+    overflow: hidden;
+    color: var(--editor-muted);
+    font-size: 13px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vr-admin-menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--editor-text);
+    cursor: pointer;
+  }
+
+  .vr-admin-sidebar {
+    position: fixed;
+    top: 56px;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(86vw, 300px);
+    height: auto;
+    padding: 20px 24px 24px;
+    border-right: 0;
+    border-left: 1px solid var(--admin-line);
+    background: var(--editor-shell);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 180ms ease, visibility 0s linear 180ms;
+  }
+
+  .vr-admin-brand--sidebar {
+    display: none;
+  }
+
+  .vr-admin-shell[data-menu-open="true"] .vr-admin-sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform 180ms ease;
+  }
+
+  .vr-admin-shell[data-menu-open="true"] .vr-admin-scrim {
+    position: fixed;
+    inset: 56px 0 0;
+    z-index: 35;
+    display: block;
+    border: 0;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  .vr-admin-nav a,
+  .vr-admin-nav-plain {
+    padding: 11px 0;
+    font-size: 16px;
   }
 
   .vr-admin-main {
-    width: calc(100% - 32px);
-    padding-top: 36px;
+    padding: 24px 16px 80px;
   }
 
   .vr-admin-page-head {
-    align-items: flex-start;
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .vr-admin-page-actions .vr-admin-btn {
+    flex: 1;
+  }
+
+  .vr-admin-grid-2,
+  .vr-submission-fields {
+    grid-template-columns: 1fr;
+  }
+
+  /* 16px keeps iOS Safari from zooming into a field on focus. */
+  .vr-admin-field input,
+  .vr-admin-field select,
+  .vr-admin-field textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .vr-admin-btn {
+    min-height: 42px;
+  }
+
+  .vr-submission-head {
+    flex-direction: column;
+  }
+
+  .vr-media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px 12px;
   }
 }

@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
     return [
       { source: "/pehme-jooga-ja-loogastus", destination: "/pehme-jooga-ja-gong", permanent: true },
       { source: "/head-teada", destination: "/hea-teada", permanent: true },
+      // Admin pages folded into the editor and Seaded.
+      { source: "/admin/pages", destination: "/admin/editor", permanent: false },
+      { source: "/admin/menu", destination: "/admin/editor", permanent: false },
+      { source: "/admin/seo", destination: "/admin/editor", permanent: false },
+      { source: "/admin/design", destination: "/admin/editor", permanent: false },
+      { source: "/admin/forms", destination: "/admin/submissions", permanent: false },
+      { source: "/admin/export", destination: "/admin/settings#varukoopia", permanent: false },
+      { source: "/admin/admins", destination: "/admin/settings#administraatorid", permanent: false },
     ];
   },
   images: {

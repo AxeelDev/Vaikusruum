@@ -1,29 +1,63 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { TiptapNode } from "@/types/content";
 import { isTiptapDoc } from "@/lib/content/rich-text";
 
-function textOf(node: TiptapNode, key: string): React.ReactNode {
-  const children = node.content?.map((child, i) => <NodeView key={`${key}-${i}`} node={child} />) ?? node.text;
-  const href = node.marks?.find((m) => m.type === "link")?.attrs?.href;
-  let wrapped: React.ReactNode = children;
+const URL_PATTERN = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]!?])/g;
+
+function isUrl(text: string | undefined): text is string {
+  return Boolean(text && /^https?:\/\/\S+$/.test(text.trim()));
+}
+
+function linkElement(href: string, children: ReactNode, key?: string) {
+  return (
+    <a key={key} href={href} rel="noreferrer" target={href.startsWith("http") ? "_blank" : undefined}>
+      {children}
+    </a>
+  );
+}
+
+/** Plain text with bare web addresses turned into links, so a pasted URL is always clickable. */
+function linkify(text: string, key: string): ReactNode {
+  const parts = text.split(URL_PATTERN);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => (i % 2 === 1 ? linkElement(part, part, `${key}-u${i}`) : part));
+}
+
+function textOf(node: TiptapNode, key: string): ReactNode {
+  const link = node.marks?.find((m) => m.type === "link");
+  let href = link?.attrs?.href;
+  // A link mark saved without an address still points at its own text when that text is a URL.
+  if (link && (typeof href !== "string" || !href) && isUrl(node.text)) href = node.text.trim();
+  const hasHref = typeof href === "string" && Boolean(href);
+  const children =
+    node.content?.map((child, i) => <NodeView key={`${key}-${i}`} node={child} />) ??
+    (hasHref || !node.text ? node.text : linkify(node.text, key));
+  let wrapped: ReactNode = children;
   if (node.marks?.some((m) => m.type === "bold")) wrapped = <strong>{wrapped}</strong>;
   if (node.marks?.some((m) => m.type === "italic")) wrapped = <em>{wrapped}</em>;
-  if (typeof href === "string" && href) {
-    wrapped = (
-      <a href={href} rel="noreferrer" target={href.startsWith("http") ? "_blank" : undefined}>
-        {wrapped}
-      </a>
-    );
-  }
+  if (hasHref) wrapped = linkElement(href as string, wrapped);
   return wrapped;
+}
+
+function isEmptyParagraph(node: TiptapNode) {
+  return node.type === "paragraph" && !node.content?.some((child) => child.type !== "text" || child.text?.trim());
+}
+
+/** Trailing blank lines carry no meaning on the page; blank lines between content are kept as spacing. */
+function trimTrailingEmpty(nodes: TiptapNode[]) {
+  let end = nodes.length;
+  while (end > 0 && isEmptyParagraph(nodes[end - 1])) end--;
+  return nodes.slice(0, end);
 }
 
 function NodeView({ node }: { node: TiptapNode }) {
   const children = node.content?.map((child, i) => <NodeView key={i} node={child} />);
   switch (node.type) {
     case "doc":
-      return <>{children}</>;
+      return <>{trimTrailingEmpty(node.content ?? []).map((child, i) => <NodeView key={i} node={child} />)}</>;
     case "paragraph":
+      // An empty paragraph is a deliberate blank line; give it a line of height like the editor does.
+      if (isEmptyParagraph(node)) return <p className="vr-rich-blank" aria-hidden="true"><br /></p>;
       return <p>{children ?? node.text}</p>;
     case "heading": {
       const level = Number(node.attrs?.level ?? 2);

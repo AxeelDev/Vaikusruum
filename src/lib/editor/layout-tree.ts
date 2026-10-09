@@ -8,7 +8,7 @@ import type {
   SectionLayoutTree,
   SectionRow,
 } from "@/types/content";
-import type { AddableElementType } from "@/lib/editor/types";
+import { ADDABLE_ELEMENTS, type AddableElementType } from "@/lib/editor/types";
 import { paragraphs } from "@/lib/content/rich-text";
 
 export type LayoutMoveTarget = {
@@ -499,7 +499,7 @@ function createElementNode(section: SectionRow, addType: AddableElementType, fie
   const id = `${base}.${field}`;
   switch (addType) {
     case "links":
-      return element(id, "link", "Links", { field });
+      return element(id, "link", "Lingid", { field });
     case "container":
       return element(id, "text", "Konteiner", { field });
     default:
@@ -508,46 +508,7 @@ function createElementNode(section: SectionRow, addType: AddableElementType, fie
 }
 
 function elementLabel(addType: AddableElementType) {
-  switch (addType) {
-    case "text":
-      return "Tekst";
-    case "paragraph":
-      return "Lõik";
-    case "list":
-      return "List";
-    case "image":
-      return "Image";
-    case "buttons":
-      return "Buttons";
-    case "video":
-      return "Video";
-    case "links":
-      return "Links";
-    case "audio":
-      return "Audio";
-    case "icons":
-      return "Icons";
-    case "gallery":
-      return "Gallery";
-    case "table":
-      return "Table";
-    case "timer":
-      return "Timer";
-    case "divider":
-      return "Divider";
-    case "slideshow":
-      return "Slideshow";
-    case "form":
-      return "Form";
-    case "widget":
-      return "Widget";
-    case "embed":
-      return "Embed";
-    case "control":
-      return "Control";
-    case "container":
-      return "Container";
-  }
+  return ADDABLE_ELEMENTS.find((item) => item.type === addType)?.label ?? "Element";
 }
 
 function defaultElementContent(addType: AddableElementType): unknown {

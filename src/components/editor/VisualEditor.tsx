@@ -59,6 +59,8 @@ type DragSession = {
   addType?: AddableElementType;
   label: string;
   source: HTMLElement;
+  /** The element under the pointer at press time; pointer capture retargets later events to the canvas. */
+  pressTarget?: HTMLElement;
   dragging: boolean;
   targets: CachedDropTarget[];
   drop: ResolvedDrop | null;
@@ -423,6 +425,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
       sectionId,
       label: source.dataset.vrDragLabel ?? "Element",
       source,
+      pressTarget: target,
       dragging: false,
       targets: [],
       drop: null,
@@ -458,11 +461,8 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
         window.setTimeout(() => {
           suppressClickRef.current = false;
         }, 0);
-        const selection = selectionFromElement(upEvent.target as HTMLElement) ?? selectionFromElement(active.source);
-        if (selection) {
-          if (state.selected?.id === selection.id) editor.deselect();
-          else editor.select(selection);
-        }
+        const selection = selectionFromElement(active.pressTarget ?? null) ?? selectionFromElement(active.source);
+        if (selection && state.selected?.id !== selection.id) editor.select(selection);
       }
       cleanupDrag(active.dragging);
     };
@@ -644,7 +644,13 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
     if (!frame) return;
     const escape = window.CSS?.escape ?? ((value: string) => value.replace(/["\\]/g, "\\$&"));
     const node = frame.querySelector<HTMLElement>(`[data-vr-edit-id="${escape(state.selected.id)}"]`);
-    node?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    if (!node) return;
+    // Only bring the element into view when it is off-screen (e.g. picked from the layer list).
+    // Scrolling something already visible moves it out from under the pointer mid-click.
+    const box = node.getBoundingClientRect();
+    const view = frame.getBoundingClientRect();
+    const visible = box.bottom > view.top + 24 && box.top < view.bottom - 24;
+    if (!visible) node.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
   }, [state.preview, state.selected]);
 
   useEffect(() => {
@@ -770,6 +776,12 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
               if (!dragRef.current?.dragging) updateHoverOverlay(null);
             }}
             onSubmitCapture={(event) => event.preventDefault()}
+            onClick={(event) => {
+              // Clicking empty canvas outside any element clears the selection.
+              if (state.preview || !state.selected) return;
+              if ((event.target as HTMLElement).closest("[data-vr-edit-id], [data-vr-selection-id]")) return;
+              editor.deselect();
+            }}
           >
             <div className="vr-editor-frame" style={{ width: BREAKPOINT_WIDTH[state.breakpoint] }}>
               <MemoSiteView
@@ -1002,14 +1014,15 @@ function EditorTopBar({
             >
               Saidi kujundus
             </button>
-            <button type="button" onClick={() => editor.requestNavigation("/admin/design")}>
-              Halduse kujundus
-            </button>
-            <button type="button" onClick={() => editor.requestNavigation("/admin")}>
-              Haldus
-            </button>
             <button type="button" onClick={() => editor.requestNavigation("/")}>
               Vaata lehte
+            </button>
+            <div className="vr-editor-add-sep" />
+            <button type="button" onClick={() => editor.requestNavigation("/admin")}>
+              Ülevaade
+            </button>
+            <button type="button" onClick={() => editor.requestNavigation("/admin/submissions")}>
+              Registreerumised
             </button>
             <button type="button" onClick={() => editor.requestNavigation("/admin/media")}>
               Pildid

@@ -1,3 +1,4 @@
+import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { SubmissionList, type SubmissionCard } from "./SubmissionList";
 
@@ -45,8 +46,18 @@ export default async function SubmissionsPage() {
   });
 
   return (
-    <div className="vr-admin-panel">
-      <h1 className="vr-admin-title">Registreerumised</h1>
+    <div className="vr-admin-page vr-admin-page--wide">
+      <AdminPageHeader
+        title="Registreerumised"
+        description="Kontakt-, eratunni- ja registreerumisvormide kaudu saadetud sõnumid, uusimad eespool."
+        actions={
+          rows.length ? (
+            <a className="vr-admin-btn vr-admin-btn--ghost" href="/admin/export/submissions.csv" download>
+              Laadi CSV
+            </a>
+          ) : null
+        }
+      />
       <SubmissionList rows={rows} />
     </div>
   );

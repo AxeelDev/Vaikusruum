@@ -146,6 +146,21 @@
   text-underline-offset: 0.22em;
 }
 
+/* Links inside text and "rohkem infot" stand apart from body copy: heading colour, a touch heavier. */
+.vr-rich a,
+main a.vr-text-link {
+  color: var(--vr-heading-color);
+  font-weight: 600;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  overflow-wrap: anywhere;
+}
+
+.vr-rich a:hover,
+main a.vr-text-link:hover {
+  text-decoration-thickness: 2px;
+}
+
 .vr-muted {
   color: var(--vr-text-muted);
 }

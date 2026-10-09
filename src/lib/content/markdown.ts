@@ -167,19 +167,7 @@ export const RICH_MARKDOWN_HELP_ITEMS = [
 ] as const;
 
 export const MARKDOWN_HELP_ITEMS = [
-  { sample: "**Bold**", hint: "Rasvane" },
-  { sample: "*Italic* or _Italic_", hint: "Kaldkiri" },
-  { sample: "***Bold Italic***", hint: "Rasvane kaldkiri" },
-  { sample: "__Underline__", hint: "Allajoonitud" },
-  { sample: "[Link text](https://…)", hint: "Link" },
-  { sample: "`Code`", hint: "Kood" },
-  { sample: "~~Strike~~", hint: "Läbikriipsutus" },
-  { sample: "==Highlight==", hint: "Esiletõst" },
-  { sample: "^Superscript^", hint: "Ülaindeks" },
-  { sample: "~Subscript~", hint: "Alaindeks" },
-  { sample: "||Spoiler||", hint: "Spoiler" },
-  { sample: "[color text](red)", hint: "Nimetatud värv" },
-  { sample: "[color text](#d48342)", hint: "Hex värv" },
-  { sample: "Line\\Break", hint: "Reavahetus" },
-  { sample: "Non-Breaking\\ Space", hint: "Mittekatkestav tühik" },
+  { sample: "**rasvane**", hint: "Rasvane" },
+  { sample: "*kaldkiri*", hint: "Kaldkiri" },
+  { sample: "[lingi tekst](https://…)", hint: "Link" },
 ] as const;

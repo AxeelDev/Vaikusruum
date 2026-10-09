@@ -205,7 +205,7 @@ export function EditorTextarea({
 
 export function MarkdownHelp({
   items,
-  defaultOpen = true,
+  defaultOpen = false,
 }: {
   items: ReadonlyArray<{ sample: string; hint: string }>;
   defaultOpen?: boolean;
@@ -217,7 +217,7 @@ export function MarkdownHelp({
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary>Markdown</summary>
+      <summary>Vormindus</summary>
       <div className="vr-md-help-list">
         {items.map((item) => (
           <div key={item.sample} className="vr-md-help-row">

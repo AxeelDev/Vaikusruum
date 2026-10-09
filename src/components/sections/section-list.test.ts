@@ -132,6 +132,19 @@ describe("section list copy", () => {
     expect(markup).toContain("Registreeri tundi");
   });
 
+  it("shows a price written into the tasakaal label even without a separate amount", () => {
+    const practical = (tasakaalLabel?: string) =>
+      html("kundalini-jooga", [
+        row({
+          section_key: "practical",
+          section_type: "offering_practical_info",
+          content: { offeringId: SEED_IDS.offerings.kundalini, ...(tasakaalLabel ? { tasakaalLabel } : {}) },
+        }),
+      ]);
+    expect(practical("Tasakaal: 20€")).toContain("Tasakaal: 20€");
+    expect(practical()).not.toContain("Tasakaal");
+  });
+
   it("renders private lesson options and shared prices", () => {
     const markup = html("eratunnid", [
       row({

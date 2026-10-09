@@ -1497,6 +1497,10 @@ html.vr-editor-lock body {
   line-height: 1.55;
 }
 
+.vr-ed-help--error {
+  color: var(--editor-danger, #c2412d);
+}
+
 .vr-ed-inline {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2031,4 +2035,21 @@ html.vr-editor-lock body {
   background: #555963;
   border-radius: 2px;
   pointer-events: none;
+}
+
+/* Phones and tablets: 16px fields stop iOS Safari from zooming the whole editor when a field is tapped. */
+@media (pointer: coarse) {
+  .vr-ed-input,
+  .vr-ed-textarea,
+  .vr-ed-select,
+  .vr-editor .tiptap {
+    font-size: 16px;
+  }
+}
+
+/* With room for both, the open inspector pushes the page aside instead of covering its left edge. */
+@media (min-width: 760px) {
+  .vr-editor-root[data-inspector-open="true"] > .vr-editor-workspace {
+    padding-left: var(--editor-inspector-width, var(--editor-sidebar-width));
+  }
 }

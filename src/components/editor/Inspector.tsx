@@ -99,14 +99,20 @@ export function Inspector() {
   const hasContext = model.context.kind !== "none";
   const [width, setWidth] = useState(() => {
     if (typeof window === "undefined") return 316;
-    const stored = Number(window.localStorage.getItem("vr.editor.inspectorWidth"));
-    return Number.isFinite(stored) ? clampInspectorWidth(stored) : 316;
+    try {
+      const raw = window.localStorage.getItem("vr.editor.inspectorWidth");
+      const stored = raw ? Number(raw) : NaN;
+      return Number.isFinite(stored) ? clampInspectorWidth(stored) : 316;
+    } catch {
+      return 316;
+    }
   });
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--editor-sidebar-width", `${width}px`);
+    document.documentElement.style.setProperty("--editor-inspector-width", `${width}px`);
   }, [width]);
 
   function onResizePointerDown(event: PointerEvent<HTMLButtonElement>) {
@@ -236,7 +242,7 @@ function EditorGlobalBrowser() {
 
   return (
     <>
-      <EditorContext kicker="Pages" title={pageLabel(page)} />
+      <EditorContext kicker="Lehed" title={pageLabel(page)} />
       <div className="vr-ed-pages">
         {visiblePages.map((item) => (
           <button
@@ -262,7 +268,7 @@ function EditorGlobalBrowser() {
         ))}
       </div>
       <EditorDivider />
-      <EditorContext kicker="Elements" title={`${pageLabel(page)} (${pageSections(editor.state.draft, page.id).length})`} />
+      <EditorContext kicker="Elemendid" title={`${pageLabel(page)} (${pageSections(editor.state.draft, page.id).length})`} />
       <EditorElementTree />
       <EditorDivider />
       <div className="vr-inspector-add" ref={addRef}>
@@ -927,6 +933,56 @@ function NodeAppearanceInspector() {
   );
 }
 
+const REGISTRATION_OPTIONS = [
+  { value: "form", label: "Vorm lehel" },
+  { value: "external_link", label: "Link teisele lehele" },
+  { value: "email", label: "E-posti aadress" },
+  { value: "form_and_email", label: "Vorm ja e-post" },
+  { value: "disabled", label: "Ära näita" },
+];
+
+/** How visitors register for the class shown in this section. */
+function RegistrationControls({ offeringId }: { offeringId: string }) {
+  const editor = useEditor();
+  const offering = editor.state.draft.offerings[offeringId];
+  if (!offering) return null;
+  const set = <K extends keyof OfferingRow>(key: K, value: OfferingRow[K], record = true) =>
+    editor.setPath({ kind: "offering", offeringId, key }, value, record);
+  const url = offering.registration_url ?? "";
+  const urlInvalid = offering.registration_mode === "external_link" && !/^https?:\/\/\S+\.\S+/.test(url.trim());
+  return (
+    <EditorGroup label="Registreerimine">
+      <EditorSelect
+        value={offering.registration_mode}
+        options={REGISTRATION_OPTIONS}
+        onChange={(mode) => set("registration_mode", mode as OfferingRow["registration_mode"])}
+      />
+      {offering.registration_mode === "external_link" ? (
+        <>
+          <EditorTextInput
+            ariaLabel="Registreerimise link"
+            placeholder="https://"
+            value={url}
+            invalid={urlInvalid}
+            onChange={(next) => set("registration_url", next, false)}
+            onCommit={(next) => set("registration_url", next.trim() || null)}
+          />
+          {urlInvalid ? <p className="vr-ed-help vr-ed-help--error">Lisa täielik link, mis algab https://</p> : null}
+        </>
+      ) : null}
+      {offering.registration_mode === "email" || offering.registration_mode === "form_and_email" ? (
+        <EditorTextInput
+          ariaLabel="Registreerimise e-post"
+          placeholder="Vaikimisi saidi e-post"
+          value={offering.registration_email ?? ""}
+          onChange={(next) => set("registration_email", next, false)}
+          onCommit={(next) => set("registration_email", next.trim() || null)}
+        />
+      ) : null}
+    </EditorGroup>
+  );
+}
+
 function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | "layout" }) {
   const editor = useEditor();
   const selected = editor.state.selected;
@@ -959,6 +1015,7 @@ function SectionPanel({ mode = "content" }: { mode?: "content" | "appearance" | 
             onChange={(headTeadaLink) => editor.patchSection(section.id, (row) => ({ ...row, content: { ...row.content, headTeadaLink } }))}
             label="Näita „Hea teada“ linki"
           />
+          <RegistrationControls offeringId={String(section.content.offeringId ?? "")} />
         </>
       ) : null}
       {mode === "content" &&

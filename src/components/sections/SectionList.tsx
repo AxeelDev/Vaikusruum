@@ -682,7 +682,8 @@ function SectionView({
     if (!questionValue && !answerValue && (!editor || editor.state.preview)) return null;
     return (
       <LayoutContainer section={section} node={node} className="vr-layout-group vr-layout-group--small">
-        <details>
+        {/* While editing, answers stay expanded: a click selects text, so a closed answer could never be reached. */}
+        <details open={editor && !editor.state.preview ? true : undefined}>
           <summary>
             {questionField ? renderTextField(questionField, { as: "span", hideIfEmpty: false }) : null}
           </summary>
@@ -764,8 +765,11 @@ function SectionView({
     if (field === "tasakaalLabel") {
       const offeringId = String(section.content.offeringId ?? "");
       const tasakaal = offeringId ? offerings[offeringId]?.tasakaal : "";
-      if (!tasakaal && !editing) return null;
       const label = value || PAGE_COPY_DEFAULTS.tasakaalLabel;
+      // A label written out in full ("Tasakaal: 20€") stands on its own; only the bare default needs a price.
+      const customLabel = label.trim() !== PAGE_COPY_DEFAULTS.tasakaalLabel;
+      const visible = Boolean(tasakaal) || customLabel;
+      if (!visible && !editing) return null;
       const tasakaalNode = (
         <div className="vr-layout-element vr-layout-element--text">
           <p>
@@ -776,11 +780,11 @@ function SectionView({
               value={label}
               appearance={appearance}
             />
-            {tasakaal ? `: ${tasakaal}` : editing ? ": " : null}
+            {tasakaal ? `: ${tasakaal}` : null}
           </p>
         </div>
       );
-      return tasakaal ? tasakaalNode : hiddenOnPublic(tasakaalNode);
+      return visible ? tasakaalNode : hiddenOnPublic(tasakaalNode);
     }
     if (field === "datesLabel") {
       const offeringId = String(section.content.offeringId ?? "");

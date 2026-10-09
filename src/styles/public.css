@@ -656,6 +656,13 @@
   margin: 0;
 }
 
+/* A blank line typed in the editor adds one paragraph gap of extra space. */
+.vr-rich-blank {
+  height: 0;
+  overflow: hidden;
+  line-height: 0;
+}
+
 .vr-body p + p,
 .vr-rich p + p,
 .vr-body p + ul,
@@ -876,6 +883,12 @@
 .vr-offering .vr-text-link {
   display: inline-block;
   margin-top: clamp(18px, 2vw, 24px);
+  font-size: 1.12em;
+}
+
+.vr-offering .vr-text-link .vr-text-link {
+  margin-top: 0;
+  font-size: inherit;
 }
 
 .vr-private {
