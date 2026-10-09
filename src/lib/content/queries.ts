@@ -3,7 +3,8 @@ import { createPublicSupabase } from "@/lib/supabase/public";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { parseTheme, DEFAULT_THEME, type ThemeTokens } from "@/lib/theme/theme";
 import { isCustomImageField } from "@/lib/editor/image-style";
-import { pageHref } from "@/lib/utils/urls";
+import { mediaPublicUrl, pageHref } from "@/lib/utils/urls";
+import { readImageSize } from "@/lib/utils/image-size";
 import type {
   EventRow,
   MediaRow,
@@ -153,12 +154,48 @@ export const getMediaByIds = cache(async function getMediaByIds(ids: string[]): 
   if (unique.length === 0) return {};
   const supabase = createPublicSupabase();
   const { data } = await supabase.from("media").select("*").in("id", unique);
+  const rows = await withImageSizes((data ?? []) as MediaRow[]);
   const map: Record<string, MediaRow> = {};
-  for (const row of (data ?? []) as MediaRow[]) {
+  for (const row of rows) {
     map[row.id] = row;
   }
   return map;
 });
+
+/**
+ * Reads each image's pixel size from the start of the file, so the page reserves the right space
+ * and nothing jumps when the image arrives. Uploaded files never change in place, so the bytes are
+ * cached for good. A failed read just leaves the size unknown.
+ */
+async function imageSize(storagePath: string): Promise<{ width: number; height: number } | null> {
+  const url = mediaPublicUrl(storagePath);
+  if (!url) return null;
+  // Most headers sit in the first 64 KB; JPEGs with large metadata blocks need a longer read.
+  for (const end of [65_535, 524_287]) {
+    try {
+      const response = await fetch(url, {
+        headers: { Range: `bytes=0-${end}` },
+        cache: "force-cache",
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) return null;
+      const size = readImageSize(new Uint8Array(await response.arrayBuffer()));
+      if (size) return size;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+export async function withImageSizes(rows: MediaRow[]): Promise<MediaRow[]> {
+  return Promise.all(
+    rows.map(async (row) => {
+      const size = await imageSize(row.storage_path);
+      return size ? { ...row, ...size } : row;
+    }),
+  );
+}
 
 export { mediaPublicUrl } from "@/lib/utils/urls";
 
@@ -208,7 +245,7 @@ export async function getEditorBundle() {
   }
 
   const media: Record<string, MediaRow> = {};
-  for (const row of (mediaRes.data ?? []) as MediaRow[]) media[row.id] = row;
+  for (const row of await withImageSizes((mediaRes.data ?? []) as MediaRow[])) media[row.id] = row;
 
   const [settings, theme, customCss] = await Promise.all([getSiteSettings(), getTheme(), getCustomCss()]);
 

@@ -72,6 +72,14 @@ function SectionShell({
   );
 }
 
+/** Tells the browser roughly how wide the image is drawn, so it downloads a file of matching size. */
+function imageSizes(sizePercent: number | undefined, split: boolean) {
+  const share = Math.min(100, Math.max(10, sizePercent ?? 100)) / 100;
+  const desktop = Math.round((split ? 50 : 70) * share);
+  const mobile = Math.round(100 * share);
+  return `(min-width: 960px) ${desktop}vw, ${mobile}vw`;
+}
+
 function SectionImage({
   section,
   image,
@@ -102,6 +110,7 @@ function SectionImage({
         <SiteImage
           media={image}
           className={photoClassName(crop)}
+          sizes={imageSizes(appearance.size, isSplitLayout(section))}
           priority={section.section_type === "hero"}
           draggable={editor && !editor.state.preview ? false : undefined}
         />

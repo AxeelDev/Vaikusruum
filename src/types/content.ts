@@ -228,6 +228,9 @@ export type MediaRow = {
   caption: string | null;
   focal_x: number;
   focal_y: number;
+  /** Pixel size read from the file when the page is built; not stored in the database. */
+  width?: number;
+  height?: number;
 };
 
 export type SiteSettings = {

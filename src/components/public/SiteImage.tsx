@@ -21,11 +21,13 @@ export function SiteImage({
     <Image
       src={src}
       alt={media.alt_text ?? ""}
-      width={1600}
-      height={1200}
+      // The real size lets the browser reserve the right box before the file arrives.
+      width={media.width ?? 1600}
+      height={media.height ?? 1200}
       className={className ?? "vr-photo"}
       sizes={sizes}
-      priority={priority}
+      // Above-the-fold images start downloading from the page head instead of waiting to be discovered.
+      preload={priority}
       draggable={draggable}
       style={{
         width: "100%",

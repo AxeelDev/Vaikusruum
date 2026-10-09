@@ -89,7 +89,6 @@
 }
 
 .vr-type-meta,
-.vr-offering p,
 .vr-contact-label,
 .vr-contact-company,
 .vr-date-time,
@@ -97,6 +96,11 @@
 .vr-footer {
   font-size: var(--node-font-size, 1.0625rem);
   line-height: 1.45;
+}
+
+.vr-offering p {
+  font-size: var(--node-font-size, clamp(1.1875rem, 1.35vw, 1.375rem));
+  line-height: var(--node-line-height, 1.5);
 }
 
 .vr-type-control,

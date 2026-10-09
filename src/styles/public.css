@@ -863,32 +863,29 @@
   max-width: 100%;
 }
 
-.vr-offering + .vr-offering {
-  margin-top: clamp(50px, 4.5vw, 66px);
+/* Each card sits in its own layout slot, so the space between cards is added to the slot after a card. */
+.vr-layout-child:has(> .vr-layout-element--card) + .vr-layout-child:has(> .vr-layout-element--card) {
+  margin-top: clamp(24px, 3vw, 40px);
 }
 
+/* Class cards: a real title, then time / place / address as one quiet block, then the link. */
 .vr-offering .vr-heading {
-  margin-bottom: clamp(14px, 1.25vw, 18px);
+  font-size: var(--node-font-size, clamp(28px, 2.8vw, 38px));
+  line-height: var(--node-line-height, 1.15);
+  margin-bottom: clamp(12px, 1.2vw, 16px);
 }
 
 .vr-offering p {
   margin: 0;
-  line-height: 1.55;
-}
-
-.vr-offering p + p {
-  margin-top: 0.35rem;
 }
 
 .vr-offering .vr-text-link {
   display: inline-block;
-  margin-top: clamp(18px, 2vw, 24px);
-  font-size: 1.12em;
+  margin-top: clamp(14px, 1.4vw, 18px);
 }
 
 .vr-offering .vr-text-link .vr-text-link {
   margin-top: 0;
-  font-size: inherit;
 }
 
 .vr-private {
