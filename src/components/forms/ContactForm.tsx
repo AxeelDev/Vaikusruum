@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { FormEdit } from "@/components/forms/form-edit";
 import { ContactDetails } from "@/components/public/ContactDetails";
 import { LinkButtonRow } from "@/components/public/LinkButtons";
 import { submitPublicForm } from "@/lib/actions/submit-form";
 import type { LinkButton } from "@/lib/content/form-buttons";
-import { FORM_COPY_DEFAULTS, type FormCopy } from "@/lib/content/form-copy";
+import { FORM_COPY_DEFAULTS, HIDEABLE_READ_ALOUD, type FormCopy } from "@/lib/content/form-copy";
 import { UNSURE_KEY, findLessonOption, resolveLessonParam, type LessonOption } from "@/lib/content/lesson-options";
 import type { SiteSettings } from "@/types/content";
 
@@ -76,7 +76,15 @@ export function ContactForm({
   // In the editor the class list always shows, so its texts can be reached before "Registreerumine" is chosen.
   const askClass = showKindSelect && (selectedKind === "private_lesson" || Boolean(edit)) && lessonOptions.length > 1;
   const classOnlyInEditor = Boolean(edit) && selectedKind !== "private_lesson";
-  const text = (key: keyof FormCopy) => (edit ? edit.copy(key, copy[key]) : copy[key]);
+  const text = (key: keyof FormCopy): ReactNode => {
+    const value = copy[key];
+    // A cleared label is hidden from visitors; fields and groups keep their name for screen readers.
+    if (!value) {
+      if (edit) return edit.copy(key, FORM_COPY_DEFAULTS[key], true);
+      return HIDEABLE_READ_ALOUD.includes(key) ? <span className="vr-sr-only">{FORM_COPY_DEFAULTS[key]}</span> : null;
+    }
+    return edit ? edit.copy(key, value) : value;
+  };
   // The "not sure yet" choice shows the section's own wording; the others are the class names.
   const optionLabel = (option: LessonOption) => {
     if (option.key === UNSURE_KEY) return text("formUnsure");

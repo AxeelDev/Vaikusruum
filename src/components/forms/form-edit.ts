@@ -7,8 +7,8 @@ import type { LessonOption } from "@/lib/content/lesson-options";
  * Each function wraps a text the visitor reads; on the public site none of this exists and the plain text shows.
  */
 export type FormEdit = {
-  /** A label, button or sentence kept in the section's content. */
-  copy: (key: FormCopyKey, text: string) => ReactNode;
+  /** A label, button or sentence kept in the section's content. `hidden` marks a cleared label: shown dimmed here, not for visitors. */
+  copy: (key: FormCopyKey, text: string, hidden?: boolean) => ReactNode;
   /** A contact detail from the site settings; `text` is already a placeholder when the detail is empty. */
   setting: (key: ContactSettingKey, text: string) => ReactNode;
   /** One choice in the class list. */

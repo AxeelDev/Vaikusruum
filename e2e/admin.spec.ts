@@ -65,34 +65,74 @@ test.describe("admin (logged in)", () => {
     await expect(page.getByRole("button", { name: "Paneel" })).toHaveCount(0);
   });
 
-  test("clicking any text on any page opens a text panel, never a container", async ({ page }) => {
-    test.setTimeout(240_000);
+  test("every visible text on every page is clickable and opens a field that edits it", async ({ page }) => {
+    test.setTimeout(480_000);
     await page.goto("/admin/editor");
     const names = (await page.locator(".vr-inspector .vr-ed-pages button").allTextContents()).map((text) => text.replace(/peidetud$/, "").trim());
     expect(names.length).toBeGreaterThan(5);
-    const wrong: string[] = [];
+    const problems: string[] = [];
+    const norm = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
+
     for (const name of names) {
       await page.goto("/admin/editor");
       await page.locator(".vr-inspector .vr-ed-pages button", { hasText: name }).first().click();
       await expect(page.locator(".vr-editor-canvas main")).toBeVisible();
-      // Leaf text only: editable, with a field, and nothing editable inside.
-      const ids = await page.evaluate(() =>
-        [...document.querySelectorAll<HTMLElement>(".vr-editor-canvas main [data-vr-editable][data-vr-selection-field]")]
-          .filter((el) => !el.querySelector("[data-vr-edit-id]") && el.dataset.vrSelectionType === "text")
-          .map((el) => el.dataset.vrEditId as string),
-      );
-      for (const id of ids) {
+
+      // 1. Every visible text sits inside an editable text, link or menu label. The only exception is the editor's
+      //    own hint for an empty testimonials section.
+      const { unowned, owners } = await page.evaluate(() => {
+        const walker = document.createTreeWalker(document.querySelector(".vr-editor-canvas")!, NodeFilter.SHOW_TEXT);
+        const unowned: string[] = [];
+        const owners = new Map<string, string>();
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const text = (node.textContent ?? "").replace(/\s+/g, " ").trim();
+          const element = node.parentElement!;
+          if (!text || element.closest("script,style,.vr-sr-only,.vr-hp,[aria-hidden='true']")) continue;
+          const box = element.getBoundingClientRect();
+          if (!box.width || !box.height) continue;
+          const owner = element.closest<HTMLElement>("[data-vr-editable]");
+          const type = owner?.dataset.vrSelectionType ?? "";
+          const field = owner?.dataset.vrSelectionField ?? "";
+          if (owner && field && ["text", "link", "nav"].includes(type) && !["form", "formButtons"].includes(field)) {
+            if (!owners.has(owner.dataset.vrEditId!)) owners.set(owner.dataset.vrEditId!, text);
+          } else if (!/^Tagasisidet ei ole veel lisatud/.test(text)) {
+            unowned.push(text.slice(0, 50));
+          }
+        }
+        return { unowned, owners: [...owners.entries()] };
+      });
+      for (const text of unowned) problems.push(`${name}: not editable: "${text}"`);
+
+      // 2. A real click on each one selects it and shows a field holding that text (or the list that edits it).
+      for (const [id, text] of owners) {
         const element = page.locator(`.vr-editor-canvas [data-vr-edit-id="${id}"]`).first();
+        // The menu and the site name open the page on a plain click; they are edited with Shift-click.
+        if (await element.evaluate((node) => Boolean(node.closest(".vr-header")))) continue;
         await element.scrollIntoViewIfNeeded();
         const box = await element.boundingBox();
         if (!box) continue;
-        await element.click({ position: { x: Math.min(12, box.width / 2), y: Math.min(8, box.height / 2) } });
-        const header = (await page.locator(".vr-inspector-contextbar > span").textContent())?.trim() ?? "";
-        // A rich paragraph is labelled "Lõik" and a form "Vorm"; what must never appear is a container.
-        if (!/^(tekst|lõik|vorm)$/i.test(header)) wrong.push(`${name} · ${id} → "${header}"`);
+        await element.click({ position: { x: Math.min(12, box.width / 2), y: Math.min(6, box.height / 2) } });
+        const content = page.locator(".vr-inspector-modes button").first();
+        if ((await content.getAttribute("data-active")) !== "true") await content.click();
+        const header = ((await page.locator(".vr-inspector-contextbar > span").textContent()) ?? "").trim();
+        const field = (await element.getAttribute("data-vr-selection-field")) ?? "";
+        const values = await page
+          .locator(".vr-inspector-scroll")
+          .evaluate((scope) =>
+            [...scope.querySelectorAll<HTMLInputElement>("textarea, input:not([type=checkbox]):not([type=file])")]
+              .map((input) => input.value)
+              .concat([...scope.querySelectorAll(".tiptap")].map((editor) => editor.textContent ?? "")),
+          );
+        const lists = ["dates", "lessons", "prices"].includes(field);
+        const holdsText = values.some((value) => norm(value).includes(norm(text)) || (norm(value).length > 2 && norm(text).includes(norm(value))));
+        // A field saved blank shows its standard wording on the page, so an empty box is fine for those.
+        const blankDefault = values.some((value) => value === "");
+        if (/konteiner|element/i.test(header) || (lists ? values.length === 0 : !holdsText && !blankDefault)) {
+          problems.push(`${name}: "${text.slice(0, 30)}" (${field}) opened "${header}" with ${JSON.stringify(values.slice(0, 2))}`);
+        }
       }
     }
-    expect(wrong).toEqual([]);
+    expect(problems).toEqual([]);
   });
 
   test("testimonials: add, edit, reorder, hide name and photo, delete", async ({ page }) => {

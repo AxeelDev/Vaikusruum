@@ -85,8 +85,11 @@ async function compressAtSize(file: File, maxSize: number, quality: number): Pro
   ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
   bitmap.close();
 
+  // Safari cannot encode WebP and hands back a PNG instead, several times larger than a JPEG.
   const webp = await canvasToBlob(canvas, "image/webp", quality);
-  if (webp && webp.size > 0) return webp;
+  if (webp && webp.size > 0 && webp.type === "image/webp") return webp;
+  // A PNG may be transparent, which JPEG would turn black, so it stays PNG.
+  if (webp && webp.size > 0 && guessImageType(file) === "image/png") return webp;
   const jpeg = await canvasToBlob(canvas, "image/jpeg", quality);
   if (jpeg && jpeg.size > 0) return jpeg;
   throw new Error("Pilti ei õnnestunud salvestada.");

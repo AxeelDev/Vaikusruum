@@ -420,9 +420,10 @@ function SectionView({
   const formOffering = typeof section.content.offeringId === "string" ? offerings[section.content.offeringId] : undefined;
   const formEdit: FormEdit | undefined = editing
     ? {
-        copy: (key, value) => (
+        copy: (key, value, hidden) => (
           <EditableText
             as="span"
+            className={hidden ? "vr-ed-dim" : undefined}
             selection={textSelection(slug, section, key)}
             path={{ kind: "section-content", sectionId: section.id, key }}
             value={value}
@@ -640,7 +641,7 @@ function SectionView({
         {lessons.map((lesson, index) => (
           <article key={`${lesson.title}-${index}`} className="vr-private-lesson">
             <h3 className="vr-heading-sm">
-              {listText("lessons", `${index}.title`, lesson.title)}
+              {listText("lessons", `${index}.name`, lesson.title)}
               {lesson.duration ? <span className="vr-private-duration">{listText("lessons", `${index}.duration`, lesson.duration)}</span> : null}
             </h3>
             {lesson.description ? <p>{listText("lessons", `${index}.description`, lesson.description)}</p> : null}

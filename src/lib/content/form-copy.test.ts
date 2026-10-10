@@ -35,12 +35,20 @@ function draft(content: Record<string, unknown> = {}): EditorDraft {
 }
 
 describe("form copy", () => {
-  it("falls back to the default when nothing, or only blanks, is saved", () => {
+  it("shows the default when nothing is saved, and the saved wording otherwise", () => {
     expect(readFormCopyValue({}, "formName")).toBe("Nimi");
-    expect(readFormCopyValue({ formName: "   " }, "formName")).toBe("Nimi");
     expect(readFormCopyValue({ formName: "Su nimi" }, "formName")).toBe("Su nimi");
     expect(readFormCopy({ formSubmit: "Saada ära" }).formSubmit).toBe("Saada ära");
     expect(readFormCopy({}).formSuccess).toBe(FORM_COPY_DEFAULTS.formSuccess);
+  });
+
+  it("lets a label be cleared to hide it, but not a button or the consent sentence", () => {
+    expect(readFormCopyValue({ formKindLabel: "  " }, "formKindLabel")).toBe("");
+    expect(readFormCopyValue({ formName: "" }, "formName")).toBe("");
+    expect(readFormCopyValue({ contactIbanLabel: "" }, "contactIbanLabel")).toBe("");
+    expect(readFormCopyValue({ formSubmit: "" }, "formSubmit")).toBe(FORM_COPY_DEFAULTS.formSubmit);
+    expect(readFormCopyValue({ formConsent: " " }, "formConsent")).toBe(FORM_COPY_DEFAULTS.formConsent);
+    expect(readFormCopyValue({ formKindLesson: "" }, "formKindLesson")).toBe(FORM_COPY_DEFAULTS.formKindLesson);
   });
 
   it("names every text in the editor", () => {

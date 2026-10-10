@@ -36,9 +36,11 @@ function recorder() {
   const setting: string[] = [];
   const option: string[] = [];
   const email: string[] = [];
+  const hiddenKeys: string[] = [];
   const edit: FormEdit = {
-    copy: (key, text): ReactNode => {
+    copy: (key, text, hidden): ReactNode => {
       copy.push(key);
+      if (hidden) hiddenKeys.push(key);
       return createElement("mark", { "data-copy": key }, text);
     },
     setting: (key, text): ReactNode => {
@@ -54,7 +56,7 @@ function recorder() {
       return createElement("mark", { "data-email": true }, address);
     },
   };
-  return { edit, copy, setting, option, email };
+  return { edit, copy, setting, option, email, hiddenKeys };
 }
 
 const render = (node: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(node);
@@ -149,5 +151,24 @@ describe("contact details", () => {
     const placeholders = render(createElement(ContactDetails, { settings: sparse, edit: spy.edit }));
     expect(placeholders).toContain("vr-editor-hidden");
     expect(placeholders).toContain(">Ettevõte<");
+  });
+});
+
+describe("hiding a label by clearing it", () => {
+  const cleared = readFormCopy({ formKindLabel: "", formName: "", contactIbanLabel: "", formSubmit: "" });
+
+  it("keeps a cleared field label for screen readers only, and drops a cleared lead-in", () => {
+    const markup = render(createElement(ContactForm, { settings, copy: cleared }));
+    expect(markup).toContain('<span class="vr-sr-only">Nimi</span>');
+    expect(markup).toContain('<legend><span class="vr-sr-only">Teema</span></legend>');
+    expect(markup).not.toContain("Arvelduskonto");
+    // The button keeps its wording: a form cannot send without one.
+    expect(markup).toContain(">Saada<");
+  });
+
+  it("still hands a cleared label to the editor, marked hidden, so it can be clicked and restored", () => {
+    const spy = recorder();
+    render(createElement(ContactForm, { settings, copy: cleared, edit: spy.edit }));
+    expect(spy.hiddenKeys.sort()).toEqual(["contactIbanLabel", "formKindLabel", "formName"]);
   });
 });

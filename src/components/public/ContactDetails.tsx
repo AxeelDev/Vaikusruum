@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { FormEdit } from "@/components/forms/form-edit";
 import { FORM_COPY_DEFAULTS, type FormCopy } from "@/lib/content/form-copy";
 import type { SiteSettings } from "@/types/content";
@@ -46,7 +47,12 @@ export function ContactDetails({
   const show = (text: string) => editing || Boolean(text);
   const dim = (text: string) => (editing && !text ? "vr-editor-hidden" : undefined);
   const cell = (key: keyof typeof PLACEHOLDER, text: string) => (edit ? edit.setting(key, text || PLACEHOLDER[key]) : text);
-  const label = (key: "contactRegistryLabel" | "contactIbanLabel") => (edit ? edit.copy(key, copy[key]) : copy[key]);
+  // A label cleared in the editor is left out for visitors; in the editor it stays, dimmed, to be filled in again.
+  const label = (key: "contactRegistryLabel" | "contactIbanLabel"): ReactNode => {
+    const text = copy[key];
+    if (!text) return edit ? <span className="vr-contact-label">{edit.copy(key, FORM_COPY_DEFAULTS[key], true)}</span> : null;
+    return <span className="vr-contact-label">{edit ? edit.copy(key, text) : text}</span>;
+  };
 
   return (
     <div className="vr-contact-details">
@@ -66,13 +72,12 @@ export function ContactDetails({
           {show(company) ? <p className={dim(company)}>{cell("company_name", company)}</p> : null}
           {show(registry) ? (
             <p className={dim(registry)}>
-              <span className="vr-contact-label">{label("contactRegistryLabel")}</span> {cell("registry_code", registry)}
+              {label("contactRegistryLabel")} {cell("registry_code", registry)}
             </p>
           ) : null}
           {show(iban) ? (
             <p className={dim(iban)}>
-              <span className="vr-contact-label">{label("contactIbanLabel")}</span>{" "}
-              <span className="vr-iban">{cell("iban", iban)}</span>
+              {label("contactIbanLabel")} <span className="vr-iban">{cell("iban", iban)}</span>
             </p>
           ) : null}
           {show(bank) ? <p className={dim(bank)}>{cell("bank", bank)}</p> : null}

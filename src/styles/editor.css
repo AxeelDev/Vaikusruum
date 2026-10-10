@@ -2192,3 +2192,10 @@ html.vr-editor-lock body {
   display: grid;
   gap: 4px;
 }
+
+/* A label cleared to hide it: still there to click and restore, but dimmed so it reads as hidden. */
+.vr-editor-canvas .vr-ed-dim {
+  opacity: 0.45;
+  outline: 1px dashed currentColor;
+  outline-offset: 2px;
+}

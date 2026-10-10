@@ -55,7 +55,7 @@ import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/
 import { isButtonLinksField, linkButtonError, readButtonLinks, writeButtonLinks, type LinkButton } from "@/lib/content/form-buttons";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
 import { MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
-import { FORM_COPY_DEFAULTS, FORM_COPY_LABELS, isContactSettingKey, isFormCopyKey, type FormCopyKey } from "@/lib/content/form-copy";
+import { FORM_COPY_DEFAULTS, FORM_COPY_LABELS, isContactSettingKey, isFormCopyKey, isHideableCopy, type FormCopyKey } from "@/lib/content/form-copy";
 import { isoToTallinnLocal, tallinnLocalToIso } from "@/lib/content/events";
 import { defaultFieldText, indexedFieldValue, parseIndexedField, readBoundSectionValue, readEditorContent } from "@/lib/editor/content-binding";
 import { assignImageMedia, IMAGE_SIZE_MAX, IMAGE_SIZE_MIN, patchImageAppearance, readImageAppearance, resolveImageMediaId } from "@/lib/editor/image-style";
@@ -416,7 +416,10 @@ function FormCopyFields({ sectionId, keys, label = "Vormi tekstid" }: { sectionI
           const saved = typeof section.content[key] === "string" ? (section.content[key] as string) : "";
           return (
             <label key={key} className="vr-ed-form-copy-row">
-              <span className="vr-ed-help">{FORM_COPY_LABELS[key]}</span>
+              <span className="vr-ed-help">
+                {FORM_COPY_LABELS[key]}
+                {isHideableCopy(key) ? " (tühi = peidetud)" : ""}
+              </span>
               <EditorTextInput
                 value={saved}
                 placeholder={FORM_COPY_DEFAULTS[key]}

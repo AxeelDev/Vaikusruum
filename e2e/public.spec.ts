@@ -52,6 +52,7 @@ test.describe("public site", () => {
       "Joogatunni KKK",
       "Hea teada",
       "Kontakt",
+      "Tagasiside",
     ];
     await page.goto("/");
     const width = page.viewportSize()?.width ?? 1440;
@@ -65,7 +66,6 @@ test.describe("public site", () => {
     for (const label of labels) {
       await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
-    await expect(nav.getByRole("link", { name: "Tagasiside" })).toHaveCount(0);
   });
 
   test("eratunnid page shows the supplied lesson options", async ({ page }) => {
@@ -78,7 +78,7 @@ test.describe("public site", () => {
     await expect(page.getByText("Tule koos sõbraga!")).toBeVisible();
   });
 
-  test("gong dates are grouped by month with the time shown once", async ({ page }) => {
+  test("gong dates are grouped by month", async ({ page }) => {
     await page.goto("/pehme-jooga-ja-gong");
     const dates = page.locator(".vr-dates");
     // Dates are time-dependent; once the last one has passed the block disappears.
@@ -87,8 +87,9 @@ test.describe("public site", () => {
     expect(months.length).toBeGreaterThan(0);
     for (const month of months) expect(month).toMatch(/^(jaanuar|veebruar|märts|aprill|mai|juuni|juuli|august|september|oktoober|november|detsember)( \d{4})?$/);
     expect(new Set(months).size).toBe(months.length);
+    // A time shows beside a date only when it differs from the others; with one shared time there are none.
     const times = await dates.locator(".vr-date-time").allTextContents();
-    expect(times.length).toBeGreaterThan(0);
+    for (const time of times) expect(time).toMatch(/^\s*kell \d{2}:\d{2}/);
     // Two columns: every label sits left of its dates.
     const label = await dates.locator(".vr-dates-month").first().boundingBox();
     const days = await dates.locator(".vr-dates-days").first().boundingBox();
@@ -96,9 +97,14 @@ test.describe("public site", () => {
     await noHorizontalOverflow(page);
   });
 
-  test("tagasiside is not a public empty page", async ({ page }) => {
+  test("tagasiside is a public page that shows testimonials, never the editor's empty-state hint", async ({ page }) => {
     const response = await page.goto("/tagasiside");
-    expect(response?.status()).toBe(404);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "Tagasiside" }).first()).toBeVisible();
+    await expect(page.locator("main")).not.toContainText("Tagasisidet ei ole veel lisatud");
+    // Decorative quotation marks are hidden from assistive technology.
+    for (const mark of await page.locator(".vr-testimonial-mark").all()) await expect(mark).toHaveAttribute("aria-hidden", "true");
+    await noHorizontalOverflow(page);
   });
 });
 
@@ -123,29 +129,43 @@ test.describe("privacy and forms", () => {
     expect((box?.width ?? 0) <= 1 && (box?.height ?? 0) <= 1).toBe(true);
   });
 
+  // The wording of the choices is the owner's to change, so these find the form by its fields, not by its labels.
+  const topicGroup = (page: import("@playwright/test").Page) => page.locator("main fieldset", { has: page.locator('input[name="kind"]') });
+  const classGroup = (page: import("@playwright/test").Page) => page.locator("main fieldset", { has: page.locator('input[name="lesson"]') });
+
   test("the topic is two large choices, not a dropdown", async ({ page }) => {
     await page.goto("/kontakt");
     await expect(page.locator("main select")).toHaveCount(0);
-    const group = page.getByRole("group", { name: "Teema" });
-    await expect(group.getByRole("radio", { name: "Küsimus" })).toBeChecked();
-    await expect(group.getByRole("radio", { name: "Registreerumine" })).not.toBeChecked();
-    await expect(page.getByRole("group", { name: "Milline tund?" })).toHaveCount(0);
-    await group.getByRole("radio", { name: "Registreerumine" }).check();
-    const classes = page.getByRole("group", { name: "Milline tund?" });
-    await expect(classes).toBeVisible();
-    const labels = await classes.locator("label").allTextContents();
-    expect(labels.at(-1)).toBe("Pole veel kindel");
+    await expect(topicGroup(page).locator('input[name="kind"]')).toHaveCount(2);
+    await expect(page.locator('input[name="kind"][value="contact"]')).toBeChecked();
+    await expect(page.locator('input[name="kind"][value="private_lesson"]')).not.toBeChecked();
+    await expect(classGroup(page)).toHaveCount(0);
+    await page.locator('input[name="kind"][value="private_lesson"]').check();
+    await expect(classGroup(page)).toBeVisible();
+    const labels = await classGroup(page).locator("label").allTextContents();
     expect(new Set(labels).size).toBe(labels.length);
     for (const label of ["Kundalini jooga", "Pehme jooga ja gongilõdvestus", "Individuaaltund rasedale"]) {
       expect(labels).toContain(label);
     }
-    await expect(classes.getByRole("radio", { name: "Pole veel kindel" })).toBeChecked();
+    // "Not sure yet" is always the last choice, and the one picked until a class is chosen.
+    await expect(classGroup(page).locator("input").last()).toHaveAttribute("value", "pole-kindel");
+    await expect(classGroup(page).locator("input").last()).toBeChecked();
+  });
+
+  test("a cleared label stays available to screen readers", async ({ page }) => {
+    await page.goto("/kontakt");
+    // Every field has a name, whether or not its label is shown.
+    for (const field of ["name", "email", "message"]) {
+      const name = await page.locator(`main [name="${field}"]`).evaluate((input) => (input.closest("label")?.textContent ?? "").trim());
+      expect(name.length).toBeGreaterThan(0);
+    }
+    expect((await topicGroup(page).locator("legend").textContent())?.length ?? 0).toBeGreaterThan(0);
   });
 
   test("?teema=eratund preselects the private lesson topic", async ({ page }) => {
     await page.goto("/kontakt?teema=eratund");
-    await expect(page.getByRole("group", { name: "Teema" }).getByRole("radio", { name: "Registreerumine" })).toBeChecked();
-    await expect(page.getByRole("group", { name: "Milline tund?" })).toBeVisible();
+    await expect(page.locator('input[name="kind"][value="private_lesson"]')).toBeChecked();
+    await expect(classGroup(page)).toBeVisible();
   });
 
   test("&tund= preselects the class, and the Eratunnid page links to it", async ({ page }) => {
@@ -161,14 +181,14 @@ test.describe("privacy and forms", () => {
 
   test("an unknown class is refused by the server", async ({ page }) => {
     await page.goto("/kontakt?teema=eratund");
-    await page.getByLabel("Nimi").fill("Test");
-    await page.getByLabel("E-post").fill("test@example.com");
+    await page.locator('main input[name="name"]').fill("Test");
+    await page.locator('main input[name="email"]').fill("test@example.com");
     await page.locator('main input[name="consent"]').check();
     await page.locator('main input[name="lesson"]:checked').evaluate((input: HTMLInputElement) => {
       input.value = "pole-selline-tund";
     });
     await page.waitForTimeout(2800);
-    await page.getByRole("button", { name: "Saada" }).click();
+    await page.locator('main form button[type="submit"]').click();
     await expect(page.locator(".vr-form-error")).toContainText("Valitud tundi ei leitud");
   });
 

@@ -26,6 +26,7 @@ export const FORM_COPY_DEFAULTS = {
 } as const;
 
 export type FormCopyKey = keyof typeof FORM_COPY_DEFAULTS;
+/** The wording to show; empty only for a hideable label that was cleared. */
 export type FormCopy = Record<FormCopyKey, string>;
 
 /** How each text is named in the editor; also the order of the form's text list. */
@@ -55,10 +56,30 @@ export function isFormCopyKey(field: string | null | undefined): field is FormCo
   return Boolean(field) && Object.prototype.hasOwnProperty.call(FORM_COPY_DEFAULTS, field as string);
 }
 
-/** The saved text, or the default when none (or only blanks) was saved. */
+/**
+ * Labels that can be cleared to hide them. Assistive technology still gets the standard wording, so a field
+ * or group keeps its name for people who cannot see the label.
+ */
+export const HIDEABLE_READ_ALOUD: readonly FormCopyKey[] = ["formKindLabel", "formClassLabel", "formName", "formEmail", "formPhone", "formDate", "formMessage"];
+
+/** Lead-ins with nothing to read aloud: cleared, they simply disappear. */
+export const HIDEABLE_DROPPED: readonly FormCopyKey[] = ["formWriteLabel", "contactRegistryLabel", "contactIbanLabel"];
+
+export function isHideableCopy(key: FormCopyKey): boolean {
+  return HIDEABLE_READ_ALOUD.includes(key) || HIDEABLE_DROPPED.includes(key);
+}
+
+/**
+ * The saved text. A cleared label that may be hidden stays empty; any other cleared text (a button, the consent
+ * sentence, a choice) falls back to its default, because the form needs it.
+ */
 export function readFormCopyValue(content: Record<string, unknown>, key: FormCopyKey): string {
   const raw = content[key];
-  return typeof raw === "string" && raw.trim() ? raw : FORM_COPY_DEFAULTS[key];
+  if (typeof raw === "string") {
+    if (raw.trim()) return raw;
+    if (isHideableCopy(key)) return "";
+  }
+  return FORM_COPY_DEFAULTS[key];
 }
 
 export function readFormCopy(content: Record<string, unknown>): FormCopy {
