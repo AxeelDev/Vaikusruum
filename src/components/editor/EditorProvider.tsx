@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -11,7 +12,7 @@ import {
 } from "react";
 import { saveEditorDraftAction } from "@/lib/actions/admin";
 import { diffDraft, hasChanges } from "@/lib/editor/save-payload";
-import { cloneDraft, createSection, duplicateSection as cloneSectionRow, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
+import { cloneDraft, createSection, removeIndexedItem, duplicateSection as cloneSectionRow, findSection, pageSections, reorderSections, updateSection } from "@/lib/editor/draft";
 import { insertLayoutElement, moveLayoutNode, normalizeSectionLayout, removeLayoutNode, resizeLayoutColumns, resolveLayoutNodeId } from "@/lib/editor/layout-tree";
 import { mergeFieldStyle } from "@/lib/editor/appearance";
 import { resolveInspectorTab, resolveNodeKind } from "@/lib/editor/node-registry";
@@ -90,6 +91,9 @@ const DragApiContext = createContext<{
 
 const HISTORY_LIMIT = 50;
 
+/** A live change (a slider being dragged, a word being typed) becomes one undo step once it has rested this long. */
+const SETTLE_MS = 600;
+
 function snapshot(draft: EditorDraft): EditorDraft {
   return cloneDraft(draft);
 }
@@ -139,7 +143,21 @@ export function EditorProvider({
 
   const dirty = JSON.stringify(draft) !== saved;
 
+  // The newest draft, for history bookkeeping that runs outside a render (timers, undo).
+  const draftRef = useRef(initial);
+  // True while the draft holds a live change that is not in the history yet.
+  const uncommittedRef = useRef(false);
+  const settleTimerRef = useRef<number | null>(null);
+
   const pushHistory = useCallback((next: EditorDraft) => {
+    uncommittedRef.current = false;
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
+    // The same state twice would be an undo step that changes nothing.
+    const head = historyRef.current.items[historyRef.current.index];
+    if (head && JSON.stringify(head) === JSON.stringify(next)) return;
     const clipped = historyRef.current.items.slice(0, historyRef.current.index + 1);
     clipped.push(snapshot(next));
     const limited = clipped.slice(-HISTORY_LIMIT);
@@ -148,12 +166,37 @@ export function EditorProvider({
     setHistoryIndex(limited.length - 1);
   }, []);
 
+  /** Records a live change that has not been recorded yet, so undo can step back over it on its own. */
+  const commitPending = useCallback(() => {
+    if (uncommittedRef.current) pushHistory(draftRef.current);
+  }, [pushHistory]);
+
   const applyDraft = useCallback(
     (next: EditorDraft, record = true) => {
+      draftRef.current = next;
       setDraft(next);
-      if (record) pushHistory(next);
+      if (record) {
+        pushHistory(next);
+        return;
+      }
+      // Unrecorded changes (slider drags, typing) still become an undo step once they settle,
+      // so no control has to remember to record its final value.
+      uncommittedRef.current = true;
+      if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = window.setTimeout(commitPending, SETTLE_MS);
     },
-    [pushHistory],
+    [commitPending, pushHistory],
+  );
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(
+    () => () => {
+      if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    },
+    [],
   );
 
   const select = useCallback((selection: EditorSelection) => {
@@ -546,15 +589,7 @@ export function EditorProvider({
 
     if (current.sectionId && current.field && /^[qa]\.\d+$/.test(current.field)) {
       const index = Number(current.field.slice(2));
-      applyDraft(
-        updateSection(draft, current.sectionId, (section) => {
-          const items = Array.isArray(section.content.items) ? [...(section.content.items as unknown[])] : [];
-          if (index < 0 || index >= items.length) return section;
-          items.splice(index, 1);
-          return { ...section, content: { ...section.content, items } };
-        }),
-        true,
-      );
+      applyDraft(updateSection(draft, current.sectionId, (section) => removeIndexedItem(section, index)), true);
       clearSelection();
       return;
     }
@@ -562,15 +597,7 @@ export function EditorProvider({
     if (current.sectionId && current.field && /^(item|quote|name)\.\d+$/.test(current.field)) {
       const isItem = current.field.startsWith("item.");
       const index = Number(current.field.slice(isItem ? 5 : current.field.startsWith("quote.") ? 6 : 5));
-      applyDraft(
-        updateSection(draft, current.sectionId, (section) => {
-          const items = Array.isArray(section.content.items) ? [...(section.content.items as unknown[])] : [];
-          if (index < 0 || index >= items.length) return section;
-          items.splice(index, 1);
-          return { ...section, content: { ...section.content, items } };
-        }),
-        true,
-      );
+      applyDraft(updateSection(draft, current.sectionId, (section) => removeIndexedItem(section, index)), true);
       clearSelection();
       return;
     }
@@ -585,20 +612,23 @@ export function EditorProvider({
   }, [applyDraft, clearSelection, draft, removeSection, selected]);
 
   const undo = useCallback(() => {
+    commitPending();
     if (historyRef.current.index <= 0) return;
     const index = historyRef.current.index - 1;
     historyRef.current.index = index;
     setHistoryIndex(index);
     setDraft(cloneDraft(historyRef.current.items[index]));
-  }, []);
+  }, [commitPending]);
 
   const redo = useCallback(() => {
+    // A change made after undoing replaces what could be redone.
+    commitPending();
     if (historyRef.current.index >= historyRef.current.items.length - 1) return;
     const index = historyRef.current.index + 1;
     historyRef.current.index = index;
     setHistoryIndex(index);
     setDraft(cloneDraft(historyRef.current.items[index]));
-  }, []);
+  }, [commitPending]);
 
   const save = useCallback(async () => {
     const changes = diffDraft(JSON.parse(saved) as EditorDraft, draft, role);

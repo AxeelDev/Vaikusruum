@@ -157,46 +157,68 @@ export function EditorTextInput({
   placeholder,
   invalid,
   ariaLabel,
+  readOnly,
 }: {
   value: string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   onCommit?: (value: string) => void;
   placeholder?: string;
   invalid?: boolean;
   ariaLabel?: string;
+  /** Shown for reference only, never edited. */
+  readOnly?: boolean;
 }) {
   return (
     <input
       className={cx("vr-ed-input", invalid && "is-invalid")}
+      readOnly={readOnly}
       value={value}
       placeholder={placeholder}
       aria-label={ariaLabel}
       aria-invalid={invalid || undefined}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={(event) => onChange?.(event.target.value)}
       onBlur={(event) => onCommit?.(event.target.value)}
     />
   );
 }
 
+/**
+ * The box for any text that appears on the page. Enter always starts a new line (the page shows it),
+ * and the box grows with the text so every line stays in view.
+ */
 export function EditorTextarea({
   value,
   onChange,
   onCommit,
-  rows = 4,
+  rows = 2,
   placeholder,
+  ariaLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
   onCommit?: (value: string) => void;
+  /** The smallest height, in lines. */
   rows?: number;
   placeholder?: string;
+  ariaLabel?: string;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
+  }, [value]);
+
   return (
     <textarea
+      ref={ref}
       className="vr-ed-textarea"
       rows={rows}
       value={value}
       placeholder={placeholder}
+      aria-label={ariaLabel}
       onChange={(event) => onChange(event.target.value)}
       onBlur={(event) => onCommit?.(event.target.value)}
     />

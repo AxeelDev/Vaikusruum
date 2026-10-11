@@ -13,7 +13,6 @@ import type { RegistrationMode } from "@/types/content";
 
 const REGISTRATION_MODES: RegistrationMode[] = ["form", "email", "external_link", "form_and_email", "disabled"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function cleanRegistrationUrl(value: string | null | undefined) {
   const trimmed = value?.trim();
@@ -276,8 +275,9 @@ function cleanChanges(changes: EditorChanges, role: "owner" | "editor"): EditorC
         is_published: Boolean(page.is_published),
         seo_title: text(page.seo_title, 160),
         seo_description: text(page.seo_description, 400),
-        // Only the owner may change addresses; anyone else keeps the current slug (null leaves it unchanged).
-        slug: (role === "owner" && page.slug && SLUG.test(page.slug) ? page.slug : null) as string,
+        // Every page's address is a route in the code (/minust loads the page "minust"), so a changed slug
+        // would leave that page at a 404. Addresses are never changed from the editor; null leaves it as it is.
+        slug: null as unknown as string,
       });
     }
   }
@@ -385,7 +385,12 @@ function cleanChanges(changes: EditorChanges, role: "owner" | "editor"): EditorC
 }
 
 export async function saveEditorDraftAction(expectedRevision: number, changes: EditorChanges): Promise<SaveDraftResult> {
-  const admin = await requireAdmin();
+  // An expired login is the likeliest reason a save is refused. Say so plainly: a thrown error reads as
+  // "connection lost" in the editor, and reloading to retry would throw the unsaved changes away.
+  const admin = await getAdminUser();
+  if (!admin) {
+    return { error: "Sisselogimine on aegunud. Logi uues vahekaardis uuesti sisse ja vajuta siis siin uuesti „Salvesta“ – muudatused on alles." };
+  }
   const cleaned = cleanChanges(changes, admin.role);
   if (typeof cleaned === "string") return { error: cleaned };
 

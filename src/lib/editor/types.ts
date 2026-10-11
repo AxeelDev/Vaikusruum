@@ -61,6 +61,11 @@ export type EditorSelection = {
   mediaId?: string;
   navSlug?: string;
   layoutNodeId?: string;
+  /**
+   * Where this text's style is kept, when that is not its own field: texts that share one field
+   * (every lesson name, every price) share one style, and page titles share the site's page-title style.
+   */
+  styleKey?: string;
 };
 
 export type EditorState = {

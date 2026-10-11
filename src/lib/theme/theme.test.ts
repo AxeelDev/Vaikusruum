@@ -67,3 +67,21 @@ describe("paragraphWithItalics", () => {
     expect(node.content?.some((n) => n.text === "krijasid" && n.marks?.[0]?.type === "italic")).toBe(true);
   });
 });
+
+describe("page title style", () => {
+  it("keeps a valid shared page-title style", () => {
+    const style = parseTheme({ pageTitleStyle: { fontSize: 40, fontWeight: 600, lineHeight: 1.2, letterSpacing: 0.1, color: "#abc", textAlign: "left", fontId: "cormorant" } }).pageTitleStyle;
+    expect(style).toMatchObject({ fontSize: 40, fontWeight: 600, lineHeight: 1.2, letterSpacing: 0.1, color: "#AABBCC", textAlign: "left", fontId: "cormorant" });
+  });
+
+  it("drops unknown keys and bad values and clamps numbers", () => {
+    const style = parseTheme({ pageTitleStyle: { fontSize: 9999, color: "red;background:url(x)", fontId: "comic", evil: "<script>", textAlign: "sideways" } }).pageTitleStyle;
+    expect(style).toEqual({ fontSize: 320, size: 320 });
+  });
+
+  it("is absent when nothing valid is stored", () => {
+    expect(parseTheme({}).pageTitleStyle).toBeUndefined();
+    expect(parseTheme({ pageTitleStyle: "big" }).pageTitleStyle).toBeUndefined();
+    expect(parseTheme({ pageTitleStyle: { junk: 1 } }).pageTitleStyle).toBeUndefined();
+  });
+});

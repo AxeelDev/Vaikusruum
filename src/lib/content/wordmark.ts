@@ -1,4 +1,5 @@
-export function splitWordmark(value: string): [string, string] | null {
+/** The wordmark's own lines, when the client broke it over two or more; null for a one-line wordmark. */
+export function splitWordmark(value: string): string[] | null {
   const text = value.replace(/ /g, " ").trim();
   if (!text) return null;
 
@@ -6,8 +7,7 @@ export function splitWordmark(value: string): [string, string] | null {
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
-  if (lines.length === 2) return [lines[0], lines[1]];
-  return null;
+  return lines.length >= 2 ? lines : null;
 }
 
 export function wordmarkLines(value: string): string[] {

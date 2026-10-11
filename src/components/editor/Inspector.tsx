@@ -22,8 +22,8 @@ import {
   EditorTooltip,
   MarkdownHelp,
 } from "@/components/editor/ui";
-import { findSection, pageSections } from "@/lib/editor/draft";
-import { fieldStyle, clearFieldStyle, clearFieldStyleKeys } from "@/lib/editor/appearance";
+import { findSection, pageSections, removeIndexedItem } from "@/lib/editor/draft";
+import { fieldStyle, clearFieldStyle, clearFieldStyleKeys, mergeAppearance, omitAppearanceKeys } from "@/lib/editor/appearance";
 import { themeColorSwatches } from "@/lib/editor/color";
 import { findLayoutNode, getSectionLayoutTree, listLayoutElements, parentOfNode, ratioToLeftPercent, resolveLayoutNodeId, sectionLayoutSummary, updateLayoutNode } from "@/lib/editor/layout-tree";
 import { pageLabel } from "@/lib/editor/pages";
@@ -37,7 +37,9 @@ import {
   isOverridden,
   LARGE_TEXT_SIZE,
   longTextSize,
+  PAGE_TITLE_STYLE_KEY,
   readTextStyle,
+  SHARED_STYLE_NOTES,
   textStyleKey,
   textStyleScale,
   TEXT_SIZE_RANGES,
@@ -374,8 +376,7 @@ function ContentPanel() {
 function hasNoTextStyle(selected: EditorSelection) {
   return (
     selected.field === "dates" ||
-    selected.field === "lessons" ||
-    selected.field === "prices" ||
+    ((selected.field === "lessons" || selected.field === "prices") && !selected.styleKey) ||
     isFormCopyKey(selected.field) ||
     (selected.id.startsWith("settings.") && isContactSettingKey(selected.field)) ||
     selected.navSlug !== undefined
@@ -420,7 +421,8 @@ function FormCopyFields({ sectionId, keys, label = "Vormi tekstid" }: { sectionI
                 {FORM_COPY_LABELS[key]}
                 {isHideableCopy(key) ? " (tühi = peidetud)" : ""}
               </span>
-              <EditorTextInput
+              <EditorTextarea
+                rows={1}
                 value={saved}
                 placeholder={FORM_COPY_DEFAULTS[key]}
                 ariaLabel={FORM_COPY_LABELS[key]}
@@ -523,10 +525,11 @@ function PageOverview({ mode = "content" }: { mode?: "content" | "settings" }) {
       ) : null}
       <EditorContext kicker="Leht" title={page.title} />
       <EditorGroup label="Pealkiri">
-        <EditorTextInput value={page.title} onChange={(title) => editor.patchPage(page.id, { title }, false)} onCommit={(title) => editor.patchPage(page.id, { title }, true)} />
+        <EditorTextarea rows={1} value={page.title} onChange={(title) => editor.patchPage(page.id, { title }, false)} onCommit={(title) => editor.patchPage(page.id, { title }, true)} />
       </EditorGroup>
       <EditorGroup label="Menüü nimi">
-        <EditorTextInput
+        <EditorTextarea
+          rows={1}
           value={page.nav_label ?? ""}
           onChange={(nav_label) => editor.patchPage(page.id, { nav_label }, false)}
           onCommit={(nav_label) => editor.patchPage(page.id, { nav_label }, true)}
@@ -534,7 +537,8 @@ function PageOverview({ mode = "content" }: { mode?: "content" | "settings" }) {
       </EditorGroup>
       {editor.role === "owner" ? (
         <EditorGroup label="URL">
-          <EditorTextInput value={page.slug} onChange={(slug) => editor.patchPage(page.id, { slug }, false)} onCommit={(slug) => editor.patchPage(page.id, { slug }, true)} />
+          <EditorTextInput readOnly value={`/${page.slug === "avaleht" ? "" : page.slug}`} />
+          <p className="vr-ed-help">Lehe aadress on seotud saidi koodiga ja seda siin muuta ei saa.</p>
         </EditorGroup>
       ) : null}
       <EditorCheck checked={page.show_in_nav} onChange={(show_in_nav) => editor.patchPage(page.id, { show_in_nav }, true)}>
@@ -840,7 +844,8 @@ function NodeContentInspector() {
         <EditorGroup label={content.label || "Tekst"}>
           <EditorTextarea
             key={selected.id}
-            rows={Math.min(8, Math.max(3, content.value.split("\n").length + 1))}
+            rows={3}
+            ariaLabel={content.label || "Tekst"}
             value={content.value}
             placeholder={defaultText ?? "Kirjuta tekst"}
             onChange={(next) => writePlain(next, false)}
@@ -865,7 +870,9 @@ function NodeAppearanceInspector() {
   if (selected.type === "container") return <ContainerPanel mode="appearance" />;
   if (selected.type === "header") return <HeaderPanel mode="appearance" />;
   const styleKey = textStyleKey(selected);
-  if (hasNoTextStyle(selected) || !selected.sectionId || !styleKey) {
+  // Page titles keep one shared style in the site theme; every other text keeps its style on its section.
+  const pageTitle = styleKey === PAGE_TITLE_STYLE_KEY;
+  if (hasNoTextStyle(selected) || (!selected.sectionId && !pageTitle) || !styleKey) {
     return (
       <div className="vr-inspector-body">
         <EditorContext kicker="Välimus" title={selectedKindLabel(selected.type)} />
@@ -873,8 +880,8 @@ function NodeAppearanceInspector() {
       </div>
     );
   }
-  const section = findSection(editor.state.draft, selected.sectionId);
-  if (!section) {
+  const section = selected.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
+  if (!section && !pageTitle) {
     return (
       <div className="vr-inspector-body">
         <EditorContext kicker="Välimus" title={selectedKindLabel(selected.type)} />
@@ -882,7 +889,9 @@ function NodeAppearanceInspector() {
       </div>
     );
   }
-  const override = readTextStyle(fieldStyle(section, styleKey));
+  const stored = pageTitle ? editor.state.draft.theme.pageTitleStyle : fieldStyle(section, styleKey);
+  const sharedNote = SHARED_STYLE_NOTES[styleKey];
+  const override = readTextStyle(stored);
   const inherited = inheritedTextStyle(selected, section, editor.state.draft.theme);
   const effective = effectiveTextStyle(override, inherited);
   const scale = textStyleScale(selected, section);
@@ -891,7 +900,7 @@ function NodeAppearanceInspector() {
   const longText = isLongTextField(selected.field, bound.format, bound.format === "plain" ? bound.value : "", scale);
   const longSize = longTextSize(override.fontSize);
   const advanced = editor.state.advanced;
-  const sectionId = selected.sectionId;
+  const sectionId = selected.sectionId ?? "";
   const swatches = themeColorSwatches(editor.state.draft.theme);
   const widthId = widthPresetId(effective.maxWidth ?? null);
   const widthRange = TEXT_WIDTH_RANGES[scale];
@@ -900,16 +909,33 @@ function NodeAppearanceInspector() {
 
   function patch(next: Partial<CanonicalTextStyle>, record = false) {
     const clamped = clampTextStyle(next, scale);
+    if (pageTitle) {
+      editor.patchTheme({ pageTitleStyle: mergeAppearance(stored, writeTextStylePatch(clamped)) }, record);
+      return;
+    }
     editor.patchFieldStyle(sectionId, styleKey!, writeTextStylePatch(clamped), record);
   }
 
   function reset(keys: Array<keyof TextAppearance>) {
+    if (pageTitle) {
+      editor.patchTheme({ pageTitleStyle: omitAppearanceKeys(stored, keys) }, true);
+      return;
+    }
     editor.patchSection(sectionId, (row) => clearFieldStyleKeys(row, styleKey!, keys), true);
+  }
+
+  function resetAll() {
+    if (pageTitle) {
+      editor.patchTheme({ pageTitleStyle: undefined }, true);
+      return;
+    }
+    editor.patchSection(sectionId, (row) => clearFieldStyle(row, styleKey!), true);
   }
 
   return (
     <div className="vr-inspector-body">
-      <EditorSelect
+      {sharedNote ? <p className="vr-ed-help">{sharedNote}</p> : null}
+      {sharedNote ? null : <EditorSelect
         value={effective.role ?? (selected.field === "title" || selected.field === "heading" ? "h1" : "p")}
         options={[
           { value: "h1", label: "Pealkiri 1" },
@@ -918,7 +944,7 @@ function NodeAppearanceInspector() {
           { value: "p", label: "Lõik" },
         ]}
         onChange={(role) => patch({ role: role as TextAppearance["role"] }, true)}
-      />
+      />}
       <p className="vr-ed-section-label">Kiri</p>
       <EditorColor
         key={`color-${selected.id}`}
@@ -938,7 +964,7 @@ function NodeAppearanceInspector() {
         />
         <EditorButton
           variant="ghost"
-          onClick={() => editor.patchSection(sectionId, (row) => clearFieldStyle(row, styleKey), true)}
+          onClick={resetAll}
         >
           Kasuta saidi stiili
         </EditorButton>
@@ -1165,8 +1191,12 @@ function EventDatesControls({ offeringId }: { offeringId: string }) {
     const lastStart = isoToTallinnLocal(last?.starts_at ?? null);
     const lastEnd = isoToTallinnLocal(last?.ends_at ?? null);
     // Suggest a week after the last date at the same time, or next week at 19:00.
+    // A suggestion in the past would be hidden from visitors straight away, so it moves on week by week,
+    // keeping the class's weekday, until it is ahead of today.
     const base = lastStart ? new Date(`${lastStart.slice(0, 10)}T12:00:00Z`) : new Date();
-    base.setUTCDate(base.getUTCDate() + 7);
+    const today = new Date();
+    do base.setUTCDate(base.getUTCDate() + 7);
+    while (base < today);
     const date = base.toISOString().slice(0, 10);
     const startTime = lastStart.slice(11, 16) || "19:00";
     const endTime = lastEnd.slice(11, 16) || "20:30";
@@ -1461,16 +1491,6 @@ function ContainerPanel({ mode = "appearance" }: { mode?: "content" | "appearanc
       {node.type === "columns" || (node.type !== "column" && node.type !== "group" && columnsNode) ? (
         <>
           <p className="vr-ed-section-label">Paigutus</p>
-          <EditorGroup label="Tüüp">
-            <EditorSelect
-              value="columns"
-              options={[
-                { value: "columns", label: "Kaks veergu" },
-                { value: "single", label: "Üks veerg" },
-              ]}
-              onChange={() => undefined}
-            />
-          </EditorGroup>
           <EditorGroup label="Veergude suhe">
             <EditorSelect
               value={style.columnRatio ? "custom" : style.columnBalance ?? (selectedSection.section_type === "hero" ? "46-54" : "50-50")}
@@ -1617,7 +1637,8 @@ function HeaderPanel({ mode = "content" }: { mode?: "content" | "appearance" }) 
       <div className="vr-ed-menu-list">
         {pages.map((item) => (
           <EditorGroup key={item.id} label={pageLabel(item)}>
-            <EditorTextInput
+            <EditorTextarea
+              rows={1}
               value={item.nav_label || item.title}
               onChange={(nav_label) => editor.patchPage(item.id, { nav_label }, false)}
               onCommit={(nav_label) => editor.patchPage(item.id, { nav_label }, true)}
@@ -1638,14 +1659,15 @@ function NavItemPanel() {
     <div className="vr-inspector-body">
       <EditorContext kicker="Menüülink" title={pageLabel(page)} />
       <EditorGroup label="Tekst">
-        <EditorTextInput
+        <EditorTextarea
+          rows={1}
           value={page.nav_label || page.title}
           onChange={(nav_label) => editor.patchPage(page.id, { nav_label }, false)}
           onCommit={(nav_label) => editor.patchPage(page.id, { nav_label }, true)}
         />
       </EditorGroup>
       <EditorGroup label="Leht">
-        <EditorTextInput value={`/${page.slug === "avaleht" ? "" : page.slug}`} onChange={() => undefined} />
+        <EditorTextInput readOnly value={`/${page.slug === "avaleht" ? "" : page.slug}`} />
       </EditorGroup>
       <EditorSwitch checked={page.show_in_nav} onChange={(show_in_nav) => editor.patchPage(page.id, { show_in_nav }, true)} label="Näita" />
     </div>
@@ -1840,7 +1862,9 @@ function MoveActions({ asMenu = false }: { asMenu?: boolean }) {
 
   function move(placement: "before" | "after" | "left" | "right", targetNodeId?: string) {
     const target = targetNodeId ?? owner.parent.children[placement === "before" || placement === "left" ? Math.max(0, owner.index - 1) : owner.index]?.id;
-    editor.moveNode(sectionId, layoutId, owner.parent.id, placement === "before" || placement === "left" ? owner.index : owner.index + 1, placement, target);
+    // The node is taken out before it is put back, so one place up is index - 1 and one place down is index + 1.
+    const index = placement === "before" ? Math.max(0, owner.index - 1) : owner.index + 1;
+    editor.moveNode(sectionId, layoutId, owner.parent.id, index, placement, target);
     setPicking(null);
   }
 
@@ -1936,15 +1960,15 @@ function SettingsPanel() {
   return (
     <div className="vr-inspector-body">
       <EditorGroup label="ID">
-        <EditorTextInput value={selected.id} onChange={() => undefined} />
+        <EditorTextInput readOnly value={selected.id} />
       </EditorGroup>
       {section ? (
         <>
           <EditorGroup label="Sektsiooni võti">
-            <EditorTextInput value={section.section_key} onChange={() => undefined} />
+            <EditorTextInput readOnly value={section.section_key} />
           </EditorGroup>
           <EditorGroup label="Tüüp">
-            <EditorTextInput value={section.section_type} onChange={() => undefined} />
+            <EditorTextInput readOnly value={section.section_type} />
           </EditorGroup>
         </>
       ) : null}
@@ -2091,9 +2115,7 @@ function IndexedItemControls({ kind }: { kind: "faq" | "item" }) {
       <EditorButton
         variant="danger"
         onClick={() => {
-          const items = [...((section.content.items as unknown[]) ?? [])];
-          items.splice(index, 1);
-          editor.patchSection(section.id, (row) => ({ ...row, content: { ...row.content, items } }));
+          editor.patchSection(section.id, (row) => removeIndexedItem(row, index));
           editor.deselect();
         }}
       >
@@ -2322,7 +2344,8 @@ function ButtonLinksFields({
             const error = linkButtonError(button.href);
             return (
               <li key={`${index}-${buttons.length}`}>
-                <EditorTextInput
+                <EditorTextarea
+                  rows={1}
                   ariaLabel={`Nupu ${index + 1} tekst`}
                   placeholder="Nupu tekst"
                   value={button.label}

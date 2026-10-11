@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { FormEdit } from "@/components/forms/form-edit";
 import { FORM_COPY_DEFAULTS, type FormCopy } from "@/lib/content/form-copy";
+import { renderText } from "@/lib/content/markdown";
 import type { SiteSettings } from "@/types/content";
 
 function phoneHref(phone: string): string {
@@ -46,12 +47,12 @@ export function ContactDetails({
   // A line that is empty is left out for visitors; in the editor it stays, dimmed, so it can still be filled in.
   const show = (text: string) => editing || Boolean(text);
   const dim = (text: string) => (editing && !text ? "vr-editor-hidden" : undefined);
-  const cell = (key: keyof typeof PLACEHOLDER, text: string) => (edit ? edit.setting(key, text || PLACEHOLDER[key]) : text);
+  const cell = (key: keyof typeof PLACEHOLDER, text: string) => (edit ? edit.setting(key, text || PLACEHOLDER[key]) : renderText(text));
   // A label cleared in the editor is left out for visitors; in the editor it stays, dimmed, to be filled in again.
   const label = (key: "contactRegistryLabel" | "contactIbanLabel"): ReactNode => {
     const text = copy[key];
     if (!text) return edit ? <span className="vr-contact-label">{edit.copy(key, FORM_COPY_DEFAULTS[key], true)}</span> : null;
-    return <span className="vr-contact-label">{edit ? edit.copy(key, text) : text}</span>;
+    return <span className="vr-contact-label">{edit ? edit.copy(key, text) : renderText(text)}</span>;
   };
 
   return (

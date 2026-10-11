@@ -12,6 +12,10 @@ describe("splitWordmark", () => {
     expect(splitWordmark("Vaikus ruum")).toBeNull();
   });
 
+  it("keeps every line when broken over more than two", () => {
+    expect(splitWordmark("Vai\nkus\nruum")).toEqual(["Vai", "kus", "ruum"]);
+  });
+
   it("leaves longer phrases and empty values alone", () => {
     expect(splitWordmark("Võta meiega ühendust")).toBeNull();
     expect(splitWordmark("")).toBeNull();

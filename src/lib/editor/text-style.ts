@@ -62,7 +62,21 @@ export function isFullWidth(maxWidth?: number | null): boolean {
   return maxWidth === WIDTH_FULL;
 }
 
-export function textStyleKey(selection: Pick<EditorSelection, "field" | "offeringId">): string | null {
+/** The style every page title shares; kept in the site theme rather than on a section. */
+export const PAGE_TITLE_STYLE_KEY = "pageTitle";
+
+/** Texts that share one style because they share one field: every lesson name, every price, and so on. */
+export const SHARED_STYLE_NOTES: Record<string, string> = {
+  [PAGE_TITLE_STYLE_KEY]: "Kehtib kõigi lehtede pealkirjadele.",
+  "lessons.name": "Kehtib kõigi tundide nimedele.",
+  "lessons.duration": "Kehtib kõigi tundide kestustele.",
+  "lessons.description": "Kehtib kõigi tundide kirjeldustele.",
+  "prices.label": "Kehtib kõigi hindade nimedele.",
+  "prices.amount": "Kehtib kõigile summadele.",
+};
+
+export function textStyleKey(selection: Pick<EditorSelection, "field" | "offeringId" | "styleKey">): string | null {
+  if (selection.styleKey) return selection.styleKey;
   if (!selection.field) return null;
   if (selection.offeringId) return `${selection.offeringId}.${selection.field}`;
   return selection.field;
@@ -153,6 +167,7 @@ export function clampTextStyle(style: CanonicalTextStyle, scale: TextStyleScale 
 }
 
 export function textStyleScale(selection: EditorSelection, section?: SectionRow): TextStyleScale {
+  if (selection.styleKey === PAGE_TITLE_STYLE_KEY || selection.styleKey === "lessons.name") return "heading";
   if (section?.section_type === "hero" && (selection.field === "title" || selection.id.includes(".title"))) return "display";
   if (selection.field === "heading" || selection.field === "title" || selection.field === "short_title") return "heading";
   if (selection.field?.startsWith("q.")) return "heading";
@@ -191,6 +206,16 @@ export function inheritedTextStyle(
   theme: ThemeTokens,
 ): CanonicalTextStyle {
   const scale = textStyleScale(selection, section);
+  if (selection.styleKey === PAGE_TITLE_STYLE_KEY) {
+    return {
+      fontSize: theme.pageTitleSize,
+      fontWeight: 400,
+      lineHeight: 1.05,
+      letterSpacing: 0.055,
+      textAlign: "center",
+      fontId: theme.displayFont,
+    };
+  }
   if (scale === "display") {
     return {
       fontSize: 56,

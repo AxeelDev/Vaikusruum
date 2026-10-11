@@ -1,8 +1,30 @@
-import type { SectionRow, SectionType } from "@/types/content";
+import type { SectionRow, SectionType, TextAppearance } from "@/types/content";
 import type { AddableSectionType, EditorDraft } from "@/lib/editor/types";
 
 export function cloneDraft(draft: EditorDraft): EditorDraft {
   return structuredClone(draft);
+}
+
+const INDEXED_STYLE_KEY = /^(q|a|item|quote|name)\.(\d+)$/;
+
+/**
+ * Removes one FAQ question or list point. Item styles are kept by position ("q.2"), so the styles of the
+ * items after it move up one place with their items instead of passing to a neighbour.
+ */
+export function removeIndexedItem(section: SectionRow, index: number): SectionRow {
+  const items = Array.isArray(section.content.items) ? [...(section.content.items as unknown[])] : [];
+  if (index < 0 || index >= items.length) return section;
+  items.splice(index, 1);
+  const styles = section.style?.fieldStyles;
+  if (!styles) return { ...section, content: { ...section.content, items } };
+  const fieldStyles: Record<string, TextAppearance> = {};
+  for (const [key, value] of Object.entries(styles)) {
+    const match = key.match(INDEXED_STYLE_KEY);
+    const position = match ? Number(match[2]) : -1;
+    if (!match || position < index) fieldStyles[key] = value;
+    else if (position > index) fieldStyles[`${match[1]}.${position - 1}`] = value;
+  }
+  return { ...section, content: { ...section.content, items }, style: { ...section.style, fieldStyles } };
 }
 
 export function pageSections(draft: EditorDraft, pageId: string): SectionRow[] {

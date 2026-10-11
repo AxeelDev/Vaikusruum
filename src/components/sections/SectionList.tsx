@@ -16,6 +16,7 @@ import { privateLessonHref, type LessonOption } from "@/lib/content/lesson-optio
 import { TestimonialList } from "@/components/public/Testimonials";
 import type { FormEdit } from "@/components/forms/form-edit";
 import { readFormCopy } from "@/lib/content/form-copy";
+import { renderText } from "@/lib/content/markdown";
 import { EditableNode, EditableText } from "@/components/site/Editable";
 import { EditableRichText } from "@/components/site/EditableRichText";
 import { MediaFrame, ScreenSection, SectionInner, SplitLayout, isHomeSceneSection } from "@/components/layout/primitives";
@@ -621,14 +622,16 @@ function SectionView({
   const privateLessonsSelection: EditorSelection = { id: `section.${section.id}`, type: "section", sectionId: section.id };
 
   // Each lesson and price text is clickable on its own; all of them open the list where the section's lessons are written.
+  // Every text of one kind (all lesson names, all amounts, …) shares one style, kept under e.g. "lessons.name".
   function listText(field: "lessons" | "prices", id: string, value: string): ReactNode {
-    if (!editing) return value;
+    const styleKey = `${field}.${id.split(".")[1]}`;
     return (
       <EditableText
         as="span"
-        selection={{ id: `${prefix}.${field}.${id}`, type: "text", sectionId: section.id, field }}
+        selection={{ id: `${prefix}.${field}.${id}`, type: "text", sectionId: section.id, field, styleKey }}
         path={{ kind: "section-content", sectionId: section.id, key: field }}
         value={value}
+        appearance={fieldStyle(section, styleKey)}
       />
     );
   }
@@ -642,10 +645,10 @@ function SectionView({
           <article key={`${lesson.title}-${index}`} className="vr-private-lesson">
             <h3 className="vr-heading-sm">
               {listText("lessons", `${index}.name`, lesson.title)}
-              {lesson.duration ? <span className="vr-private-duration">{listText("lessons", `${index}.duration`, lesson.duration)}</span> : null}
+              {lesson.duration.trim() ? <span className="vr-private-duration">{listText("lessons", `${index}.duration`, lesson.duration)}</span> : null}
             </h3>
-            {lesson.description ? <p>{listText("lessons", `${index}.description`, lesson.description)}</p> : null}
-            {lesson.title ? (
+            {lesson.description.trim() ? <p>{listText("lessons", `${index}.description`, lesson.description)}</p> : null}
+            {lesson.title.trim() ? (
               <p>
                 <Link className="vr-text-link" href={privateLessonHref(section.content, lesson.title)}>
                   {editing ? (
@@ -658,7 +661,7 @@ function SectionView({
                       clickMode="defer"
                     />
                   ) : (
-                    String(section.content.actionLabel || PAGE_COPY_DEFAULTS.privateAction)
+                    renderText(String(section.content.actionLabel || PAGE_COPY_DEFAULTS.privateAction))
                   )}
                 </Link>
               </p>
@@ -696,7 +699,7 @@ function SectionView({
         <EditableNode selection={renderGenericSelection(node)} className="vr-list-element" as="div">
           <Tag>
             {items.map((item, index) => (
-              <li key={index}>{item}</li>
+              <li key={index}>{renderText(item)}</li>
             ))}
           </Tag>
         </EditableNode>
@@ -730,7 +733,7 @@ function SectionView({
         <EditableNode selection={renderGenericSelection(node, "link")} className={`vr-links-group vr-links-group--${config.direction === "vertical" ? "vertical" : "horizontal"}`} as="div">
           {items.map((item, index) => (
             <Link key={index} className="vr-text-link" href={item.href || "/"}>
-              {item.label || "Link"}
+              {renderText(item.label || "Link")}
             </Link>
           ))}
         </EditableNode>
@@ -770,7 +773,7 @@ function SectionView({
               {rows.map((row, rowIndex) => (
                 <tr key={rowIndex}>
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex}>{cell}</td>
+                    <td key={cellIndex}>{renderText(cell)}</td>
                   ))}
                 </tr>
               ))}
@@ -787,7 +790,7 @@ function SectionView({
     return (
       <div className="vr-layout-element">
         <EditableNode selection={renderGenericSelection(node)} className="vr-timer-element" as="div">
-          <span>{config.label || "Aeg"}</span>
+          <span>{renderText(config.label || "Aeg")}</span>
           <strong>{config.target || "Vali kuupäev"}</strong>
         </EditableNode>
       </div>
@@ -849,7 +852,7 @@ function SectionView({
           <summary>
             {questionField ? renderTextField(questionField, { as: "span", hideIfEmpty: false }) : null}
           </summary>
-          {answerField ? renderTextField(answerField, { multiline: true, hideIfEmpty: false }) : null}
+          {answerField ? renderTextField(answerField, { hideIfEmpty: false }) : null}
         </details>
       </LayoutContainer>
     );
@@ -860,7 +863,6 @@ function SectionView({
     options: {
       as?: "h1" | "h2" | "h3" | "p" | "div" | "span";
       className?: string;
-      multiline?: boolean;
       hideIfEmpty?: boolean;
       clickMode?: "select" | "defer";
       type?: "text" | "link";
@@ -936,7 +938,7 @@ function SectionView({
                     value={tasakaal}
                   />
                 ) : (
-                  tasakaal
+                  renderText(tasakaal)
                 )}
               </>
             ) : null}
@@ -1089,7 +1091,6 @@ function SectionView({
           path={{ kind: "section-content", sectionId: section.id, key: field }}
           value={value}
           appearance={appearance}
-          multiline={options.multiline ?? (field === "intro" || field === "plain" || field === "scheduleText" || field === "notes" || field === "bring" || field === "clothing" || Boolean(parseIndexedField(field)))}
           clickMode={options.clickMode}
         />
       </div>
@@ -1160,7 +1161,7 @@ function SectionView({
         {offering.registration_url && typeof section.content.eventLinkLabel === "string" && section.content.eventLinkLabel.trim() ? (
           <p>
             <a className="vr-text-link vr-event-link" href={offering.registration_url} target="_blank" rel="noreferrer">
-              {section.content.eventLinkLabel}
+              {renderText(section.content.eventLinkLabel)}
             </a>
           </p>
         ) : null}

@@ -8,6 +8,7 @@ import { LinkButtonRow } from "@/components/public/LinkButtons";
 import { submitPublicForm } from "@/lib/actions/submit-form";
 import type { LinkButton } from "@/lib/content/form-buttons";
 import { FORM_COPY_DEFAULTS, HIDEABLE_READ_ALOUD, type FormCopy } from "@/lib/content/form-copy";
+import { renderText } from "@/lib/content/markdown";
 import { UNSURE_KEY, findLessonOption, resolveLessonParam, type LessonOption } from "@/lib/content/lesson-options";
 import type { SiteSettings } from "@/types/content";
 
@@ -83,12 +84,12 @@ export function ContactForm({
       if (edit) return edit.copy(key, FORM_COPY_DEFAULTS[key], true);
       return HIDEABLE_READ_ALOUD.includes(key) ? <span className="vr-sr-only">{FORM_COPY_DEFAULTS[key]}</span> : null;
     }
-    return edit ? edit.copy(key, value) : value;
+    return edit ? edit.copy(key, value) : renderText(value);
   };
   // The "not sure yet" choice shows the section's own wording; the others are the class names.
   const optionLabel = (option: LessonOption) => {
     if (option.key === UNSURE_KEY) return text("formUnsure");
-    return edit ? edit.option(option, option.label) : option.label;
+    return edit ? edit.option(option, option.label) : renderText(option.label);
   };
   // Without a choice, "Pole veel kindel" stands; a class named in the link is picked when it exists.
   const selectedLesson =
@@ -129,7 +130,7 @@ export function ContactForm({
   }
 
   if (status === "ok") {
-    return <p className="vr-form-success">{copy.formSuccess}</p>;
+    return <p className="vr-form-success">{renderText(copy.formSuccess)}</p>;
   }
 
   return (
@@ -216,7 +217,7 @@ export function ContactForm({
         </label>
         {error ? <p className="vr-form-error" role="alert">{error}</p> : null}
         <button className="vr-cta" type="submit" disabled={status === "sending"}>
-          {status === "sending" ? copy.formSending : text("formSubmit")}
+          {status === "sending" ? renderText(copy.formSending) : text("formSubmit")}
         </button>
         <LinkButtonRow buttons={buttons} draft={draft} align="start" />
       </form>

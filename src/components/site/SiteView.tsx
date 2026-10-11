@@ -6,8 +6,9 @@ import { PublicHeader } from "@/components/public/PublicHeader";
 import { SectionList } from "@/components/sections/SectionList";
 import { EditableText } from "@/components/site/Editable";
 import type { LessonOption } from "@/lib/content/lesson-options";
+import { PAGE_TITLE_STYLE_KEY } from "@/lib/editor/text-style";
 import { pageHref } from "@/lib/utils/urls";
-import type { EventRow, MediaRow, OfferingRow, PageRow, SectionRow, SiteSettings, TestimonialWithPhoto } from "@/types/content";
+import type { EventRow, MediaRow, OfferingRow, PageRow, SectionRow, SiteSettings, TestimonialWithPhoto, TextAppearance } from "@/types/content";
 
 export function SiteView({
   page,
@@ -22,6 +23,7 @@ export function SiteView({
   lessonOptions,
   testimonials,
   privacy,
+  pageTitleStyle,
 }: {
   page: PageRow;
   sections: SectionRow[];
@@ -36,6 +38,8 @@ export function SiteView({
   testimonials?: TestimonialWithPhoto[];
   /** The footer link to the privacy page: its label is that page's menu label or title. */
   privacy?: { label: string; pageId?: string };
+  /** The shared look of every page title, from the site theme. */
+  pageTitleStyle?: TextAppearance;
 }) {
   const showTitle = page.slug !== "avaleht" && page.slug !== "kontakt";
 
@@ -50,9 +54,10 @@ export function SiteView({
                 <EditableText
                   as="h1"
                   className="vr-page-title"
-                  selection={{ id: `${page.slug}.title`, type: "text", field: "title" }}
+                  selection={{ id: `${page.slug}.title`, type: "text", field: "title", styleKey: PAGE_TITLE_STYLE_KEY }}
                   path={{ kind: "page-title", pageId: page.id }}
                   value={page.title}
+                  appearance={pageTitleStyle}
                 />
               </div>
             </div>

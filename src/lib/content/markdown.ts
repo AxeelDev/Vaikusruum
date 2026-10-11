@@ -39,14 +39,20 @@ export function resolveMarkdownColor(value: string): string | null {
   return COLOR_NAMES[trimmed.toLowerCase()] ?? null;
 }
 
-export function renderMarkdown(source: string): ReactNode {
+/**
+ * The one way a plain text field reaches the page, in the editor and for visitors alike:
+ * every line break the client typed shows as a line break, and Markdown marks are applied when present.
+ */
+export function renderText(source: string | null | undefined): ReactNode {
   if (!source) return null;
-  if (!looksLikeMarkdown(source)) return source;
-  const lines = source.split("\n");
+  const markdown = looksLikeMarkdown(source);
+  if (!markdown && !source.includes("\n") && !source.includes("\r")) return source;
+  const lines = source.replace(/\r\n?/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   lines.forEach((line, index) => {
     if (index > 0) blocks.push(createElement("br", { key: `br-${index}` }));
-    blocks.push(createElement(Fragment, { key: `ln-${index}` }, parseInline(unescapeBreaks(line), `l${index}`)));
+    const inner = markdown ? parseInline(unescapeBreaks(line), `l${index}`) : line;
+    blocks.push(createElement(Fragment, { key: `ln-${index}` }, inner));
   });
   return blocks;
 }

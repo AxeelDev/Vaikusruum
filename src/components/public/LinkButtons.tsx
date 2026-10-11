@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { visibleLinkButtons, type LinkButton } from "@/lib/content/form-buttons";
+import { renderText } from "@/lib/content/markdown";
 
 export function LinkButtonRow({
   buttons,
@@ -23,25 +24,25 @@ export function LinkButtonRow({
   return (
     <div className={className}>
       {items.map((item, index) => {
-        const key = `${item.label}-${item.href ?? "draft"}-${index}`;
-        if (!item.href) return <span key={key} className="vr-cta">{item.label}</span>;
+        const key = `${renderText(item.label)}-${item.href ?? "draft"}-${index}`;
+        if (!item.href) return <span key={key} className="vr-cta">{renderText(item.label)}</span>;
         if (/^https?:\/\//i.test(item.href)) {
           return (
             <a key={key} className="vr-cta" href={item.href} target="_blank" rel="noreferrer">
-              {item.label}
+              {renderText(item.label)}
             </a>
           );
         }
         if (item.href.startsWith("mailto:") || item.href.startsWith("tel:")) {
           return (
             <a key={key} className="vr-cta" href={item.href}>
-              {item.label}
+              {renderText(item.label)}
             </a>
           );
         }
         return (
           <Link key={key} className="vr-cta" href={item.href}>
-            {item.label}
+            {renderText(item.label)}
           </Link>
         );
       })}

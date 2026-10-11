@@ -4,6 +4,7 @@ import { LinkButtonRow } from "@/components/public/LinkButtons";
 import { EditableNode } from "@/components/site/Editable";
 import type { LinkButton } from "@/lib/content/form-buttons";
 import { FORM_COPY_DEFAULTS, type FormCopy } from "@/lib/content/form-copy";
+import { renderText } from "@/lib/content/markdown";
 import type { EditorSelection } from "@/lib/editor/types";
 import type { OfferingRow } from "@/types/content";
 import type { ReactNode } from "react";
@@ -70,7 +71,7 @@ export function RegistrationBlock({
       {showLink ? (
         <p>
           <a className="vr-cta" href={offering.registration_url!} rel="noreferrer">
-            {edit ? edit.copy("registerCta", copy.registerCta) : copy.registerCta}
+            {edit ? edit.copy("registerCta", copy.registerCta) : renderText(copy.registerCta)}
           </a>
         </p>
       ) : null}

@@ -95,6 +95,7 @@ export async function CmsPage({ slug }: { slug: string }) {
       lessonOptions={lessonOptions}
       testimonials={testimonials}
       privacy={{ label: privacyLabel ?? "Privaatsus" }}
+      pageTitleStyle={theme.pageTitleStyle}
     />
   );
 }

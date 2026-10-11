@@ -25,15 +25,19 @@ export const DEFAULT_PRIVATE_PRICES: PrivatePriceItem[] = [
   { label: "Tule koos sõbraga!", amount: "120 €" },
 ];
 
+/**
+ * The rows as saved, spaces and line breaks included: the inspector edits through this reader,
+ * so trimming here would swallow a new line or a space the moment it is typed.
+ */
 export function readPrivateLessons(content: Record<string, unknown>): PrivateLessonItem[] {
   const raw = content.lessons;
   if (!Array.isArray(raw)) return [];
   return raw.map((item) => {
     const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
     return {
-      title: String(row.title ?? "").trim(),
-      duration: String(row.duration ?? "").trim(),
-      description: String(row.description ?? "").trim(),
+      title: String(row.title ?? ""),
+      duration: String(row.duration ?? ""),
+      description: String(row.description ?? ""),
     };
   });
 }
@@ -44,8 +48,8 @@ export function readPrivatePrices(content: Record<string, unknown>): PrivatePric
   return raw.map((item) => {
     const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
     return {
-      label: String(row.label ?? "").trim(),
-      amount: String(row.amount ?? "").trim(),
+      label: String(row.label ?? ""),
+      amount: String(row.amount ?? ""),
     };
   });
 }

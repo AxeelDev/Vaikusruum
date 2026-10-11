@@ -1182,10 +1182,10 @@ html.vr-editor-lock body {
 
 .vr-ed-textarea {
   height: auto;
-  min-height: 88px;
-  max-height: 220px;
-  padding: 10px 12px;
+  max-height: 420px;
+  padding: 8px 12px;
   resize: vertical;
+  overflow-y: auto;
   line-height: 1.5;
   background: var(--ed-bg-control);
 }
@@ -1204,6 +1204,16 @@ html.vr-editor-lock body {
   outline: 1px solid var(--ed-accent);
   outline-offset: 0;
   border-color: var(--ed-accent);
+}
+
+.vr-ed-input[readonly] {
+  color: var(--ed-text-muted);
+  cursor: default;
+}
+
+.vr-ed-input[readonly]:hover {
+  background: var(--ed-bg-control);
+  border-color: var(--ed-border);
 }
 
 .vr-ed-input.is-invalid {

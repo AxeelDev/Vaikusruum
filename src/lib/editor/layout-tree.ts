@@ -579,6 +579,12 @@ function isLayoutTree(value: unknown): value is SectionLayoutTree {
   return tree.version === 1 && Boolean(tree.root);
 }
 
+function elementFields(node: LayoutNode): string[] {
+  if (node.type === "element") return node.field ? [node.field] : [];
+  if (node.type === "columns") return node.columns.flatMap(elementFields);
+  return node.children.flatMap(elementFields);
+}
+
 function removeNode(parent: LayoutNode, nodeId: string): { node: LayoutNode } | null {
   if (parent.type === "columns") {
     for (const column of parent.columns) {
@@ -869,12 +875,20 @@ export function resolveLayoutNodeId(section: SectionRow, selection: { id: string
 export function removeLayoutNode(section: SectionRow, nodeId: string): SectionRow {
   const tree = structuredClone(getSectionLayoutTree(section));
   if (tree.root.id === nodeId) return section;
-  const extracted = removeNode(tree.root, nodeId);
-  if (!extracted) return section;
-  const field = extracted.node.type === "element" ? extracted.node.field : undefined;
+  let removed = removeNode(tree.root, nodeId)?.node;
+  if (!removed) {
+    // A column is not a child of anything that can lose it; removing one empties it, and the two-column
+    // row then collapses into a plain stack of what the other column holds.
+    const columnNode = findLayoutNode(tree.root, nodeId);
+    if (columnNode?.type !== "column") return section;
+    removed = { ...columnNode, children: columnNode.children };
+    columnNode.children = [];
+  }
   const nextContent = { ...section.content };
   const nextFieldStyles = { ...section.style?.fieldStyles };
-  if (field?.startsWith("custom.")) {
+  // Elements added in the editor keep their content under their own field; it goes with them.
+  for (const field of elementFields(removed)) {
+    if (!field.startsWith("custom.")) continue;
     delete nextContent[field];
     delete nextFieldStyles[field];
   }

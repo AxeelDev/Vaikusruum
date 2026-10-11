@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { canonicalizeHex } from "@/lib/editor/color";
+import type { TextAppearance } from "@/types/content";
 
 export const DISPLAY_FONTS = [
   { id: "cormorant", label: "Cormorant Garamond", css: "var(--font-cormorant), 'Times New Roman', serif" },
@@ -43,6 +44,8 @@ export type ThemeTokens = {
   bodyLineHeight: number;
   headingScale: number;
   pageTitleSize: number;
+  /** The look of every page's title, set by styling any one of them in the editor. */
+  pageTitleStyle?: TextAppearance;
   wordmarkSize: number;
   wordmarkTracking: number;
   headingTracking: number;
@@ -166,6 +169,7 @@ export function parseTheme(input: unknown): ThemeTokens {
     bodyLineHeight: num(raw.bodyLineHeight, DEFAULT_THEME.bodyLineHeight, 1.3, 2.2),
     headingScale: num(raw.headingScale, DEFAULT_THEME.headingScale, 0.8, 1.4),
     pageTitleSize: num(raw.pageTitleSize, DEFAULT_THEME.pageTitleSize, 24, 72),
+    pageTitleStyle: parseTextAppearance(raw.pageTitleStyle),
     wordmarkSize: num(raw.wordmarkSize, DEFAULT_THEME.wordmarkSize, 24, 96),
     wordmarkTracking: num(raw.wordmarkTracking, DEFAULT_THEME.wordmarkTracking, 0.08, 0.4),
     headingTracking: num(raw.headingTracking, DEFAULT_THEME.headingTracking, 0, 0.3),
@@ -190,6 +194,41 @@ export function parseTheme(input: unknown): ThemeTokens {
     specksColor: hex(raw.specksColor, DEFAULT_THEME.specksColor),
     headerSticky: raw.headerSticky !== false,
   };
+}
+
+/** A stored text style, keeping only known settings with sane values. */
+export function parseTextAppearance(input: unknown): TextAppearance | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const raw = input as Record<string, unknown>;
+  const out: TextAppearance = {};
+  const number = (value: unknown, min: number, max: number) =>
+    typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : undefined;
+  const pick = <T extends string>(value: unknown, allowed: readonly T[]) => (allowed.includes(value as T) ? (value as T) : undefined);
+  const role = pick(raw.role, ["h1", "h2", "h3", "p"] as const);
+  const color = typeof raw.color === "string" ? canonicalizeHex(raw.color) : null;
+  const fontId = typeof raw.fontId === "string" && ALL_FONTS.some((font) => font.id === raw.fontId) ? raw.fontId : undefined;
+  const fontSize = number(raw.fontSize ?? raw.size, 8, 320);
+  const fontWeight = number(raw.fontWeight ?? raw.weight, 100, 900);
+  const lineHeight = number(raw.lineHeight, 0.5, 4);
+  const letterSpacing = number(raw.letterSpacing, -0.2, 2);
+  const paragraphSpacing = number(raw.paragraphSpacing, 0, 200);
+  const textAlign = pick(raw.textAlign ?? raw.align, ["left", "center", "right"] as const);
+  const fontStyle = pick(raw.fontStyle, ["normal", "italic"] as const);
+  const textTransform = pick(raw.textTransform, ["none", "uppercase", "lowercase"] as const);
+  const maxWidth = raw.maxWidth === null ? null : number(raw.maxWidth ?? raw.width, 0, 4000);
+  if (role) out.role = role;
+  if (color) out.color = color;
+  if (fontId) out.fontId = fontId;
+  if (fontSize !== undefined) out.fontSize = out.size = fontSize;
+  if (fontWeight !== undefined) out.fontWeight = out.weight = fontWeight;
+  if (lineHeight !== undefined) out.lineHeight = lineHeight;
+  if (letterSpacing !== undefined) out.letterSpacing = letterSpacing;
+  if (paragraphSpacing !== undefined) out.paragraphSpacing = paragraphSpacing;
+  if (textAlign) out.textAlign = textAlign;
+  if (fontStyle) out.fontStyle = fontStyle;
+  if (textTransform) out.textTransform = textTransform;
+  if (maxWidth !== undefined) out.maxWidth = maxWidth;
+  return Object.keys(out).length ? out : undefined;
 }
 
 function fontCss(id: string, list: readonly { id: string; css: string }[]): string {

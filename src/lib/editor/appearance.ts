@@ -26,9 +26,23 @@ export function mergeFieldStyle(
   field: string,
   patch: Partial<TextAppearance>,
 ): SectionRow {
-  const current = fieldStyle(section, field) ?? {};
+  const next = mergeAppearance(fieldStyle(section, field), patch);
+  return {
+    ...section,
+    style: {
+      ...section.style,
+      fieldStyles: {
+        ...section.style?.fieldStyles,
+        [field]: next,
+      },
+    },
+  };
+}
+
+/** A text style with a change applied, wherever that style is kept. */
+export function mergeAppearance(current: TextAppearance | undefined, patch: Partial<TextAppearance>): TextAppearance {
   const canonicalPatch = writeTextStylePatch(readTextStyle(patch));
-  const next: TextAppearance = { ...current, ...canonicalPatch, ...patch };
+  const next: TextAppearance = { ...(current ?? {}), ...canonicalPatch, ...patch };
   if (patch.color !== undefined || canonicalPatch.color !== undefined) {
     const color = parseColorToHex(patch.color ?? canonicalPatch.color);
     if (color) next.color = color;
@@ -44,21 +58,18 @@ export function mergeFieldStyle(
     next.maxWidth = 0;
     next.width = 0;
   }
-  return {
-    ...section,
-    style: {
-      ...section.style,
-      fieldStyles: {
-        ...section.style?.fieldStyles,
-        [field]: next,
-      },
-    },
-  };
+  return next;
+}
+
+/** A text style without the given settings, so they fall back to the site default. */
+export function omitAppearanceKeys(current: TextAppearance | undefined, keys: Array<keyof TextAppearance>): TextAppearance {
+  const next = { ...(current ?? {}) };
+  for (const key of keys) delete next[key];
+  return next;
 }
 
 export function clearFieldStyleKeys(section: SectionRow, field: string, keys: Array<keyof TextAppearance>): SectionRow {
-  const current = { ...(fieldStyle(section, field) ?? {}) };
-  for (const key of keys) delete current[key];
+  const current = omitAppearanceKeys(fieldStyle(section, field), keys);
   return {
     ...section,
     style: {

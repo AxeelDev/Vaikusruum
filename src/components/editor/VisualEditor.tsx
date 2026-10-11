@@ -516,6 +516,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
       mediaId: hit.dataset.vrSelectionMediaId,
       offeringId: hit.dataset.vrSelectionOfferingId,
       navSlug: hit.dataset.vrSelectionNavSlug,
+      styleKey: hit.dataset.vrSelectionStyleKey,
       layoutNodeId: hit.dataset.vrNodeId ?? hit.closest<HTMLElement>("[data-vr-node-id]")?.dataset.vrNodeId,
     };
   }
@@ -688,7 +689,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       const target = event.target instanceof Element ? event.target : null;
-      const typing = Boolean(target?.closest("input, textarea, select"));
+      const typing = Boolean(target?.closest("input, textarea, select, [contenteditable='true']"));
       if (event.key === "Escape") {
         if (dragRef.current) {
           event.preventDefault();
@@ -817,6 +818,7 @@ export function VisualEditor({ debug = false }: { debug?: boolean }) {
                 lessonOptions={lessonOptions}
                 testimonials={state.testimonials}
                 privacy={privacy}
+                pageTitleStyle={state.draft.theme.pageTitleStyle}
               />
             </div>
             {!state.preview ? (

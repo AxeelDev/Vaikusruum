@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSection, duplicateSection, reorderSections } from "@/lib/editor/draft";
+import { createSection, duplicateSection, removeIndexedItem, reorderSections } from "@/lib/editor/draft";
 import { resolveColumnBalance, resolveHeight, resolveVerticalAlign, splitGridColumns } from "@/components/layout/primitives";
 import { appearanceToStyle, mergeFieldStyle } from "@/lib/editor/appearance";
 import { clampTextStyle, readTextStyle, writeTextStylePatch } from "@/lib/editor/text-style";
@@ -255,5 +255,23 @@ describe("popover placement", () => {
     });
     expect(next.top + 200).toBeLessThanOrEqual(760);
     expect(next.top).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("removing an FAQ question or list point", () => {
+  const faq = {
+    id: "s1", page_id: "p1", section_key: "faq", section_type: "faq", sort_order: 1, enabled: true, created_at: "", updated_at: "",
+    content: { items: [{ question: "A" }, { question: "B" }, { question: "C" }] },
+    style: { fieldStyles: { "q.0": { fontWeight: 300 }, "q.1": { fontWeight: 500 }, "a.1": { fontSize: 20 }, "q.2": { fontWeight: 800 }, heading: { fontSize: 40 } } },
+  } as unknown as SectionRow;
+
+  it("keeps each remaining item's style with that item", () => {
+    const next = removeIndexedItem(faq, 1);
+    expect((next.content.items as Array<{ question: string }>).map((item) => item.question)).toEqual(["A", "C"]);
+    expect(next.style?.fieldStyles).toEqual({ "q.0": { fontWeight: 300 }, "q.1": { fontWeight: 800 }, heading: { fontSize: 40 } });
+  });
+
+  it("ignores a position that does not exist", () => {
+    expect(removeIndexedItem(faq, 7)).toBe(faq);
   });
 });

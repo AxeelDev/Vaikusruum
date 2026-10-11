@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useOptionalEditor, type EditPath } from "@/components/editor/EditorProvider";
 import { appearanceToStyle } from "@/lib/editor/appearance";
-import { looksLikeMarkdown, renderMarkdown } from "@/lib/content/markdown";
+import { renderText } from "@/lib/content/markdown";
 import { splitWordmark } from "@/lib/content/wordmark";
 import type { EditorSelection } from "@/lib/editor/types";
 import type { TextAppearance } from "@/types/content";
@@ -25,6 +25,7 @@ function editProps(selection: EditorSelection, selected: boolean, preview: boole
     "data-vr-selection-offering-id": selection.offeringId,
     "data-vr-selection-media-id": selection.mediaId,
     "data-vr-selection-nav-slug": selection.navSlug,
+    "data-vr-selection-style-key": selection.styleKey,
     "data-vr-selected": selected ? "" : undefined,
     "data-editor-node-id": selection.id,
     "data-editor-node-type": selection.type,
@@ -43,7 +44,6 @@ export function EditableText({
   value,
   appearance,
   style,
-  multiline = false,
   clickMode = "select",
 }: {
   selection: EditorSelection;
@@ -53,7 +53,6 @@ export function EditableText({
   value: string;
   appearance?: TextAppearance;
   style?: CSSProperties;
-  multiline?: boolean;
   clickMode?: "select" | "defer";
 }) {
   const editor = useOptionalEditor();
@@ -61,24 +60,22 @@ export function EditableText({
   const selected = editor?.state.selected?.id === selection.id && !editor.state.preview;
   const wordmark = String(className ?? "").includes("vr-wordmark");
   const lines = wordmark ? splitWordmark(value) : null;
-  const allowMarkdown = !wordmark;
-  const rendered = allowMarkdown && looksLikeMarkdown(value) ? renderMarkdown(value) : value;
+  // The wordmark is drawn letter-spaced on its own lines, so Markdown marks are left as typed there.
+  const rendered = wordmark ? value : renderText(value);
   const classNames = [className, lines ? "vr-wordmark--split" : ""].filter(Boolean).join(" ");
 
   const mergedStyle: CSSProperties = {
     ...appearanceToStyle(appearance),
     ...style,
-    ...(multiline ? { whiteSpace: "pre-wrap" } : null),
   };
 
-  const inner = lines ? (
-    <>
-      <span className="vr-wordmark-line">{lines[0]}</span>
-      <span className="vr-wordmark-line">{lines[1]}</span>
-    </>
-  ) : (
-    rendered
-  );
+  const inner = lines
+    ? lines.map((line, index) => (
+        <span key={index} className="vr-wordmark-line">
+          {line}
+        </span>
+      ))
+    : rendered;
 
   if (!editor) {
     return (

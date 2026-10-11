@@ -308,3 +308,36 @@ describe("selection routing", () => {
     expect(resolveInspectorTab(resolveNodeKind(selection), "appearance")).toBe("appearance");
   });
 });
+
+describe("removing a column", () => {
+  const twoColumns = section({
+    section_key: "split",
+    section_type: "rich_text",
+    content: { "custom.text.a": "Vasak", "custom.text.b": "Parem" },
+    style: {
+      layout: "image-left",
+      fieldStyles: { "custom.text.a": { fontSize: 30 } },
+      layoutTree: {
+        version: 1,
+        root: {
+          id: "cols", type: "columns", label: "Kaks veergu", ratio: "50-50",
+          columns: [
+            { id: "left", type: "column", label: "Vasak", children: [{ id: "el.a", type: "element", elementType: "text", label: "A", field: "custom.text.a" }] },
+            { id: "right", type: "column", label: "Parem", children: [{ id: "el.b", type: "element", elementType: "text", label: "B", field: "custom.text.b" }] },
+          ],
+        },
+      },
+    } as SectionRow["style"],
+  });
+
+  it("leaves the other column's content as a single stack and drops what the column held", () => {
+    const next = removeLayoutNode(twoColumns, "left");
+    const root = next.style?.layoutTree?.root;
+    expect(root?.type).toBe("group");
+    expect(JSON.stringify(root)).toContain("custom.text.b");
+    expect(JSON.stringify(root)).not.toContain("custom.text.a");
+    expect(next.content["custom.text.a"]).toBeUndefined();
+    expect(next.content["custom.text.b"]).toBe("Parem");
+    expect(next.style?.fieldStyles?.["custom.text.a"]).toBeUndefined();
+  });
+});
