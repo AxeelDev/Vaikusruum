@@ -17,26 +17,27 @@ import {
 import { upcomingEventsNow } from "@/lib/content/events";
 import { listLayoutElements } from "@/lib/editor/layout-tree";
 import { pageHref } from "@/lib/utils/urls";
+import { BRAND, buildStructuredData, resolvePageSeo, serializeJsonLd } from "@/lib/seo/site";
 import type { EventRow, OfferingRow } from "@/types/content";
 
 export async function generateCmsMetadata(slug: string): Promise<Metadata> {
-  const data = await getPublishedPage(slug);
+  const [data, settings] = await Promise.all([getPublishedPage(slug), getSiteSettings()]);
   if (!data) return {};
-  const title = data.page.seo_title || data.page.title;
-  const description = data.page.seo_description || undefined;
+  const seo = resolvePageSeo(data.page, settings.contact_name);
+  const path = pageHref(slug);
   return {
-    title,
-    description,
-    alternates: { canonical: slug === "avaleht" ? "/" : `/${slug}` },
+    title: seo.absoluteTitle ? { absolute: seo.absoluteTitle } : seo.title,
+    description: seo.description,
+    alternates: { canonical: path },
     // A page's openGraph replaces the site-wide one rather than merging, so repeat the shared parts here.
     openGraph: {
-      title,
-      description,
-      siteName: "Vaikusruum",
+      title: seo.absoluteTitle ?? seo.title,
+      description: seo.description,
+      siteName: BRAND,
       locale: "et_EE",
-      type: "website",
-      url: slug === "avaleht" ? "/" : `/${slug}`,
-      images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: "Vaikusruum" }],
+      type: slug === "minust" ? "profile" : "website",
+      url: path,
+      images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: BRAND }],
     },
   };
 }
@@ -81,21 +82,34 @@ export async function CmsPage({ slug }: { slug: string }) {
 
   const sections = data.sections;
 
+  // Dates are listed as events only on the class's own page, not wherever the class is linked from.
+  const structuredData = buildStructuredData({
+    page: data.page,
+    seo: resolvePageSeo(data.page, settings.contact_name),
+    settings,
+    offerings: offeringRows
+      .filter((offering) => offering.slug === data.page.slug)
+      .map((offering) => ({ offering, events: eventsByOffering[offering.id] ?? [] })),
+  });
+
   return (
-    <SiteView
-      page={data.page}
-      sections={sections}
-      offerings={offerings}
-      eventsByOffering={eventsByOffering}
-      media={media}
-      settings={settings}
-      nav={nav.length ? nav : [{ href: pageHref(data.page.slug), label: data.page.nav_label || data.page.title, slug: data.page.slug }]}
-      themeDensity={theme.specksDensity}
-      headerSticky={theme.headerSticky}
-      lessonOptions={lessonOptions}
-      testimonials={testimonials}
-      privacy={{ label: privacyLabel ?? "Privaatsus" }}
-      pageTitleStyle={theme.pageTitleStyle}
-    />
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }} />
+      <SiteView
+        page={data.page}
+        sections={sections}
+        offerings={offerings}
+        eventsByOffering={eventsByOffering}
+        media={media}
+        settings={settings}
+        nav={nav.length ? nav : [{ href: pageHref(data.page.slug), label: data.page.nav_label || data.page.title, slug: data.page.slug }]}
+        themeDensity={theme.specksDensity}
+        headerSticky={theme.headerSticky}
+        lessonOptions={lessonOptions}
+        testimonials={testimonials}
+        privacy={{ label: privacyLabel ?? "Privaatsus" }}
+        pageTitleStyle={theme.pageTitleStyle}
+      />
+    </>
   );
 }

@@ -16,7 +16,8 @@ import { privateLessonHref, type LessonOption } from "@/lib/content/lesson-optio
 import { TestimonialList } from "@/components/public/Testimonials";
 import type { FormEdit } from "@/components/forms/form-edit";
 import { readFormCopy } from "@/lib/content/form-copy";
-import { renderText } from "@/lib/content/markdown";
+import { renderText, sanitizeHref } from "@/lib/content/markdown";
+import { readStebbyConfig, stebbyLogoSrc } from "@/lib/content/stebby";
 import { EditableNode, EditableText } from "@/components/site/Editable";
 import { EditableRichText } from "@/components/site/EditableRichText";
 import { MediaFrame, ScreenSection, SectionInner, SplitLayout, isHomeSceneSection } from "@/components/layout/primitives";
@@ -603,6 +604,7 @@ function SectionView({
     if (node.elementType === "divider") return renderDividerElement(node);
     if (node.elementType === "slideshow") return renderMediaPlaceholder(node, "Slideshow");
     if (node.elementType === "widget") return renderWidgetElement(node);
+    if (node.elementType === "stebby") return renderStebbyElement(node);
     if (node.elementType === "embed") return renderMediaPlaceholder(node, "Embed");
     if (node.elementType === "control") return renderControlElement(node);
     if (!node.field) return null;
@@ -812,6 +814,31 @@ function SectionView({
       <div className="vr-layout-element">
         <EditableNode selection={renderGenericSelection(node)} className="vr-widget-element" as="address">
           {settings.contact_email || settings.contact_phone || "Kontakt"}
+        </EditableNode>
+      </div>
+    );
+  }
+
+  function renderStebbyElement(node: LayoutElementNode): ReactNode {
+    const { variant, size } = readStebbyConfig(node.field ? section.content[node.field] : null);
+    const href = settings.social.stebby ? sanitizeHref(settings.social.stebby) : null;
+    // Without a link there is nothing to click, so visitors see nothing; the editor keeps it visible to place.
+    if (!href && !editing) return null;
+    // A small logo that is already sized for the page, so there is nothing for next/image to resize.
+    // eslint-disable-next-line @next/next/no-img-element
+    const logo = <img src={stebbyLogoSrc(variant)} alt="Stebby" width={Math.round(size * (948 / 735))} height={size} style={{ height: size }} />;
+    return (
+      <div className="vr-layout-element vr-layout-element--stebby">
+        <EditableNode selection={renderGenericSelection(node)} className="vr-stebby-element" as="div">
+          {editing || !href ? (
+            <span className="vr-stebby-link" data-missing={href ? undefined : "true"} title={href ? undefined : "Lisa Stebby link seadetes"}>
+              {logo}
+            </span>
+          ) : (
+            <a className="vr-stebby-link" href={href} target="_blank" rel="noopener noreferrer" aria-label="Tasu Stebby kaudu">
+              {logo}
+            </a>
+          )}
         </EditableNode>
       </div>
     );

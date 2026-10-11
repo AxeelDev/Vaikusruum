@@ -176,8 +176,25 @@ describe("component creation", () => {
     const types = addableNodesForRole("owner").map((item) => item.type);
     expect(types).toEqual(expect.arrayContaining([
       "text", "paragraph", "list", "image", "buttons", "video", "links", "audio", "icons", "gallery",
-      "table", "timer", "divider", "slideshow", "form", "widget", "embed", "container", "control",
+      "table", "timer", "divider", "slideshow", "form", "widget", "embed", "container", "control", "stebby",
     ]));
+  });
+
+  it("keeps an added element where it was placed inside a built-in section", () => {
+    const practical = section({
+      section_key: "practical",
+      section_type: "offering_practical_info",
+      content: { tasakaalLabel: "Tasakaal: 20€", registerHeading: "Registreeri tundi" },
+    });
+    const root = getSectionLayoutTree(practical).root;
+    const tasakaal = root.type === "group" ? root.children.findIndex((child) => child.id.endsWith(".tasakaalLabel")) : -1;
+    const inserted = insertLayoutElement(practical, "stebby", { parentId: root.id, index: tasakaal + 1, placement: "inside" });
+    const field = inserted.node.type === "element" ? inserted.node.field : undefined;
+    expect(field).toMatch(/^custom\.stebby\./);
+    expect(inserted.section.content[field!]).toEqual({ variant: "green", size: 44 });
+    const reloaded = getSectionLayoutTree(inserted.section).root;
+    const ids = reloaded.type === "group" ? reloaded.children.map((child) => child.id) : [];
+    expect(ids[ids.findIndex((id) => id.endsWith(".tasakaalLabel")) + 1]).toBe(inserted.node.id);
   });
 
   it("inserts new text into the draft layout tree", () => {

@@ -42,6 +42,7 @@ export const metadata: Metadata = {
     template: "%s · Vaikusruum",
   },
   description: "Vaikusruum on kutse aeglustuda, hingata ja olla.",
+  applicationName: "Vaikusruum",
   openGraph: {
     siteName: "Vaikusruum",
     locale: "et_EE",

@@ -72,7 +72,8 @@ export type LayoutElementNode = {
     | "slideshow"
     | "widget"
     | "embed"
-    | "control";
+    | "control"
+    | "stebby";
   label: string;
   field?: string;
   offeringId?: string;
@@ -267,6 +268,8 @@ export type SiteSettings = {
     facebook?: string | null;
     pinterest?: string | null;
     youtube?: string | null;
+    /** The studio's Stebby page; every Stebby link element points here. */
+    stebby?: string | null;
   };
   footer_text: string | null;
 };

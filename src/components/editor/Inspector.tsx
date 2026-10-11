@@ -54,6 +54,7 @@ import { uploadProgressLabel, uploadSiteMedia } from "@/lib/utils/upload-site-me
 import { mediaPublicUrl } from "@/lib/utils/urls";
 import { PrivateLessonsFields } from "@/components/admin/PrivateLessonsFields";
 import { privateActionHref, readPrivateLessons, readPrivatePrices } from "@/lib/content/private-lessons";
+import { isStebbyField, readStebbyConfig, STEBBY_SIZE, STEBBY_VARIANTS, type StebbyConfig } from "@/lib/content/stebby";
 import { isButtonLinksField, linkButtonError, readButtonLinks, writeButtonLinks, type LinkButton } from "@/lib/content/form-buttons";
 import { buildInspectorModel, INSPECTOR_TAB_LABELS, SITE_DESIGN_TABS } from "@/lib/editor/inspector";
 import { MARKDOWN_HELP_ITEMS } from "@/lib/content/markdown";
@@ -368,6 +369,7 @@ function ContentPanel() {
   if (selected.field === "dates" && selected.sectionId) return <DatesPanel sectionId={selected.sectionId} />;
   if ((selected.field === "lessons" || selected.field === "prices") && selected.sectionId) return <LessonsPanel sectionId={selected.sectionId} />;
   if (isButtonLinksField(selected.field)) return <ButtonLinksPanel />;
+  if (isStebbyField(selected.field)) return <StebbyPanel />;
   if (isStructuredContentSelection(editor)) return <StructuredContentPanel />;
   return <NodeContentInspector />;
 }
@@ -506,6 +508,49 @@ function StructuredContentPanel() {
       </EditorGroup>
       {error ? <p className="vr-form-error">{error}</p> : null}
       <p className="vr-ed-help">Selle komponendi sisu salvestub struktureeritud JSON-ina sektsiooni sisusse.</p>
+    </div>
+  );
+}
+
+/** Look of one Stebby logo. The link itself is shared by all of them and set in Seaded. */
+function StebbyPanel() {
+  const editor = useEditor();
+  const selected = editor.state.selected!;
+  const section = selected.sectionId ? findSection(editor.state.draft, selected.sectionId) : undefined;
+  const config = readStebbyConfig(section?.content[selected.field!]);
+  const url = editor.state.draft.settings.social.stebby?.trim();
+
+  function patch(next: Partial<StebbyConfig>, record: boolean) {
+    editor.setPath({ kind: "section-content", sectionId: selected.sectionId!, key: selected.field! }, { ...config, ...next }, record);
+  }
+
+  return (
+    <div className="vr-inspector-body">
+      <EditorContext kicker="Stebby link" title="Stebby logo" />
+      <EditorGroup label="Logo">
+        <EditorSegmented<StebbyConfig["variant"]>
+          value={config.variant}
+          options={STEBBY_VARIANTS.map(({ value, label }) => ({ value, label }))}
+          onChange={(variant) => patch({ variant }, true)}
+        />
+        <EditorSlider
+          label="Suurus"
+          min={STEBBY_SIZE.min}
+          max={STEBBY_SIZE.max}
+          value={config.size}
+          unit="px"
+          onChange={(size) => patch({ size }, false)}
+          onCommit={() => patch({}, true)}
+        />
+      </EditorGroup>
+      <EditorGroup label="Link">
+        <p className="vr-ed-help">
+          {url ? `Viib aadressile ${url}` : "Stebby link on lisamata, seega logo külastajatele ei paista."} Kõik Stebby logod kasutavad sama linki, mida muudad seadetes.
+        </p>
+        <EditorButton variant="secondary" onClick={() => editor.requestNavigation("/admin/settings#sotsiaalmeedia")}>
+          Muuda linki seadetes
+        </EditorButton>
+      </EditorGroup>
     </div>
   );
 }

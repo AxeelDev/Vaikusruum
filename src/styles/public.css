@@ -604,6 +604,26 @@
   text-align: left;
 }
 
+.vr-stebby-link {
+  display: inline-flex;
+  transition: opacity 160ms ease;
+}
+
+.vr-stebby-link img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+}
+
+a.vr-stebby-link:hover,
+a.vr-stebby-link:focus-visible {
+  opacity: 0.8;
+}
+
+.vr-stebby-link[data-missing] {
+  opacity: 0.45;
+}
+
 .vr-divider-element {
   width: 100%;
   height: 1px;

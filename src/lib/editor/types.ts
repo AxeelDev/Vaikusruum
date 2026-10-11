@@ -123,7 +123,8 @@ export type AddableElementType =
   | "widget"
   | "embed"
   | "container"
-  | "control";
+  | "control"
+  | "stebby";
 
 export const ADDABLE_ELEMENTS: Array<{ type: AddableElementType; label: string; ownerOnly?: boolean }> = [
   { type: "text", label: "Tekst" },
@@ -142,6 +143,7 @@ export const ADDABLE_ELEMENTS: Array<{ type: AddableElementType; label: string; 
   { type: "slideshow", label: "Slaidiesitlus" },
   { type: "form", label: "Vorm" },
   { type: "widget", label: "Vidin" },
+  { type: "stebby", label: "Stebby link" },
   { type: "embed", label: "Manustatud kood", ownerOnly: true },
   { type: "container", label: "Plokk" },
   { type: "control", label: "Juhtelement", ownerOnly: true },

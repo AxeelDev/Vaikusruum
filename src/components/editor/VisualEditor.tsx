@@ -1213,6 +1213,12 @@ function addIcon(type: AddableElementType) {
           <path d="M8 3.5v2M8 10.5v2M3.5 8h2M10.5 8h2" />
         </svg>
       );
+    case "stebby":
+      return (
+        <svg {...svg}>
+          <path d="M5 3.5 1.8 6.7 7.3 12.2 10.5 9zM10.8 3.5 9 5.3l2 2 1.8-1.8z" />
+        </svg>
+      );
   }
 }
 

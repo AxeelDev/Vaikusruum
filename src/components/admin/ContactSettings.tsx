@@ -24,6 +24,7 @@ function payload(row: SiteSettings) {
       facebook: text(row.social.facebook),
       pinterest: text(row.social.pinterest),
       youtube: text(row.social.youtube),
+      stebby: text(row.social.stebby),
     },
   };
 }
@@ -37,7 +38,7 @@ function validate(row: SiteSettings): Record<string, string> {
   if (row.contact_email?.trim() && !EMAIL.test(row.contact_email.trim())) errors.contact_email = "Kontrolli e-posti aadressi.";
   if (row.default_registration_email?.trim() && !EMAIL.test(row.default_registration_email.trim()))
     errors.default_registration_email = "Kontrolli e-posti aadressi.";
-  for (const key of ["instagram", "facebook", "pinterest", "youtube"] as const) {
+  for (const key of ["instagram", "facebook", "pinterest", "youtube", "stebby"] as const) {
     const value = row.social[key]?.trim();
     if (value && !URL_LIKE.test(value)) errors[`social.${key}`] = "Lisa täielik link, mis algab https://";
   }
@@ -148,7 +149,7 @@ export function ContactSettings({ settings }: { settings: SiteSettings }) {
         </div>
       </SettingsCard>
 
-      <SettingsCard title="Sotsiaalmeedia" description="Täielikud lingid profiilidele. Tühjad väljad jäetakse lehelt välja.">
+      <SettingsCard id="sotsiaalmeedia" title="Sotsiaalmeedia" description="Täielikud lingid profiilidele. Tühjad väljad jäetakse lehelt välja.">
         <div className="vr-admin-grid-2">
           {(["instagram", "facebook", "youtube", "pinterest"] as const).map((key) => (
             <Field key={key} label={key === "youtube" ? "YouTube" : key[0].toUpperCase() + key.slice(1)} error={error(`social.${key}`)}>
@@ -163,6 +164,16 @@ export function ContactSettings({ settings }: { settings: SiteSettings }) {
             </Field>
           ))}
         </div>
+        <Field label="Stebby" error={error("social.stebby")} hint="Kõik lehtedel olevad Stebby logod viivad sellele lingile. Tühja välja korral logosid ei näidata.">
+          <input
+            value={row.social.stebby ?? ""}
+            type="url"
+            inputMode="url"
+            placeholder="https://app.stebby.eu/…"
+            spellCheck={false}
+            onChange={(e) => setSocial("stebby", e.target.value)}
+          />
+        </Field>
       </SettingsCard>
 
       <div className="vr-admin-savebar" data-visible={dirty || status ? "true" : undefined}>

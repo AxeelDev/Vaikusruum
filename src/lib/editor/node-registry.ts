@@ -19,6 +19,7 @@ export type EditorNodeKind =
   | "slideshow"
   | "form"
   | "widget"
+  | "stebby"
   | "embed"
   | "container"
   | "control"
@@ -78,6 +79,7 @@ export const nodeRegistry: Record<EditorNodeKind, EditorNodeDefinition> = {
   slideshow: { type: "slideshow", label: "Slaidiseanss", kindLabel: "Slaidiseanss", tabs: TABS.media, canPlaceBeside: true },
   form: { type: "form", label: "Vorm", kindLabel: "Vorm", tabs: TABS.structured, canPlaceBeside: true },
   widget: { type: "widget", label: "Moodul", kindLabel: "Moodul", tabs: TABS.structured, canPlaceBeside: true },
+  stebby: { type: "stebby", label: "Stebby link", kindLabel: "Stebby link", tabs: ["content", "animation"], canPlaceBeside: true },
   embed: { type: "embed", label: "Embed", kindLabel: "Embed", tabs: TABS.structured, ownerTabs: ["advanced"], canPlaceBeside: true },
   container: { type: "container", label: "Konteiner", kindLabel: "Konteiner", tabs: TABS.container, ownerTabs: ["advanced"], canPlaceBeside: false },
   control: { type: "control", label: "Ankur", kindLabel: "Ankur", tabs: ["content", "advanced"], canPlaceBeside: true },
@@ -105,6 +107,7 @@ const CUSTOM_FIELD_KIND: Record<string, EditorNodeKind> = {
   slideshow: "slideshow",
   form: "form",
   widget: "widget",
+  stebby: "stebby",
   embed: "embed",
   container: "text",
   control: "control",

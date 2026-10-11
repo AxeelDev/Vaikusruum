@@ -397,9 +397,25 @@ function mergeCollectionTree(existing: SectionLayoutTree, generated: SectionLayo
   const generatedIds = new Set(collectElements(generated.root).map((node) => node.id));
   const extraNodes = extras.filter((node) => !generatedIds.has(node.id));
   if (!extraNodes.length) return generated;
+  // Each added element stays after the built-in element it was saved after, so it can sit between them.
+  const order = collectElements(existing.root);
+  const children = [...generated.root.children];
+  for (const node of extraNodes) {
+    const position = order.findIndex((item) => item.id === node.id);
+    let index = 0;
+    for (let i = position - 1; i >= 0; i -= 1) {
+      const anchor = order[i].id;
+      const found = children.findIndex((child) => collectElements(child).some((item) => item.id === anchor));
+      if (found >= 0) {
+        index = found + 1;
+        break;
+      }
+    }
+    children.splice(index, 0, node);
+  }
   return {
     ...generated,
-    root: { ...generated.root, children: [...generated.root.children, ...extraNodes] },
+    root: { ...generated.root, children },
   };
 }
 
@@ -562,6 +578,8 @@ function defaultElementContent(addType: AddableElementType): unknown {
       return { kind: "contact", submitLabel: "Saada", successText: "Aitäh." };
     case "widget":
       return { kind: "contact", title: "Kontakt" };
+    case "stebby":
+      return { variant: "green", size: 44 };
     case "embed":
       return { url: "", title: "Embed" };
     case "control":

@@ -75,7 +75,7 @@ const settingsSchema = z.object({
   bank: z.string().trim().max(80).nullable(),
   default_registration_email: z.string().trim().email().max(200).nullable(),
   footer_text: z.string().trim().max(400).nullable(),
-  social: z.object({ instagram: optionalUrl, facebook: optionalUrl, pinterest: optionalUrl, youtube: optionalUrl }),
+  social: z.object({ instagram: optionalUrl, facebook: optionalUrl, pinterest: optionalUrl, youtube: optionalUrl, stebby: optionalUrl }),
 });
 
 export async function saveSiteSettingsAction(fields: unknown) {
